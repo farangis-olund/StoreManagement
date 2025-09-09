@@ -1,0 +1,204 @@
+﻿<UserControl x:Class="PresentationWpf.Views.PaymentReceiptView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels" 
+            d:DataContext="{d:DesignInstance Type=viewmodels:PaymentReceiptViewModel}"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <!-- Typography -->
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#222"/>
+        </Style>
+        <Style x:Key="LabelText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#444"/>
+        </Style>
+        <Style x:Key="ValueText" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- Page visuals -->
+        <Style x:Key="Box" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#333"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+        <Style x:Key="Line" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#333"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Margin" Value="0,6,0,6"/>
+        </Style>
+
+        <!-- Buttons (reuse your styles if you already have them) -->
+        <Style x:Key="TopBarButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Top bar (onscreen only) -->
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="8"/>
+            <!-- Page area (A5) -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ==== TOP BAR (like invoice) ==== -->
+        <DockPanel x:Name="TopBar" Grid.Row="0" LastChildFill="False" Margin="8,8,8,0">
+            <Button Content="Назад" DockPanel.Dock="Left"
+                    Style="{StaticResource GrayButton}"
+                    Command="{Binding BackCommand}"/>
+            <Button Content="Печать"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource GreenButton}"
+                    Command="{Binding PrintCommand}"/>
+        </DockPanel>
+
+        <!-- Spacer -->
+        <Border Grid.Row="1"/>
+
+        <!-- ==== A5 PAGE ==== -->
+        <!-- A5 portrait = 148x210 mm. In WPF units (1/96"): 559 x 794 approx. -->
+        <Border Grid.Row="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Width="559" Height="794"
+                Background="White"
+                BorderBrush="#777"
+                BorderThickness="1"
+                Padding="24">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="14"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="24"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="140"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="{Binding CompanyName}"
+                                   FontSize="18" FontWeight="Bold"/>
+                        <Border Style="{StaticResource Line}" />
+                        <StackPanel Orientation="Horizontal" >
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelText}" Text="ФИО" Margin="0,0,30,0"/>
+                                <TextBlock Style="{StaticResource ValueText}" Text="{Binding CustomerFullName}" Margin="0,0,30,0" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelText}" Text="Код" Margin="0,0,30,0"/>
+                                <TextBlock Style="{StaticResource ValueText}" Text="{Binding CustomerCode}" Margin="0,0,30,0"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelText}" Text="Адрес" Margin="0,0,30,0"/>
+                                <TextBlock Style="{StaticResource ValueText}" Text="{Binding CustomerAddress}" Margin="0,0,30,0"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource LabelText}" Text="Контакты" Margin="0,0,30,0"/>
+                                <TextBlock Style="{StaticResource ValueText}" Text="{Binding CustomerPhone}" Margin="0,0,30,0"/>
+                            </StackPanel>
+  
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                        <TextBlock Style="{StaticResource LabelText}" Text="Дата" />
+                        <TextBlock Style="{StaticResource ValueText}" Text="{Binding PaymentDate, StringFormat={}{0:dd.MM.yyyy}}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Title -->
+                <StackPanel Grid.Row="2" HorizontalAlignment="Center">
+                    <TextBlock Text="КВИТАНЦИЯ ОБ ОПЛАТЕ"
+                               FontSize="16" FontWeight="Bold" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                Margin="0,4,0,0">
+                        <TextBlock Text="№ платежа" Margin="0,0,10,0"/>
+                        <Border Style="{StaticResource Box}">
+                            <TextBlock FontWeight="Bold" Text="{Binding PaymentNumber}" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Amounts -->
+                <Grid Grid.Row="4" Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource LabelText}" Text="Долг"/>
+                        <Border Style="{StaticResource Box}">
+                            <TextBlock Text="{Binding Debt, StringFormat={}{0:N2}}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="10,0">
+                        <TextBlock Style="{StaticResource LabelText}" Text="Оплачено"/>
+                        <Border Style="{StaticResource Box}">
+                            <TextBlock Text="{Binding Paid, StringFormat={}{0:N2}}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource LabelText}" Text="Остаток"/>
+                        <Border Style="{StaticResource Box}">
+                            <TextBlock Text="{Binding Balance, StringFormat={}{0:N2}}"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Words + signatures -->
+                <StackPanel Grid.Row="6">
+                    <TextBlock Style="{StaticResource LabelText}" Text="Сумма прописью:"/>
+                    <TextBlock Text="{Binding AmountInWords}" FontStyle="Italic" />
+                    <Border Style="{StaticResource Line}" />
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource LabelText}" Text="Разрешено"/>
+                            <TextBlock Text="_____________________" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Style="{StaticResource LabelText}" Text="Оплатил(а)"/>
+                            <TextBlock Text="_____________________" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource LabelText}" Text="Получил(а)"/>
+                            <TextBlock Text="_____________________" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+
+
+</UserControl>

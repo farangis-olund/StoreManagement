@@ -1,0 +1,194 @@
+﻿<Window x:Class="PresentationWpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="http://schemas.fontawesome.io/icons/"
+        xmlns:local="clr-namespace:PresentationWpf"
+        xmlns:views="clr-namespace:PresentationWpf.Views"
+        xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+        d:DataContext="{d:DesignInstance Type=viewmodels:MainViewModel}"
+       
+        mc:Ignorable="d"
+        Title="" Height="800" Width="1400" Background="#fdfffe">
+        
+    <Window.Resources>
+
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <Style x:Key="CustomTextBlockStyle" TargetType="TextBlock" BasedOn="{x:Null}">
+            <Setter Property="Foreground" Value="#babcbb" />
+        </Style>
+
+        <Style x:Key="CustomButtonStyle" TargetType="Button" BasedOn="{x:Null}">
+            <Setter Property="BorderBrush" Value="Wheat"/>
+            <Setter Property="BorderThickness" Value="0.1"/>
+        </Style>
+
+        <Style TargetType="Button" BasedOn="{StaticResource CustomButtonStyle}">
+            <Setter Property="Foreground" Value="Wheat"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PART_Border" BorderThickness="0,0,0,0.2" BorderBrush="{TemplateBinding Foreground}" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="PART_Border" Property="BorderBrush" Value="White"/>
+                                <Setter TargetName="PART_Border" Property="Background" Value="#222222"/>
+                               
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SidebarColumn" Width="200"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+      
+
+        <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E">
+            <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E">
+                <Grid Background="#302D3E" Margin="0,20,0,0" Width="40">
+                    <Image Source="Images/icons/wheel.png"> </Image>
+                </Grid>
+                <TextBlock Text="AutoSpaire Store" FontWeight="Bold" HorizontalAlignment="Center" FontSize="12" Foreground="Wheat" VerticalAlignment="Top" Margin="0,0,0,20"/>
+            </StackPanel>
+            <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E" Visibility="{Binding IsLoggedIn, Converter={StaticResource BooleanToVisibilityConverter}}">
+               
+                <Button Height="50" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToSaleListCommand}" Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="ShoppingBasket"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Заказы" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+                
+                <Button Height="50" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToReturnCommand}" Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Exchange"  Style="{StaticResource CustomTextBlockStyle}" FontSize="20" Margin="10,0,0,0"/>
+                        <TextBlock Text="Возвраты" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+                
+                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateCustomersListCommand}" Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Users"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Клиенты"  Style="{StaticResource CustomTextBlockStyle}" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}" Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Money"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Касса" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                
+                <Button Height="50" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}" Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Truck"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Инвентарь" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Folder"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Отчёты" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="BarChart"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Статистика" FontSize="16" Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Lock"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Администрация" FontSize="16" Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+                
+                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Gear"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Настройки" FontSize="16" Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
+            </StackPanel>
+
+            <!-- Add a spacer to fill remaining space -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+        </StackPanel>
+
+        <!-- Splitter + Toggle Button -->
+        <Grid Grid.Column="1" Width="10" Background="#302D3E">
+            <Button Content="⮜" Width="10" Height="50" Click="ToggleSidebar_Click"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="Transparent" BorderBrush="Transparent" />
+        </Grid>
+
+        <!-- Main Content Area -->
+        <ContentControl Grid.Column="2" Content="{Binding CurrentViewModel}">
+            <ContentControl.Resources>
+                <DataTemplate DataType="{x:Type viewmodels:RetailViewModel}">
+                    <views:RetailView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ProductViewModel}">
+                    <views:ProductView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:CustomerViewModel}">
+                    <views:CustomerView/>
+                </DataTemplate>
+             
+
+                <DataTemplate DataType="{x:Type viewmodels:WelcomeViewModel}">
+                    <views:Welcome/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:LoginViewModel}">
+                    <views:LoginView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:OrderInvoiceViewModel}">
+                    <views:OrderInvoiceView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:SummaryViewModel}">
+                    <views:SummaryWindow/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:PaymentReceiptViewModel}">
+                    <views:PaymentReceiptView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ReturnViewModel}">
+                    <views:ReturnView/>
+                </DataTemplate>
+
+            </ContentControl.Resources>
+        </ContentControl>
+
+    </Grid>
+
+</Window>
