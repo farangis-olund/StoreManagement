@@ -4,7 +4,8 @@
              xmlns:local="clr-namespace:PresentationWpf">
 
     <Application.Resources>
-        <!-- Define the ComboBox style -->
+   
+             <!--Define the ComboBox style--> 
         <Style TargetType="ComboBox" x:Key="ComboBoxWithFilteringStyle">
             <Setter Property="IsEditable" Value="True"/>
             <Setter Property="IsTextSearchEnabled" Value="True"/>
@@ -53,7 +54,7 @@
             </Setter>
         </Style>
 
-        <!-- pretty print button -->
+         <!--pretty print button--> 
         <Style x:Key="GreenButton" TargetType="Button">
             <Setter Property="Width" Value="170"/>
             <Setter Property="Height" Value="38"/>
@@ -127,7 +128,7 @@
 
         <Style x:Key="OrangeButton" TargetType="Button">
             <Setter Property="Background" Value="#e67e22"/>
-            <!-- base orange -->
+             <!--base orange--> 
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderBrush" Value="#cc6e1b"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -148,27 +149,27 @@
                         </Border>
 
                         <ControlTemplate.Triggers>
-                            <!-- Hover -->
+                             <!--Hover--> 
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Border" Property="Background" Value="#f28c28"/>
-                                <!-- lighter -->
+                                 <!--lighter--> 
                                 <Setter TargetName="Border" Property="BorderBrush" Value="#d47420"/>
                             </Trigger>
 
-                            <!-- Pressed -->
+                             <!--Pressed--> 
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Border" Property="Background" Value="#cf6d12"/>
-                                <!-- darker -->
+                                 <!--darker--> 
                                 <Setter TargetName="Border" Property="BorderBrush" Value="#b85f10"/>
                             </Trigger>
 
-                            <!-- Keyboard focus -->
+                             <!--Keyboard focus--> 
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="Border" Property="BorderBrush" Value="#FFFFFFFF"/>
                                 <Setter TargetName="Border" Property="BorderThickness" Value="2"/>
                             </Trigger>
 
-                            <!-- Disabled -->
+                             <!--Disabled--> 
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="Border" Property="Background" Value="#F0C9A6"/>
                                 <Setter Property="Foreground" Value="#FFFFFFCC"/>
@@ -180,7 +181,7 @@
             </Setter>
         </Style>
 
-        <!-- Header style must come first -->
+         <!--Header style must come first--> 
         <Style x:Key="SummaryHeader" TargetType="{x:Type DataGridColumnHeader}">
             <Setter Property="Background" Value="#F5F7FA"/>
             <Setter Property="Foreground" Value="#2D3436"/>
@@ -191,7 +192,7 @@
             <Setter Property="Padding" Value="8,6"/>
         </Style>
 
-        <!-- Now the grid style can reference it -->
+         <!--Now the grid style can reference it--> 
         <Style x:Key="SummaryGrid" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="CanUserAddRows" Value="False"/>
@@ -213,16 +214,16 @@
             <Setter Property="SelectionUnit" Value="FullRow"/>
             <Setter Property="SelectionMode" Value="Single"/>
 
-            <!-- Center all cell text -->
+             <!--Center all cell text--> 
             <Setter Property="TextBlock.TextAlignment" Value="Center"/>
           
         </Style>
 
-        <!-- Rounded button with hover/pressed/focus states -->
+         <!--Rounded button with hover/pressed/focus states--> 
         <Style x:Key="RoundedButtonStyle" TargetType="Button">
-            <!-- Base look -->
+             <!--Base look--> 
             <Setter Property="Background" Value="#566366"/>
-            <!-- neutral dark -->
+             <!--neutral dark--> 
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderBrush" Value="#475154"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -242,25 +243,25 @@
                         </Border>
 
                         <ControlTemplate.Triggers>
-                            <!-- Hover -->
+                             <!--Hover--> 
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="#627277"/>
                                 <Setter Property="BorderBrush" Value="#516065"/>
                             </Trigger>
 
-                            <!-- Pressed -->
+                             <!--Pressed--> 
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter Property="Background" Value="#4b5659"/>
                                 <Setter Property="BorderBrush" Value="#40494b"/>
                             </Trigger>
 
-                            <!-- Keyboard focus -->
+                             <!--Keyboard focus--> 
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter Property="BorderBrush" Value="#FFFFFFFF"/>
                                 <Setter Property="BorderThickness" Value="2"/>
                             </Trigger>
 
-                            <!-- Disabled -->
+                             <!--Disabled--> 
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Background" Value="#8C979A"/>
                                 <Setter Property="Foreground" Value="#FFFFFFCC"/>
@@ -272,7 +273,7 @@
             </Setter>
         </Style>
 
-        <!-- Style for rounded TextBox -->
+         <!--Style for rounded TextBox--> 
         <Style x:Key="RoundedTextBoxStyle" TargetType="TextBox">
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="FontSize" Value="16"/>
@@ -294,8 +295,11 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
-
+   
+    
     </Application.Resources>
+
+   
+
 </Application>
 

@@ -82,6 +82,20 @@ public class CustomerService
 		}
 	}
 
+	public async Task<CustomerEntity> GetCustomerByIdAsync(string id)
+	{
+		try
+		{
+			var customerEntities = await _customerRepository.GetOneAsync(b => b.Id == id);
+			return customerEntities ?? null!;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError($"Error getting/adding customer: {ex.Message}");
+			Debug.WriteLine($"Error getting/adding customer: {ex.Message}");
+			return null!;
+		}
+	}
 
 	public async Task<IEnumerable<CustomerEntity>> GetAllCustomersAsync()
 	{
@@ -140,7 +154,11 @@ public class CustomerService
 		try
 		{
 			var levels = await _priceLevelRepository.GetAllAsync();
-			return levels ?? Enumerable.Empty<PriceLevelEntity>();
+
+			// ✅ Always return sorted by Level
+			return (levels ?? Enumerable.Empty<PriceLevelEntity>())
+				.OrderBy(l => l.Level)
+				.ToList();
 		}
 		catch (Exception ex)
 		{
@@ -149,6 +167,7 @@ public class CustomerService
 			return Enumerable.Empty<PriceLevelEntity>();
 		}
 	}
+
 
 	public async Task<IEnumerable<SalesManagerEntity>> GetAllSalesManagersAsync()
 	{

@@ -10,9 +10,9 @@
         d:DataContext="{d:DesignInstance Type=viewmodels:MainViewModel}"
        
         mc:Ignorable="d"
-        Title="" Height="800" Width="1400" Background="#fdfffe">
+        Title="" Height="800" Width="1400" Background="#fdfffe"  WindowStartupLocation="CenterScreen">
         
-    <Window.Resources>
+    <!--<Window.Resources>
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
@@ -45,6 +45,99 @@
                 </Setter.Value>
             </Setter>
         </Style>
+    </Window.Resources>-->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <!-- Иконки/тексты -->
+        <Style x:Key="CustomTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#babcbb"/>
+        </Style>
+      
+
+        <Style x:Key="SidebarButtonStyle" TargetType="RadioButton">
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Foreground" Value="Wheat"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <!-- Левая полоса -->
+                            <Border x:Name="ActiveIndicator"
+                            Width="4"
+                            Background="Transparent"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Stretch"/>
+
+                            <!-- Основной фон -->
+                            <Border x:Name="Border"
+                            Background="{TemplateBinding Background}"
+                            SnapsToDevicePixels="True">
+                                <ContentPresenter VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"
+                                          Margin="10,0,0,0"/>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#3E3B4E"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+
+                            <!-- Selected -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#403D56"/>
+                                <Setter TargetName="ActiveIndicator" Property="Background" Value="#FFB347"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ArrowToggleButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="Gold"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#FFC107"/>
+                                <!-- lighter gold -->
+                            </Trigger>
+                            <!-- Pressed -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Foreground" Value="#FFA000"/>
+                                <!-- darker gold -->
+                            </Trigger>
+                            <!-- Disabled -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="Gray"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <Grid>
@@ -64,70 +157,62 @@
                 <TextBlock Text="AutoSpaire Store" FontWeight="Bold" HorizontalAlignment="Center" FontSize="12" Foreground="Wheat" VerticalAlignment="Top" Margin="0,0,0,20"/>
             </StackPanel>
             <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E" Visibility="{Binding IsLoggedIn, Converter={StaticResource BooleanToVisibilityConverter}}">
-               
-                <Button Height="50" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToSaleListCommand}" Margin="0,0,0,0">
+
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToSaleListCommand}" Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="ShoppingBasket"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Заказы" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
-                
-                <Button Height="50" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToReturnCommand}" Margin="0,0,0,0">
+                </RadioButton>
+
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToReturnCommand}" Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Exchange"  Style="{StaticResource CustomTextBlockStyle}" FontSize="20" Margin="10,0,0,0"/>
                         <TextBlock Text="Возвраты" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
-                
-                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateCustomersListCommand}" Margin="0,0,0,0">
+                </RadioButton>
+
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateCustomersListCommand}" Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Users"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Клиенты"  Style="{StaticResource CustomTextBlockStyle}" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
-
-                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}" Margin="0,0,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <fa:FontAwesome Icon="Money"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
-                        <TextBlock Text="Касса" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    </StackPanel>
-                </Button>
-
-                
-                <Button Height="50" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}" Margin="0,0,0,0">
+                </RadioButton>
+        
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}" Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Truck"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Инвентарь" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
+                </RadioButton>
 
-                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Folder"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Отчёты" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
+                </RadioButton>
 
-                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="BarChart"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Статистика" FontSize="16" Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
+                </RadioButton>
 
-                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToAdminCommand}"  Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Lock"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Администрация" FontSize="16" Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
-                
-                <Button Height="50" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
+                </RadioButton>
+
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Gear"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Настройки" FontSize="16" Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </StackPanel>
-                </Button>
+                </RadioButton>
 
             </StackPanel>
 
@@ -139,12 +224,17 @@
             </Grid>
         </StackPanel>
 
-        <!-- Splitter + Toggle Button -->
-        <Grid Grid.Column="1" Width="10" Background="#302D3E">
-            <Button Content="⮜" Width="10" Height="50" Click="ToggleSidebar_Click"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="Transparent" BorderBrush="Transparent" />
+        <Grid Grid.Column="1" Width="14" Background="#302D3E">
+            <Button Content="⮜"
+            Width="14" Height="50" FontSize="14"
+            Click="ToggleSidebar_Click"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Style="{StaticResource ArrowToggleButtonStyle}"/>
         </Grid>
+
+
+
 
         <!-- Main Content Area -->
         <ContentControl Grid.Column="2" Content="{Binding CurrentViewModel}">
@@ -184,6 +274,14 @@
 
                 <DataTemplate DataType="{x:Type viewmodels:ReturnViewModel}">
                     <views:ReturnView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:CoefficientViewModel}">
+                    <views:CoefficientView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:AdminViewModel}">
+                    <views:AdminView/>
                 </DataTemplate>
 
             </ContentControl.Resources>

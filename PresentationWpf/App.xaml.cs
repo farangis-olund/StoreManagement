@@ -1,6 +1,5 @@
 ﻿
 using Infrastructure.Contexts;
-using Infrastructure.Dtos;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +26,7 @@ public partial class App : Application
 
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainViewModel>();
-                services.AddTransient<RetailViewModel>();
+                services.AddSingleton<RetailViewModel>();
                 services.AddTransient<RetailView>();
                 services.AddTransient<ProductViewModel>();
                 services.AddTransient<ProductView>();
@@ -49,7 +48,10 @@ public partial class App : Application
 				services.AddTransient<PaymentReceiptView>();
 				services.AddTransient<ReturnView>();
 				services.AddTransient<ReturnViewModel>();
-
+				services.AddTransient<CoefficientView>();
+				services.AddTransient<CoefficientViewModel>();
+				services.AddTransient<AdminViewModel>();
+				services.AddTransient<AdminView>();
 
 				services.AddSingleton<UserSessionService>();
 				services.AddSingleton<DataTransferService>();
@@ -63,6 +65,8 @@ public partial class App : Application
 				services.AddScoped<CustomerService>();
 				services.AddScoped<DialogService>();
 				services.AddScoped<ReturnService>();
+				services.AddTransient<CoefficientService>();
+				services.AddScoped<CustomerFinanceService>();
 
 				services.AddScoped<ProductRepository>();
 				services.AddScoped<BrandRepository>();
@@ -82,11 +86,15 @@ public partial class App : Application
 
 				// ObservableColection
 				//services.AddTransient<List<Product>>();
-              
-                // datacontext
-                 services.AddDbContext<DatabaseContext>(x => x.UseSqlServer(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True", x => x.MigrationsAssembly(nameof(Infrastructure))));
-                
-            }).Build();
+				string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True";
+				// datacontext
+				// services.AddDbContext<DatabaseContext>(x => x.UseSqlServer(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True", x => x.MigrationsAssembly(nameof(Infrastructure))));
+
+				services.AddDbContextFactory<DatabaseContext>(options =>
+		  options.UseSqlServer(connectionString));
+
+
+			}).Build();
     }
 
     protected override void OnStartup(StartupEventArgs e)

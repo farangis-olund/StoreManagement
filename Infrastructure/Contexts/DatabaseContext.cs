@@ -31,6 +31,8 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 
 	public virtual DbSet<ReturnDetailEntity> ReturnDetails { get; set; }
 
+	public DbSet<RaschetKoefficentaEntity> RaschetKoefficenta { get; set; }
+
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

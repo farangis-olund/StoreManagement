@@ -10,6 +10,8 @@ using Infrastructure.Dtos;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using Infrastructure.Contexts;
+using Microsoft.EntityFrameworkCore;
+using Infrastructure.Services;
 
 namespace PresentationWpf.ViewModels;
 
@@ -17,11 +19,15 @@ public partial class OrderInvoiceViewModel : ObservableObject
 {
 	private readonly DataTransferService _dataTransferService;
 	private readonly IServiceProvider _serviceProvider;
-	public OrderInvoiceViewModel(DataTransferService dataTransferService, IServiceProvider serviceProvider)
+	private readonly IDbContextFactory<DatabaseContext> _contextFactory;
+	private readonly CustomerFinanceService _financeService;
+	public OrderInvoiceViewModel(DataTransferService dataTransferService, IServiceProvider serviceProvider, IDbContextFactory<DatabaseContext> contextFactory, CustomerFinanceService customerFinanceService)
 	{
 		_dataTransferService = dataTransferService;
 		_serviceProvider = serviceProvider;
-		LoadInvoiceData();
+		_contextFactory = contextFactory;
+		_financeService = customerFinanceService;
+		_ = LoadInvoiceData();
 	}
 
 	// ===== Invoice Details =====
@@ -49,8 +55,8 @@ public partial class OrderInvoiceViewModel : ObservableObject
 	// ===== Totals / Financials =====
 	[ObservableProperty] private decimal _currentPayment;      // last_platezh
 	[ObservableProperty] private decimal _previousPayments;    // pred_platezh
-	[ObservableProperty] private double _customerDebt;        // zadolzhnost
-	[ObservableProperty] private double _creditLimit;         // ogranichenie
+	[ObservableProperty] private decimal _customerDebt;        // zadolzhnost
+	[ObservableProperty] private decimal _creditLimit;         // ogranichenie
 	[ObservableProperty] private decimal _currentSale;         // saa
 	[ObservableProperty] private decimal _totalSales;          // obsh_prodazha
 	[ObservableProperty] private decimal _totalReturns;        // vozvrat
@@ -62,7 +68,7 @@ public partial class OrderInvoiceViewModel : ObservableObject
 	public UserControl? OrderInvoiceViewReference { get; private set; }
 
 	[ObservableProperty] public int _rowCount;
-	public void LoadInvoiceData()
+	public async Task LoadInvoiceData()
 	{
 		var order = _dataTransferService.SelectedOrder;
 		if (order is null)
@@ -140,48 +146,29 @@ public partial class OrderInvoiceViewModel : ObservableObject
 											   ?? 0m);
 					return qty * price;
 				});
-		}
 
-		// --- NEW: totals from DB ---
-		using var db = _serviceProvider.GetRequiredService<DatabaseContext>();
-		var customerId = _dataTransferService.CustomerId;
+			//totals from DB ---
+		
+			var customerId = _dataTransferService.CustomerId;
+			
+			if (string.IsNullOrEmpty(customerId) && string.IsNullOrEmpty(InvoiceNumber)) return;
 
-		if (!string.IsNullOrEmpty(customerId))
-		{
-			// Сумма платежей по текущему заказу
-			CurrentPayment = db.Payments
-				.Where(p => p.OrderId == order.Id)
-				.Sum(p => (decimal?)p.Amount) ?? 0m;
+			var info = await _financeService.GetFinanceInfoAsync(customerId, InvoiceNumber);
 
-			// Сумма всех платежей по другим заказам клиента
-			PreviousPayments = db.Payments
-				.Where(p => p.CustomerId == customerId && p.OrderId != order.Id)
-				.Sum(p => (decimal?)p.Amount) ?? 0m;
-
-			// Задолженность и лимит из таблицы Customers
-			var cust = db.Customers.FirstOrDefault(c => c.Id == customerId);
-			CustomerDebt = cust?.Debt ?? 0;
-			CreditLimit = cust?.Restriction ?? 0;
-
-			// Общие продажи клиента
-			TotalSales = db.OrderDetails
-				.Where(d => d.Order.CustomerId == customerId)
-				.Sum(d => (decimal?)d.Price * d.Quentity) ?? 0m;
-
-			// Возвраты клиента
-			TotalReturns = db.Returns
-				.Where(r => r.CustomerId == customerId)
-				.Sum(r => (decimal?)r.TotalAmount) ?? 0m;
-
-			// Старый долг (как в Access коде)
-			OldDebt = (TotalSales - TotalReturns) - CurrentSale - PreviousPayments + (decimal)CustomerDebt;
-
-			// Старый долг (как в Access коде)
-			Balance = TotalSales + (decimal)CustomerDebt - PreviousPayments - CurrentPayment - TotalReturns;
+			CurrentSale = info.CurrentSale;
+			CurrentPayment = info.CurrentPayment;
+			PreviousPayments = info.PreviousPayments;
+			CustomerDebt = info.CustomerDebt;
+			CreditLimit = info.CreditLimit;
+			TotalSales = info.TotalSales;
+			TotalReturns = info.TotalReturns;
+			OldDebt = info.OldDebt;
+			Balance = info.Balance;
 
 			// Prepare a visual bound to this VM for preview/print/export
 			var invoiceView = new OrderInvoiceView { DataContext = this };
 			OrderInvoiceViewReference = invoiceView;
+			
 		}
 	}
 
@@ -237,23 +224,18 @@ public partial class OrderInvoiceViewModel : ObservableObject
 	[RelayCommand]
 	private async Task BackToOrder()
 	{
-		
+
 		var dialog = _serviceProvider.GetRequiredService<DialogService>();
-
 		var main = _serviceProvider.GetRequiredService<MainViewModel>();
-		var retail = _serviceProvider.GetRequiredService<RetailViewModel>(); // same instance
+		var retail = _serviceProvider.GetRequiredService<RetailViewModel>();
 
-		await retail.InitializeAsync();
-
-		var customerId = _dataTransferService.SelectedCustomerIdForReturn;
-		if (!string.IsNullOrWhiteSpace(customerId))
-			await retail.SelectCustomerByIdAsync(customerId);
-
+		//var customerId = _dataTransferService.CustomerId;
+		//if (!string.IsNullOrWhiteSpace(customerId))
+		//	await retail.SelectCustomerByIdAsync(customerId);
+				
 		main.CurrentViewModel = retail;
-
-		// if you also want to reopen the totals dialog:
+				
 		dialog.ShowAgain<SummaryViewModel>();
-
 	}
 
 }

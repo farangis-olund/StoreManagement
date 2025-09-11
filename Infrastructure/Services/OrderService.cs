@@ -16,7 +16,7 @@ public class OrderService
 	private readonly OrderRepository _orderRepository;
 	private readonly OrderDetailRepository _orderDetailRepository;
 	private readonly ILogger<OrderService> _logger;
-	private readonly DatabaseContext _db;
+	private readonly IDbContextFactory<DatabaseContext> _dbFactory;
 	private readonly ProductService _productService;
 
 	// Allowed characters for the random part
@@ -24,12 +24,12 @@ public class OrderService
 		"ABDEFGHIJLMNOPQRTUVWXYZ0123456789".ToCharArray();
 	public OrderService(OrderRepository orderRepository,
 								OrderDetailRepository orderDetailRepository,
-								ILogger<OrderService> logger, DatabaseContext db, ProductService productService)
+								ILogger<OrderService> logger, ProductService productService, IDbContextFactory<DatabaseContext> dbFactory)
 	{
 		_orderRepository = orderRepository;
 		_orderDetailRepository = orderDetailRepository;
 		_logger = logger;
-		_db = db;
+		_dbFactory = dbFactory;
 		_productService = productService;
 
 	}
@@ -62,34 +62,76 @@ public class OrderService
 
 		return number;
 	}
+
 	//public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
 	//{
+	//	await using var db = await _dbFactory.CreateDbContextAsync();
 	//	try
 	//	{
-	//		// 1) Ensure Id (string key)
+	//		// 1) Ensure Id (string key) up front
 	//		if (string.IsNullOrWhiteSpace(orderEntity.Id))
 	//			orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
 
-	//		// Optional pre-check (still race-prone; keep retry below)
+	//		// Optional pre-check (race-prone, final guard is catch below)
 	//		if (await _orderRepository.ExistsAsync(o => o.Id == orderEntity.Id))
 	//			return null;
 
-	//		// 2) Make sure child FK matches the new Id (safe even if already set)
+	//		// Keep child FKs consistent
 	//		foreach (var d in orderEntity.OrderDetails)
 	//			d.OrderId = orderEntity.Id;
 
-	//		// 3) Add the whole graph ONCE — EF will insert order + details together
-	//		var saved = await _orderRepository.AddAsync(orderEntity); // Add + SaveChanges()
+	//		// 2) One transaction for: stock deduction + order insert
+	//		await using var tx = await db.Database.BeginTransactionAsync();
+
+	//		// 2a) Deduct stock (safe UPDATE ... WHERE Quentity >= @qty inside the same DbContext)
+	//		var items = orderEntity.OrderDetails
+	//							   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
+	//							   .ToList();
+
+	//		var stock = await _productService.DeductStockAsync(items);
+	//		if (!stock.Success)
+	//		{
+	//			// Roll back and report which articles failed
+	//			await tx.RollbackAsync();
+	//			_logger.LogWarning("Недостаточно на складе: {Articles}",
+	//				string.Join(", ", stock.NotEnoughArticles));
+	//			return null;
+	//		}
+
+	//		// 2b) Insert order + details in one go (cascading insert)
+	//		var saved = await _orderRepository.AddAsync(orderEntity); // uses same _db; SaveChanges participates in tx
+
+	//		// 2c) Commit the lot
+	//		await tx.CommitAsync();
 	//		return saved;
 	//	}
 	//	catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
 	//	{
-	//		// Retry once with a fresh number (handles race on Id)
+	//		// Retry once with a new number inside a fresh transaction
+	//		await using var retryDb = await _dbFactory.CreateDbContextAsync();
+
 	//		orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
 	//		foreach (var d in orderEntity.OrderDetails)
 	//			d.OrderId = orderEntity.Id;
 
-	//		return await _orderRepository.AddAsync(orderEntity);
+	//		await using var tx = await retryDb.Database.BeginTransactionAsync();
+
+	//		var items = orderEntity.OrderDetails
+	//							   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
+	//							   .ToList();
+
+	//		var stock = await _productService.DeductStockAsync(items);
+	//		if (!stock.Success)
+	//		{
+	//			await tx.RollbackAsync();
+	//			_logger.LogWarning("Недостаточно на складе (артикул): {Articles}",
+	//				string.Join(", ", stock.NotEnoughArticles));
+	//			return null;
+	//		}
+
+	//		var saved = await _orderRepository.AddAsync(orderEntity);
+	//		await tx.CommitAsync();
+	//		return saved;
 	//	}
 	//	catch (Exception ex)
 	//	{
@@ -98,11 +140,9 @@ public class OrderService
 	//	}
 	//}
 
-
-	// provider-specific check; adjust if your repo wraps exceptions differently
-
 	public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
 	{
+		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
 		{
 			// 1) Ensure Id (string key) up front
@@ -110,54 +150,54 @@ public class OrderService
 				orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
 
 			// Optional pre-check (race-prone, final guard is catch below)
-			if (await _orderRepository.ExistsAsync(o => o.Id == orderEntity.Id))
-				return null;
+			var exists = await db.Orders.AnyAsync(o => o.Id == orderEntity.Id);
+			if (exists) return null;
 
 			// Keep child FKs consistent
 			foreach (var d in orderEntity.OrderDetails)
 				d.OrderId = orderEntity.Id;
 
 			// 2) One transaction for: stock deduction + order insert
-			await using var tx = await _db.Database.BeginTransactionAsync();
+			await using var tx = await db.Database.BeginTransactionAsync();
 
-			// 2a) Deduct stock (safe UPDATE ... WHERE Quentity >= @qty inside the same DbContext)
+			// 2a) Deduct stock (inside the SAME db context!)
 			var items = orderEntity.OrderDetails
 								   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
 								   .ToList();
 
-			var stock = await _productService.DeductStockAsync(items);
+			var stock = await _productService.DeductStockAsync(items, db); // overload that accepts db
 			if (!stock.Success)
 			{
-				// Roll back and report which articles failed
 				await tx.RollbackAsync();
 				_logger.LogWarning("Недостаточно на складе: {Articles}",
 					string.Join(", ", stock.NotEnoughArticles));
 				return null;
 			}
 
-			// 2b) Insert order + details in one go (cascading insert)
-			var saved = await _orderRepository.AddAsync(orderEntity); // uses same _db; SaveChanges participates in tx
+			// 2b) Insert order + details
+			db.Orders.Add(orderEntity);
+			await db.SaveChangesAsync();
 
 			// 2c) Commit the lot
 			await tx.CommitAsync();
-			return saved;
+			return orderEntity;
 		}
 		catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
 		{
-			// Retry once with a new number inside a fresh transaction
-			_db.ChangeTracker.Clear();
+			// Retry once with a new number
+			await using var retryDb = await _dbFactory.CreateDbContextAsync();
 
 			orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
 			foreach (var d in orderEntity.OrderDetails)
 				d.OrderId = orderEntity.Id;
 
-			await using var tx = await _db.Database.BeginTransactionAsync();
+			await using var tx = await retryDb.Database.BeginTransactionAsync();
 
 			var items = orderEntity.OrderDetails
 								   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
 								   .ToList();
 
-			var stock = await _productService.DeductStockAsync(items);
+			var stock = await _productService.DeductStockAsync(items, retryDb);
 			if (!stock.Success)
 			{
 				await tx.RollbackAsync();
@@ -166,9 +206,11 @@ public class OrderService
 				return null;
 			}
 
-			var saved = await _orderRepository.AddAsync(orderEntity);
+			retryDb.Orders.Add(orderEntity);
+			await retryDb.SaveChangesAsync();
+
 			await tx.CommitAsync();
-			return saved;
+			return orderEntity;
 		}
 		catch (Exception ex)
 		{
@@ -176,7 +218,6 @@ public class OrderService
 			return null;
 		}
 	}
-
 
 	private static bool IsUniqueKeyViolation(Exception ex)
 	{
@@ -198,6 +239,7 @@ public class OrderService
 
 		return _orderRepository.ExistsAsync(o => o.Id == id, ct);
 	}
+
 
 	public async Task<OrderEntity> UpdateOrderAsync(OrderEntity orderEntity)
 	{
@@ -280,9 +322,10 @@ public class OrderService
 	DateTime? to = null,
 	CancellationToken ct = default)
 	{
+		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
 		{
-			var query = _db.Set<OrderEntity>()
+			var query = db.Set<OrderEntity>()
 						   .AsNoTracking()
 						   .Where(o => o.CustomerId == customerId && !o.IsBarter); // 🚩 exclude barter
 
@@ -317,9 +360,10 @@ public class OrderService
 	DateTime? to = null,
 	CancellationToken ct = default)
 	{
+		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
 		{
-			var query = _db.Set<CustomerPaymentEntity>()
+			var query = db.Set<CustomerPaymentEntity>()
 						   .AsNoTracking()
 						   .Where(p => p.CustomerId == customerId);
 
@@ -357,6 +401,7 @@ public class OrderService
 	string? amountInWords = null,
 	CancellationToken ct = default)
 	{
+		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
 		{
 			if (amount <= 0) return null;
@@ -370,8 +415,8 @@ public class OrderService
 				AmountInWords = amountInWords
 			};
 
-			_db.Set<CustomerPaymentEntity>().Add(p);
-			await _db.SaveChangesAsync(ct);
+			db.Set<CustomerPaymentEntity>().Add(p);
+			await db.SaveChangesAsync(ct);
 			return p;
 		}
 		catch (Exception ex)
@@ -383,7 +428,8 @@ public class OrderService
 
 	public async Task<string?> GetLastOrderIdForCustomerAsync(string customerId, CancellationToken ct = default)
 	{
-		return await _db.Set<OrderEntity>()
+		await using var db = await _dbFactory.CreateDbContextAsync();
+		return await db.Set<OrderEntity>()
 						.AsNoTracking()
 						.Where(o => o.CustomerId == customerId && !o.IsBarter)
 						.OrderByDescending(o => o.Date)
@@ -394,9 +440,10 @@ public class OrderService
 	
 public async Task<IReadOnlyList<OrderRowDto>> GetOrdersAsync(CancellationToken ct = default)
 {
-	try
+		await using var db = await _dbFactory.CreateDbContextAsync();
+		try
 	{
-		var data = await _db.Set<OrderEntity>()
+		var data = await db.Set<OrderEntity>()
 			.AsNoTracking()
 			.Include(o => o.Customer)
 			.Include(o => o.OrderDetails)
@@ -428,9 +475,10 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersAsync(CancellationToken c
 public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
 	DateTime? from, DateTime? to, CancellationToken ct = default)
 {
-	try
+		await using var db = await _dbFactory.CreateDbContextAsync();
+		try
 	{
-		var query = _db.Set<OrderEntity>()
+		var query = db.Set<OrderEntity>()
 			.AsNoTracking()
 			.Include(o => o.Customer)
 			.Include(o => o.OrderDetails)

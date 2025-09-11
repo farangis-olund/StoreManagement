@@ -9,18 +9,18 @@ namespace Infrastructure.Repositories;
 
 public class ProductRepository : Repo<DatabaseContext, ProductEntity>
 {
-    new private readonly DatabaseContext _context;
-    public ProductRepository(DatabaseContext context) 
-        : base(context)
-    {
-        _context = context;
+    
+    public ProductRepository(IDbContextFactory<DatabaseContext> contextFactory) : base(contextFactory)
+	{
+       
     }
 
     public override async Task<IEnumerable<ProductEntity>> GetAllAsync()
     {
-        try
+		using var context = CreateContext();
+		try
         {
-            List<ProductEntity> productList = await _context.Products
+            List<ProductEntity> productList = await context.Products
             .Include(i => i.Brand)
             .Include(i => i.Group)
             .ToListAsync();
@@ -36,34 +36,43 @@ public class ProductRepository : Repo<DatabaseContext, ProductEntity>
 
     }
 
-    public override async Task<ProductEntity> GetOneAsync(Expression<Func<ProductEntity, bool>> predicate, Func<Task<ProductEntity>> createIfNotFound)
+	public override async Task<ProductEntity?> GetOneAsync(
+	 Expression<Func<ProductEntity, bool>> predicate,
+	 Func<Task<ProductEntity>>? createIfNotFound = null)
+	{
+		using var context = CreateContext();
+		try
+		{
+			var entity = await context.Products
+				.Include(i => i.Brand)
+				.Include(i => i.Group)
+				.FirstOrDefaultAsync(predicate);
+
+			if (entity == null && createIfNotFound != null)
+			{
+				entity = await createIfNotFound.Invoke();
+				context.Set<ProductEntity>().Add(entity);
+				await context.SaveChangesAsync();
+			}
+
+			return entity;
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"Error getting entity of type {typeof(ProductEntity).Name} by predicate: {ex.Message}");
+			return null!;
+		}
+	}
+
+
+	public async Task<IEnumerable<ProductEntity>> SearchProductsAsync(string searchKeyword)
     {
-        try
-        {
-            var entity = await _context.Products
-                .Include (i => i.Brand)
-                .Include(i => i.Group)
-                .FirstOrDefaultAsync(predicate);
-
-                entity = await createIfNotFound.Invoke();
-                _context.Set<ProductEntity>().Add(entity);
-             return entity;
-
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error getting entity of type {typeof(ProductEntity).Name} by id: {ex.Message}");
-            return null!;
-        }
-    }
-
-    public async Task<IEnumerable<ProductEntity>> SearchProductsAsync(string searchKeyword)
-    {
-        try
+		using var context = CreateContext();
+		try
         {
             var searchWords = searchKeyword.Split(' ');
            
-            var searchResults = await _context.Products
+            var searchResults = await context.Products
                 .Where(p =>
                     searchWords.All(word =>
                         EF.Functions.Like(p.ArticleNumber, $"%{word}%") ||

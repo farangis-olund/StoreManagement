@@ -18,15 +18,16 @@ public partial class SummaryViewModel : ObservableObject
 	private readonly OrderService _orderService;
 	private readonly DataTransferService _dataTransferService;
 	private readonly IServiceProvider _serviceProvider;
-		
+	private readonly CustomerFinanceService _financeService;
 	public SummaryViewModel(OrderService orderService,  
 		
 		DataTransferService dataTransferService, 
-		IServiceProvider serviceProvider) 
+		IServiceProvider serviceProvider, CustomerFinanceService financeService) 
 	{
 		_orderService = orderService;
 		_dataTransferService = dataTransferService;
 		_serviceProvider = serviceProvider;
+		_financeService = financeService;
 		 PaymentDate = DateTime.Today;
 		
 	}
@@ -34,7 +35,7 @@ public partial class SummaryViewModel : ObservableObject
 	public decimal TotalSales { get; private set; }
 	public decimal TotalPayments { get; private set; }
 	public decimal Balance { get; private set; }
-	public string CustomerId { get; set; }
+	public string CustomerId { get; set; } = null!;
 
 	// ── Add-payment inputs ─────────────────────────────────
 	[ObservableProperty] private decimal paymentAmount;     // bound TextBox -> decimal
@@ -55,26 +56,40 @@ public partial class SummaryViewModel : ObservableObject
 
 	public async Task LoadAsync()
 	{
-		
-		Orders.Clear(); Payments.Clear();
+		Orders.Clear();
+		Payments.Clear();
 
 		CustomerId = _dataTransferService.CustomerId;
 
+		// Load orders
 		var orders = await _orderService.GetOrdersByCustomerAsync(CustomerId);
 		foreach (var o in orders)
 			Orders.Add(new OrderRow { Date = o.Date, InvoiceNo = o.Id, Amount = o.TotalAmount });
 
+		// Load payments
 		var pays = await _orderService.GetPaymentsByCustomerAsync(CustomerId);
 		foreach (var p in pays)
 			Payments.Add(new PaymentRow { Date = p.Date, PaymentNo = p.Id, Amount = p.Amount });
 
-		TotalSales = Orders.Sum(x => x.Amount);
-		TotalPayments = Payments.Sum(x => x.Amount);
-		Balance = TotalSales - TotalPayments;
+		// ✅ Use FinanceService for totals
+		var finance = _serviceProvider.GetRequiredService<CustomerFinanceService>();
+		var financeInfo = await finance.GetFinanceInfoAsync(CustomerId, orderId: null); // or pass selected order id
+
+		TotalSales = financeInfo.TotalSales;
+		TotalPayments = financeInfo.PreviousPayments + financeInfo.CurrentPayment;
+		Balance = financeInfo.Balance;
 
 		OnPropertyChanged(nameof(TotalSales));
 		OnPropertyChanged(nameof(TotalPayments));
 		OnPropertyChanged(nameof(Balance));
+	}
+
+
+	partial void OnSelectedOrderChanged(OrderRow? value)
+	{
+		if (value == null) return;
+
+		_ = LoadSuggestedPaymentAsync(value.InvoiceNo);
 	}
 
 	//// View invoice
@@ -107,7 +122,7 @@ public partial class SummaryViewModel : ObservableObject
 			CustomerPhoneNumber = orderEntity.Customer?.MobilePhone,
 			CustomerLevel = orderEntity.Customer?.PriceLevelId,
 			UserFullName = orderEntity.User?.FirstName + " " + orderEntity.User?.LastName,
-			Customer = orderEntity.Customer!,     // keep nav if you use it in invoice
+			Customer = orderEntity.Customer!,     
 			OrderDetails = []
 		};
 
@@ -136,7 +151,7 @@ public partial class SummaryViewModel : ObservableObject
 		var invoiceVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
 		_dataTransferService.SelectedOrder = order;
 		_dataTransferService.SelectedCustomerIdForReturn = CustomerId;
-		invoiceVm.LoadInvoiceData();
+		_ = invoiceVm.LoadInvoiceData();
 		main.CurrentViewModel = invoiceVm;
 
 		// hide the Summary window while invoice is active
@@ -237,5 +252,17 @@ public partial class SummaryViewModel : ObservableObject
 		PaymentAmount = 0;
 		await LoadAsync();
 	}
-		
+
+	private async Task LoadSuggestedPaymentAsync(string orderId)
+	{
+		if (string.IsNullOrEmpty(CustomerId)) return;
+
+		// call finance service
+		var suggested = await _financeService.EzhigodPogashenieAsync(CustomerId, orderId);
+
+		// set bound property so UI updates
+		PaymentAmount = suggested;
+		PaymentOrderId = orderId;
+	}
+
 }

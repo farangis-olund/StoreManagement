@@ -176,13 +176,14 @@ public class ProductService
 
 	public async Task<StockDeductionResult> DeductStockAsync(
 	IEnumerable<StockDeductionItem> items,
+	DatabaseContext db,
 	CancellationToken ct = default)
 	{
 		var result = new StockDeductionResult();
 
 		foreach (var i in items)
 		{
-			var affected = await _db.Database.ExecuteSqlInterpolatedAsync($@"
+			var affected = await db.Database.ExecuteSqlInterpolatedAsync($@"
             UPDATE Products
             SET Quentity = Quentity - {i.Quantity}
             WHERE ArticleNumber = {i.ArticleNumber} AND Quentity >= {i.Quantity};
@@ -192,8 +193,9 @@ public class ProductService
 				result.NotEnoughArticles.Add(i.ArticleNumber);
 		}
 
-		return result;  // result.Success is computed
+		return result;  // result.Success is computed from NotEnoughArticles.Count == 0
 	}
+
 
 
 }

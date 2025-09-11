@@ -107,13 +107,22 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime?>("ContractDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<double?>("DailyPlannedPurchaseCoefficient")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("DailyPurchaseCoefficient")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("DailyRepaymentCoefficient")
+                        .HasColumnType("float");
+
                     b.Property<double?>("Debt")
                         .HasColumnType("float");
 
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool?>("ExcludeMonthlyRepayment")
+                    b.Property<bool?>("ExcludeDailyRepayment")
                         .HasColumnType("bit");
 
                     b.Property<string>("FullName")
@@ -123,14 +132,8 @@ namespace Infrastructure.Migrations
                     b.Property<string>("MobilePhone")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<double?>("MonthlyRepaymentRate")
-                        .HasColumnType("float");
-
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<double?>("PlannedPurchaseAmount")
-                        .HasColumnType("float");
 
                     b.Property<string>("PostalCode")
                         .HasColumnType("nvarchar(max)");
@@ -149,9 +152,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("Territory")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<double?>("TotalPurchaseAmount")
-                        .HasColumnType("float");
 
                     b.HasKey("Id");
 
@@ -431,6 +431,76 @@ namespace Infrastructure.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.RaschetKoefficentaEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("KoefEzhPogashDin1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("KoefEzhPogashDin2")
+                        .HasColumnType("int");
+
+                    b.Property<int>("KoefEzhPogashDin3")
+                        .HasColumnType("int");
+
+                    b.Property<int>("KoefEzhPogashDin4")
+                        .HasColumnType("int");
+
+                    b.Property<int>("KoefEzhPogashDin5")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokKon1")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokKon2")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokKon3")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokKon4")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokKon5")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokNach1")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokNach2")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokNach3")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokNach4")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefEzhPogashOstatokNach5")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("KoefZakupa")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("KoefZakupaDni")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("KoefZaplanZakup")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("KoefZaplanZakupDni")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RaschetKoefficenta");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.ReturnDetailEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -693,7 +763,7 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Infrastructure.Entities.CustomerEntity", "Customer")
-                        .WithMany()
+                        .WithMany("Orders")
                         .HasForeignKey("CustomerId");
 
                     b.HasOne("Infrastructure.Entities.StorekeeperEntity", "Storekeeper")
@@ -796,6 +866,8 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.CustomerEntity", b =>
                 {
+                    b.Navigation("Orders");
+
                     b.Navigation("Payments");
 
                     b.Navigation("Returns");

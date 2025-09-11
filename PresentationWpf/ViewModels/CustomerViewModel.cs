@@ -13,10 +13,11 @@ namespace PresentationWpf.ViewModels;
 public partial class CustomerViewModel : ObservableObject
 {
 	private readonly CustomerService _customerService;
-
-	public CustomerViewModel(CustomerService customerService)
+	private readonly CoefficientService _coefficientService;
+	public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService)
 	{
 		_customerService = customerService;
+		_coefficientService = coefficientService;
 		LoadData();
 	}
 
@@ -31,6 +32,15 @@ public partial class CustomerViewModel : ObservableObject
 
 	[ObservableProperty]
 	private ObservableCollection<SalesManagerEntity> salesManagers = [];
+	
+	[ObservableProperty]
+	public ObservableCollection<string> distinctCities = [];
+	
+	[ObservableProperty]
+	public ObservableCollection<string> distinctRegions  = [];
+	
+	[ObservableProperty]
+	public ObservableCollection<string> distinctTerritories  = [];
 
 	private async void LoadData()
 	{
@@ -38,7 +48,6 @@ public partial class CustomerViewModel : ObservableObject
 		await LoadSalesManagersAsync();
 		await LoadCustomersAsync();
 	}
-
 
 	private async Task LoadCustomersAsync()
 	{
@@ -48,6 +57,8 @@ public partial class CustomerViewModel : ObservableObject
 		{
 			Customers.Add(customer);
 		}
+
+		UpdateDistinctLists();
 	}
 
 	private async Task LoadPriceLevelsAsync()
@@ -80,6 +91,10 @@ public partial class CustomerViewModel : ObservableObject
 		// If not already in list, add it
 		if (!Customers.Any(c => c.Id == savedCustomer.Id))
 			Customers.Add(savedCustomer);
+
+		var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
+		if (updated != null)
+			SelectedCustomer = updated;
 		MessageBox.Show("Клиент успешно сохранён.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
 	}
 
@@ -101,5 +116,54 @@ public partial class CustomerViewModel : ObservableObject
 		SelectedCustomer = null;
 	}
 
-	
+	private void UpdateDistinctLists()
+	{
+		var cities = (Customers ?? Enumerable.Empty<Customer>())
+			.Where(c => !string.IsNullOrWhiteSpace(c.City))
+			.Select(c => c.City!)
+			.Distinct()
+			.OrderBy(c => c);
+
+		DistinctCities = new ObservableCollection<string>(cities);
+
+		var regions = (Customers ?? Enumerable.Empty<Customer>())
+			.Where(c => !string.IsNullOrWhiteSpace(c.Region))
+			.Select(c => c.Region!)
+			.Distinct()
+			.OrderBy(r => r);
+
+		DistinctRegions = new ObservableCollection<string>(regions);
+
+		var territories = (Customers ?? Enumerable.Empty<Customer>())
+			.Where(c => !string.IsNullOrWhiteSpace(c.Territory))
+			.Select(c => c.Territory!)
+			.Distinct()
+			.OrderBy(t => t);
+
+		DistinctTerritories = new ObservableCollection<string>(territories);
+	}
+
+	[RelayCommand(CanExecute = nameof(CanCalculateCoefficients))]
+	private async Task CalculateCoefficientsForCustomerAsync()
+	{
+		if (SelectedCustomer is null) return;
+
+		await _coefficientService.CalculateEzhPogashForCustomerAsync(SelectedCustomer.Id);
+		await _coefficientService.CalculateZakupForCustomerAsync(SelectedCustomer.Id);
+		await _coefficientService.CalculateZaplanZakupForCustomerAsync(SelectedCustomer.Id);
+
+		var updated = await _customerService.GetCustomerByIdAsync(SelectedCustomer.Id);
+		if (updated != null)
+			SelectedCustomer = updated;
+	}
+
+	// This is called automatically to check if the button should be enabled
+	private bool CanCalculateCoefficients() => SelectedCustomer is not null;
+
+	// Refresh CanExecute when SelectedCustomer changes
+	partial void OnSelectedCustomerChanged(Customer? value)
+	{
+		CalculateCoefficientsForCustomerCommand.NotifyCanExecuteChanged();
+	}
+
 }

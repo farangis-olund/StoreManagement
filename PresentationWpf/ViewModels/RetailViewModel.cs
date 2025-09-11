@@ -12,6 +12,7 @@ using Infrastructure.Dtos;
 using Infrastructure.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Infrastructure.Repositories;
+using System.Windows.Media;
 
 
 namespace PresentationWpf.ViewModels;
@@ -28,6 +29,7 @@ public partial class RetailViewModel : ObservableObject
 	private readonly StorekeeperRepository _storekeeperRepo;
 	private readonly SalesManagerRepository _salesManagerRepo;
 	private readonly DialogService _dialogService;
+	private readonly CustomerFinanceService _financeService;
 	public RetailViewModel(ProductService productService, 
 							UserSessionService userSessionService, 
 							OrderService orderService, 
@@ -37,7 +39,8 @@ public partial class RetailViewModel : ObservableObject
 							CourierRepository courierRepo,
 							StorekeeperRepository storekeeperRepo,
 							SalesManagerRepository salesManagerRepo,
-							DialogService dialogService)
+							DialogService dialogService,
+							CustomerFinanceService financeService)
 	{
 		_productService = productService;
 		_orderService = orderService;
@@ -49,6 +52,8 @@ public partial class RetailViewModel : ObservableObject
 		_storekeeperRepo = storekeeperRepo;
 		_salesManagerRepo = salesManagerRepo;
 		_dialogService = dialogService;
+		_financeService = financeService;
+
 		_productList = [];
 		_selectedProductList = [];
 		_alternativeProductList = [];
@@ -83,6 +88,13 @@ public partial class RetailViewModel : ObservableObject
 
 	[ObservableProperty]
 	private ObservableCollection<ProductModel> _selectedProductList = [];
+
+	[ObservableProperty]
+	private ObservableCollection<InactiveCustomerDto> _inactiveDebtCustomers = [];
+
+	[ObservableProperty]
+	private ObservableCollection<InactiveCustomerDto> _inactivePlannedCustomers = [];
+
 
 	[ObservableProperty]
 	private decimal _totalSum = 0;
@@ -125,8 +137,9 @@ public partial class RetailViewModel : ObservableObject
 			if (_selectedSalesManager == value) return;
 			_selectedSalesManager = value;
 			OnPropertyChanged();
-			RebuildTerritories();        // <-- IMPORTANT
-			CustomersView.Refresh();     // update customer ComboBox too
+			RebuildTerritories();
+			_ = LoadInactiveCustomersAsync();
+			CustomersView.Refresh();    
 		}
 	}
 
@@ -134,7 +147,12 @@ public partial class RetailViewModel : ObservableObject
 	public string? SelectedTerritory
 	{
 		get => _selectedTerritory;
-		set { if (_selectedTerritory == value) return; _selectedTerritory = value; OnPropertyChanged(); CustomersView.Refresh(); }
+		set { if (_selectedTerritory == value) return; 
+			_selectedTerritory = value; 
+			OnPropertyChanged(); 
+			CustomersView.Refresh();
+			_ = LoadInactiveCustomersAsync();
+		}
 
 	}
 
@@ -244,9 +262,15 @@ public partial class RetailViewModel : ObservableObject
 		get { return _selectedProduct; }
 		set
 		{
+			if (_selectedProduct == value) return;
 			_selectedProduct = value;
 			OnPropertyChanged(nameof(SelectedProduct));
-			LoadAlternativeProducts(_selectedProduct?.Alternative!);
+			
+			AlternativeProductList.Clear(); 
+			if (_selectedProduct != null && !string.IsNullOrEmpty(_selectedProduct.Alternative))
+			{
+				LoadAlternativeProducts(_selectedProduct.Alternative);
+			}
 		}
 
 	}
@@ -265,7 +289,36 @@ public partial class RetailViewModel : ObservableObject
 	partial void OnSelectedCustomerChanged(Customer? value)
 	{
 		ApplyCustomerLevelPrice();
-		//UpdateManagerFilters();
+
+		if (value == null)
+		{
+			RequiredPurchase = 0;
+			PlannedPurchase = 0;
+			return;
+		}
+
+		// ✅ Check if this customer exists in inactive debt list
+		var debtInfo = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == value.Id);
+		if (debtInfo != null)
+		{
+			RequiredPurchase = debtInfo.Shortfall;
+		}
+		else
+		{
+			RequiredPurchase = 0;
+		}
+
+		// ✅ Check if this customer exists in inactive planned list
+		var plannedInfo = InactivePlannedCustomers.FirstOrDefault(c => c.CustomerId == value.Id);
+		if (plannedInfo != null)
+		{
+			PlannedPurchase = plannedInfo.Shortfall;
+		}
+		else
+		{
+			PlannedPurchase = 0;
+		}
+
 	}
 
 
@@ -416,52 +469,9 @@ public partial class RetailViewModel : ObservableObject
 		{
 			MessageBox.Show("Заказ успешно оформлен!", "Оформление заказа");
 
-			// Build printable model
-			var newOrder = new CustomerOrder
-			{
-				Id = result.Id,
-				Date = result.Date,
-				Rate = result.Rate,
-				CustomerFullName = SelectedCustomer?.FullName,
-				CustomerLevel = SelectedCustomer?.PriceLevelId,
-				CustomerAddress = SelectedCustomer?.Address,
-				CustomerPhoneNumber = SelectedCustomer?.MobilePhone,
-				UserFullName = _userSessionService.FirstName + " " + _userSessionService.LastName,
-				WithoutInvoice = result.WithoutInvoice,
-				DirectFromStock = result.DirectFromStock,
-				SuminWords = result.SuminWords,
-				TotalAmount = totalSum,
-				Customer = result.Customer!,
-				IsBarter = IsBarter, 
-				OrderDetails = []
-			};
-
-			foreach (var p in SelectedProductList)
-			{
-				var unit = IsBarter
-					? (p.BarterPriceSom ?? 0m)
-					: (p.CustomerPriceSom ?? 0m);
-
-				var qty = Math.Max(0, p.OrderQuentity);
-				var lineTotal = unit * qty;
-
-				newOrder.OrderDetails.Add(new OrderDetail
-				{
-					ArticleNumber = p.ArticleNumber,
-					ProductName = p.ProductName,
-					BrandName = p.BrandName,
-					Marka = p.Marka,
-					Model = p.Model,
-					Quentity = qty,
-					OriginalPrice = unit,              // per-unit price used
-					Price = unit,                      // keep same semantics as before
-					Total = lineTotal,
-					WarehousePlace = p.WarehousePlace
-				});
-			}
-
-			_dataTransferService.SelectedOrder = newOrder;
+			//_dataTransferService.SelectedOrder = newOrder;
 			SelectedProductList.Clear();
+			await RefreshProductsAsync();
 
 			// Print: barter report vs invoice
 			if (IsBarter)
@@ -540,6 +550,7 @@ public partial class RetailViewModel : ObservableObject
 	//}
 
 	private void DisplayBarterReportView() { }
+	
 	private bool CustomerFilter(object obj)
 	{
 		if (obj is not Customer c) return false;
@@ -602,12 +613,20 @@ public partial class RetailViewModel : ObservableObject
 			return;
 		}
 		_dataTransferService.CustomerId = SelectedCustomer.Id;
-		var vm = new SummaryViewModel(_orderService, _dataTransferService, _serviceProvider);
+
+		var vm = _serviceProvider.GetRequiredService<SummaryViewModel>();
 
 		await vm.LoadAsync();
 
-		// MODEL-LESS:
-		_dialogService.Show(vm);  // ⬅ instead of ShowDialogAsync
+		// Show it
+		_dialogService.Show(vm);
+
+		//var vm = new SummaryViewModel(_orderService, _dataTransferService, _serviceProvider);
+
+		//await vm.LoadAsync();
+
+		//// MODEL-LESS:
+		//_dialogService.Show(vm);  // ⬅ instead of ShowDialogAsync
 	}
 
 	public async Task SelectCustomerByIdAsync(string customerId)
@@ -621,11 +640,11 @@ public partial class RetailViewModel : ObservableObject
 		var existing = AllCustomers.FirstOrDefault(c => c.Id == customerId);
 		if (existing != null)
 		{
-			SelectedCustomer = existing;
+			SelectedCustomer = existing;   // ⬅ вот тут реально выбирается клиент
 			return;
 		}
 
-		// fallback: fetch single by id (if you have a service for it)
+		// fallback: fetch single by id (если клиента ещё нет в списке)
 		var one = await _customerService.GetCustomerAsync(customerId);
 		if (one != null)
 		{
@@ -633,6 +652,131 @@ public partial class RetailViewModel : ObservableObject
 			SelectedCustomer = one;
 		}
 	}
+
+	[ObservableProperty]
+	private int _inactiveDebtCount;
+
+	[ObservableProperty]
+	private int _inactivePlannedCount;
+	private async Task LoadInactiveCustomersAsync()
+	{
+		InactiveDebtCustomers.Clear();
+		InactivePlannedCustomers.Clear();
+
+		InactiveDebtCount = 0;
+		InactivePlannedCount = 0;
+
+		if (SelectedSalesManager == null)
+			return;
+
+		var managerId = SelectedSalesManager.Id;
+		var territory = SelectedTerritory;
+
+		// 1) Customers with unpaid debts
+		var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(managerId, territory);
+		foreach (var c in debtList)
+			InactiveDebtCustomers.Add(c);
+
+		InactiveDebtCount = InactiveDebtCustomers.Count;
+
+		// 2) Customers not buying as planned
+		var plannedList = await _financeService.NeaktivNeZakupAsync(managerId, territory);
+		foreach (var c in plannedList)
+			InactivePlannedCustomers.Add(c);
+
+		InactivePlannedCount = InactivePlannedCustomers.Count;
+	}
+
+	private async Task RefreshProductsAsync()
+	{
+		ProductList.Clear();
+		var productDtos = await _productService.GetAllProductAsync();
+
+		foreach (var dto in productDtos.Where(p => p.Quentity > 0))
+		{
+			var pm = (ProductModel)dto;
+			pm.ExchangeRate = ExchangeRate;
+			pm.RefreshPrices();
+			ProductList.Add(pm);
+		}
+		ApplyCustomerLevelPrice();
+	}
+
+	private InactiveCustomerDto? _selectedRequiredPurchaseCombo;
+	public InactiveCustomerDto? SelectedRequiredPurchaseCombo
+	{
+		get => _selectedRequiredPurchaseCombo;
+		set
+		{
+			if (_selectedRequiredPurchaseCombo == value) return;
+			_selectedRequiredPurchaseCombo = value;
+			OnPropertyChanged();
+
+			if (value != null)
+			{
+				// update fields
+				RequiredPurchase = value.Shortfall;
+				_ = SelectCustomerByIdAsync(value.CustomerId);
+
+				// ✅ clear the other combo
+				SelectedPlannedPurchaseCombo = null;
+			}
+			
+		}
+	}
+
+	private InactiveCustomerDto? _selectedPlannedPurchaseCombo;
+	public InactiveCustomerDto? SelectedPlannedPurchaseCombo
+	{
+		get => _selectedPlannedPurchaseCombo;
+		set
+		{
+			if (_selectedPlannedPurchaseCombo == value) return;
+			_selectedPlannedPurchaseCombo = value;
+			OnPropertyChanged();
+
+			if (value != null)
+			{
+				PlannedPurchase = value.Shortfall;
+				_ = SelectCustomerByIdAsync(value.CustomerId);
+
+				// ✅ clear the other combo
+				SelectedRequiredPurchaseCombo = null;
+			}
+			
+		}
+	}
+
+	private decimal _requiredPurchase;
+	public decimal RequiredPurchase
+	{
+		get => _requiredPurchase;
+		set
+		{
+			if (_requiredPurchase == value) return;
+			_requiredPurchase = value;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(RequiredPurchaseColor));
+		}
+	}
+
+	private decimal _plannedPurchase;
+	public decimal PlannedPurchase
+	{
+		get => _plannedPurchase;
+		set
+		{
+			if (_plannedPurchase == value) return;
+			_plannedPurchase = value;
+			OnPropertyChanged();
+			OnPropertyChanged(nameof(PlannedPurchaseColor));
+		}
+	}
+
+	// Expose brush colors for binding
+	public Brush RequiredPurchaseColor => RequiredPurchase > 0 ? Brushes.Red : Brushes.Green;
+	public Brush PlannedPurchaseColor => PlannedPurchase > 0 ? Brushes.Red : Brushes.Green;
+
 
 }
 

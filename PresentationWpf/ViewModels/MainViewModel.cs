@@ -40,6 +40,12 @@ public partial class MainViewModel : ObservableObject
 		//mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<ProductListViewModel>();
 	}
 
+	[RelayCommand]
+	private void NavigateToAdmin()
+	{
+		var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+		mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<AdminViewModel>();
+	}
 
 
 	[RelayCommand]

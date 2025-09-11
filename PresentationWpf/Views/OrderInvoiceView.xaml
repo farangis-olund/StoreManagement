@@ -328,13 +328,13 @@
                             </Border>
 
                             <Border Grid.Row="1" Grid.Column="4" Style="{StaticResource ThinBox}">
-                                <TextBlock Text="{Binding AllTotals, StringFormat={}{0:N2}}" Style="{StaticResource RightText}"/>
+                                <TextBlock Text="{Binding CurrentPayment, StringFormat={}{0:N2}}" Style="{StaticResource RightText}"/>
                             </Border>
 
                             <!-- spacer col 5 -->
 
                             <Border Grid.Row="1" Grid.Column="6" Style="{StaticResource ThinBox}">
-                                <TextBlock Text="{Binding Total, StringFormat={}{0:N2}}" Style="{StaticResource RightText}"/>
+                                <TextBlock Text="{Binding Balance, StringFormat={}{0:N2}}" Style="{StaticResource RightText}"/>
                             </Border>
                         </Grid>
                     </Grid>

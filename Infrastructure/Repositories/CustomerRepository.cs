@@ -4,50 +4,61 @@ using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using System.Linq.Expressions;
 
-namespace Infrastructure.Repositories
-{
-	public class CustomerRepository : Repo<DatabaseContext, CustomerEntity>
-	{
-		public CustomerRepository(DatabaseContext context) : base(context)
-		{
-		}
+namespace Infrastructure.Repositories;
 
-		public async override Task<IEnumerable<CustomerEntity>> GetAllAsync()
+public class CustomerRepository : Repo<DatabaseContext, CustomerEntity>
+{
+	public CustomerRepository(IDbContextFactory<DatabaseContext> contextFactory)
+		: base(contextFactory)
+	{
+	}
+
+	public override async Task<IEnumerable<CustomerEntity>> GetAllAsync()
+	{
+		try
 		{
-			try
-			{
-				List<CustomerEntity> productPriceList = await _context.Customers
+			using var context = CreateContext();
+
+			var customers = await context.Customers
 				.Include(i => i.PriceLevel)
 				.Include(c => c.Payments)
 				.ToListAsync();
 
-				return productPriceList;
-			}
-			catch (Exception ex)
-			{
-				Debug.WriteLine($"Error getting entities of type {typeof(CustomerEntity).Name}: {ex.Message}");
-				return Enumerable.Empty<CustomerEntity>();
-			}
+			return customers;
 		}
-
-		public async override Task<CustomerEntity> GetOneAsync(Expression<Func<CustomerEntity, bool>> predicate, Func<Task<CustomerEntity>> createIfNotFound)
+		catch (Exception ex)
 		{
-			try
-			{
-				var entity = await _context.Customers
-					 .Include(i => i.PriceLevel)
-					 .FirstOrDefaultAsync(predicate);
+			Debug.WriteLine($"Error getting entities of type {typeof(CustomerEntity).Name}: {ex.Message}");
+			return Enumerable.Empty<CustomerEntity>();
+		}
+	}
 
+	public override async Task<CustomerEntity?> GetOneAsync(
+		Expression<Func<CustomerEntity, bool>> predicate,
+		Func<Task<CustomerEntity>>? createIfNotFound = null)
+	{
+		try
+		{
+			using var context = CreateContext();
+
+			var entity = await context.Customers
+				.Include(i => i.PriceLevel)
+				.Include(c => c.Payments)
+				.FirstOrDefaultAsync(predicate);
+
+			if (entity == null && createIfNotFound != null)
+			{
 				entity = await createIfNotFound.Invoke();
-				_context.Set<CustomerEntity>().Add(entity);
-				return entity;
+				context.Set<CustomerEntity>().Add(entity);
+				await context.SaveChangesAsync();
+			}
 
-			}
-			catch (Exception ex)
-			{
-				Debug.WriteLine($"Error getting entity of type {typeof(CustomerEntity).Name} by id: {ex.Message}");
-				return null!;
-			}
+			return entity;
+		}
+		catch (Exception ex)
+		{
+			Debug.WriteLine($"Error getting entity of type {typeof(CustomerEntity).Name} by predicate: {ex.Message}");
+			return null;
 		}
 	}
 }

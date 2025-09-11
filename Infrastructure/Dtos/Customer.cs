@@ -17,21 +17,28 @@ public class Customer
 	public string? PriceType { get; set; }
 	public int? PriceLevelCode { get; set; }
 	public string? Notes { get; set; }
+
 	public double? Debt { get; set; }
 	public double? Restriction { get; set; }
-	public double? TotalPurchaseAmount { get; set; }
-	public double? MonthlyRepaymentRate { get; set; }
-	public double? PlannedPurchaseAmount { get; set; }
+
+	// === Дневные коэффициенты ===
+	public double? DailyPurchaseCoefficient { get; set; }        // КоэфДневЗакупа
+	public double? DailyRepaymentCoefficient { get; set; }       // КоэфЕжеднПогашение
+	public double? DailyPlannedPurchaseCoefficient { get; set; } // КоэфДневЗапланЗакупа
+
 	public DateTime? ContractDate { get; set; }
 	public string? Territory { get; set; }
-	public bool? ExcludeMonthlyRepayment { get; set; }
+	public bool? ExcludeDailyRepayment { get; set; }             // ИсключитьЕжеднПогашение
 
 	public string? SalesManagerId { get; set; }
 
 	public string DisplayText => $"{Id} - {FullName}";
 
-	public static implicit operator Customer(CustomerEntity entity)
+	public static implicit operator Customer?(CustomerEntity? entity)
 	{
+		if (entity == null)
+			return null;
+
 		return new Customer
 		{
 			Id = entity.Id,
@@ -43,18 +50,22 @@ public class Customer
 			Region = entity.Region,
 			PostalCode = entity.PostalCode,
 			PriceLevelId = entity.PriceLevelId,
-			PriceLevelCode= entity.PriceLevel!.Code,
+			PriceLevelCode = entity.PriceLevel?.Code ?? 0,   // безопасно
 			Notes = entity.Notes,
 			Debt = entity.Debt,
 			Restriction = entity.Restriction,
-			TotalPurchaseAmount = entity.TotalPurchaseAmount,
-			MonthlyRepaymentRate = entity.MonthlyRepaymentRate,
-			PlannedPurchaseAmount = entity.PlannedPurchaseAmount,
+
+			// --- Коэффициенты ---
+			DailyPurchaseCoefficient = entity.DailyPurchaseCoefficient,
+			DailyRepaymentCoefficient = entity.DailyRepaymentCoefficient,
+			DailyPlannedPurchaseCoefficient = entity.DailyPlannedPurchaseCoefficient,
+
 			ContractDate = entity.ContractDate,
 			Territory = entity.Territory,
-			ExcludeMonthlyRepayment = entity.ExcludeMonthlyRepayment,
+			ExcludeDailyRepayment = entity.ExcludeDailyRepayment,
 			SalesManagerId = entity.SalesManagerId,
-			PriceType = entity.PriceLevel.PriceType
+			PriceType = entity.PriceLevel?.PriceType        // безопасно
 		};
 	}
+
 }
