@@ -1,0 +1,110 @@
+﻿<UserControl x:Class="PresentationWpf.Views.StockView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewmodels:StockViewModel}"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="810">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="AdminTopBackground" Color="#3E3B4E"/>
+        <SolidColorBrush x:Key="AdminTopHover" Color="#4E4B60"/>
+        <SolidColorBrush x:Key="AdminTopPressed" Color="#2D2C34"/>
+        <SolidColorBrush x:Key="AdminTopSelected" Color="#FFB347"/>
+        <!-- акцент -->
+
+        <Style x:Key="AdminTopButtonStyle" TargetType="RadioButton">
+            <Setter Property="Height" Value="45"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{StaticResource AdminTopBackground}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Border x:Name="BottomLine"
+                                Height="3"
+                                Background="Transparent"
+                                VerticalAlignment="Bottom"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="10,0,10,0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopHover}"/>
+                            </Trigger>
+                            <!-- Pressed -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopPressed}"/>
+                            </Trigger>
+                            <!-- Selected -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="BottomLine" Property="Background" Value="{StaticResource AdminTopSelected}"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Top menu row -->
+            <RowDefinition Height="Auto"/>
+            <!-- Content row -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0"
+            Orientation="Horizontal"
+            Background="{StaticResource AdminTopBackground}"
+            Height="45">
+
+            <RadioButton Content="Каталог"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsCatalogSelected}"
+                 Command="{Binding OpenCatalogCommand}"/>
+
+            <RadioButton Content="Импорт"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsImportSelected}"
+                 Command="{Binding OpenImportCommand}"/>
+
+            <RadioButton Content="Движение"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsMovementSelected}"
+                 Command="{Binding OpenMovementCommand}"/>
+
+            <RadioButton Content="Перемещение"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsTransferSelected}"
+                 Command="{Binding OpenTransferCommand}"/>
+            
+            <RadioButton Content="Назначение место на складе"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsStockLocationSelected}"
+                 Command="{Binding OpenStockLocationCommand}"/>
+            
+        </StackPanel>
+
+
+        <!-- === MAIN CONTENT AREA === -->
+        <ContentControl Grid.Row="1"
+                        Content="{Binding CurrentViewModel}"/>
+
+
+
+    </Grid>
+</UserControl>

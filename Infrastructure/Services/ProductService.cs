@@ -16,12 +16,12 @@ public class ProductService
     private readonly GroupService _groupService;
     private readonly ILogger<ProductService> _logger;
 	private readonly DatabaseContext _db;
-
-	public ProductService(ProductRepository productRepository,
+    private readonly IDbContextFactory<DatabaseContext> _dbFactory;
+    public ProductService(ProductRepository productRepository,
                           BrandService brandService,
                           GroupService groupService,
                           ILogger<ProductService> logger,
-                          DatabaseContext db)
+                          DatabaseContext db, IDbContextFactory<DatabaseContext> dbFactory)
     {
         
         _productRepository = productRepository;
@@ -29,9 +29,10 @@ public class ProductService
         _groupService = groupService;
         _logger = logger;
         _db = db;
+        _dbFactory = dbFactory;
     }
 
-    public async Task<Product> AddProductAsync(Product product)
+    public async Task<Product> AddProductAsync(ProductEntity product)
     {
         try
         {
@@ -41,20 +42,7 @@ public class ProductService
                 return null!;
             }
 
-            var brandEntity = await _brandService.AddBrandAsync(product.BrandName);
-            var groupEntity = await _groupService.AddGroupAsync(product.GroupName);
-
-            var productEntity = new ProductEntity
-            {
-                ArticleNumber = product.ArticleNumber,
-                ProductName = product.ProductName,
-                Model = product.Model,
-                Alternative = product.Alternative,
-                BrandId = brandEntity.Id,
-                GroupId = groupEntity.Id
-            };
-
-            return await _productRepository.AddAsync(productEntity);
+            return await _productRepository.AddAsync(product);
            
         }
         catch (Exception ex)
@@ -196,6 +184,64 @@ public class ProductService
 		return result;  // result.Success is computed from NotEnoughArticles.Count == 0
 	}
 
+    public async Task<StockDeductionResult> DeductStockAsync(
+    IEnumerable<StockDeductionItem> items,
+    CancellationToken ct = default)
+    {
+        var result = new StockDeductionResult();
 
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        foreach (var i in items)
+        {
+            var affected = await db.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE Products
+            SET Quentity = Quentity - {i.Quantity}
+            WHERE ArticleNumber = {i.ArticleNumber} AND Quentity >= {i.Quantity};
+        ", ct);
+
+            if (affected == 0)
+                result.NotEnoughArticles.Add(i.ArticleNumber);
+        }
+
+        return result; // result.Success is computed from NotEnoughArticles.Count == 0
+    }
+
+    // items: list of (Article, Qty) to add in one SaveChanges.
+    public async Task<int> AddQuantitiesByArticlesAsync(
+        IEnumerable<(string Article, int Qty)> items,
+        CancellationToken ct = default)
+    {
+        var dict = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.Article) && i.Qty != 0)
+            .GroupBy(i => i.Article)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+
+        if (dict.Count == 0) return 0;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var articles = dict.Keys.ToList();
+        var products = await db.Products
+            .Where(p => articles.Contains(p.ArticleNumber))
+            .ToListAsync(ct);
+
+        foreach (var p in products)
+        {
+            var add = dict[p.ArticleNumber];
+            var current = p.Quentity;
+            p.Quentity = Math.Max(0, current + add);
+        }
+
+        // If you want to know how many products were updated:
+        return await db.SaveChangesAsync(ct);
+    }
+
+
+    public async Task<bool> ExistsByArticleAsync(string articleNumber)
+    {
+        return await _db.Products
+            .AnyAsync(p => p.ArticleNumber == articleNumber);
+    }
 
 }

@@ -63,83 +63,6 @@ public class OrderService
 		return number;
 	}
 
-	//public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
-	//{
-	//	await using var db = await _dbFactory.CreateDbContextAsync();
-	//	try
-	//	{
-	//		// 1) Ensure Id (string key) up front
-	//		if (string.IsNullOrWhiteSpace(orderEntity.Id))
-	//			orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
-
-	//		// Optional pre-check (race-prone, final guard is catch below)
-	//		if (await _orderRepository.ExistsAsync(o => o.Id == orderEntity.Id))
-	//			return null;
-
-	//		// Keep child FKs consistent
-	//		foreach (var d in orderEntity.OrderDetails)
-	//			d.OrderId = orderEntity.Id;
-
-	//		// 2) One transaction for: stock deduction + order insert
-	//		await using var tx = await db.Database.BeginTransactionAsync();
-
-	//		// 2a) Deduct stock (safe UPDATE ... WHERE Quentity >= @qty inside the same DbContext)
-	//		var items = orderEntity.OrderDetails
-	//							   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-	//							   .ToList();
-
-	//		var stock = await _productService.DeductStockAsync(items);
-	//		if (!stock.Success)
-	//		{
-	//			// Roll back and report which articles failed
-	//			await tx.RollbackAsync();
-	//			_logger.LogWarning("Недостаточно на складе: {Articles}",
-	//				string.Join(", ", stock.NotEnoughArticles));
-	//			return null;
-	//		}
-
-	//		// 2b) Insert order + details in one go (cascading insert)
-	//		var saved = await _orderRepository.AddAsync(orderEntity); // uses same _db; SaveChanges participates in tx
-
-	//		// 2c) Commit the lot
-	//		await tx.CommitAsync();
-	//		return saved;
-	//	}
-	//	catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
-	//	{
-	//		// Retry once with a new number inside a fresh transaction
-	//		await using var retryDb = await _dbFactory.CreateDbContextAsync();
-
-	//		orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
-	//		foreach (var d in orderEntity.OrderDetails)
-	//			d.OrderId = orderEntity.Id;
-
-	//		await using var tx = await retryDb.Database.BeginTransactionAsync();
-
-	//		var items = orderEntity.OrderDetails
-	//							   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-	//							   .ToList();
-
-	//		var stock = await _productService.DeductStockAsync(items);
-	//		if (!stock.Success)
-	//		{
-	//			await tx.RollbackAsync();
-	//			_logger.LogWarning("Недостаточно на складе (артикул): {Articles}",
-	//				string.Join(", ", stock.NotEnoughArticles));
-	//			return null;
-	//		}
-
-	//		var saved = await _orderRepository.AddAsync(orderEntity);
-	//		await tx.CommitAsync();
-	//		return saved;
-	//	}
-	//	catch (Exception ex)
-	//	{
-	//		_logger.LogError(ex, "Error in AddOrderAsync");
-	//		return null;
-	//	}
-	//}
-
 	public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
 	{
 		await using var db = await _dbFactory.CreateDbContextAsync();
@@ -452,12 +375,15 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersAsync(CancellationToken c
 			{
 				Date = o.Date,
 				OrderId = o.Id,
+				CustomerId = o.CustomerId,
 				CustomerName = o.Customer.FullName,
 				Article = d.ArticleNumber,
 				ProductName = d.Product.ProductName,
 				Brand = d.Product.Brand.BrandName,
 				Model = d.Product.Model,
+				Marka =d.Product.Marka,
 				Quantity = d.Quentity,
+				ReturnedQty = d.ReturnedQty,
 				Price = d.Price
 			}))
 			.OrderByDescending(x => x.Date)
@@ -495,12 +421,15 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
 			{
 				Date = o.Date,
 				OrderId = o.Id,
+				CustomerId = o.CustomerId,
 				CustomerName = o.Customer.FullName,
 				Article = d.ArticleNumber,
 				ProductName = d.Product.ProductName,
 				Brand = d.Product.Brand.BrandName,
 				Model = d.Product.Model,
+				Marka =d.Product.Marka,
 				Quantity = d.Quentity,
+				ReturnedQty = d.ReturnedQty,
 				Price = d.Price
 			}))
 			.OrderByDescending(x => x.Date)
@@ -514,6 +443,225 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
 		return Array.Empty<OrderRowDto>();
 	}
 }
+
+
+
+    public async Task<List<DateTime>> GetSoldDatesAsync(CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // If you track returns (ReturnedQty int?):
+        return await db.Orders
+            .SelectMany(o => o.OrderDetails.Select(od => new
+            {
+                Day = o.Date.Date,
+                Qty = od.Quentity,
+                Ret = od.ReturnedQty
+            }))
+            .GroupBy(x => x.Day)
+            .Where(g => g.Sum(x => x.Qty - (x.Ret ?? 0)) > 0)   // keep dates with net > 0
+            .Select(g => g.Key)
+            .OrderBy(d => d)
+            .ToListAsync(ct);
+
+     
+    }
+
+
+    // Aggregated per article for a given day
+    public async Task<List<SoldRow>> GetSoldByDateAsync(DateTime date, CancellationToken ct = default)
+    {
+        date = date.Date;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var list = await db.Orders
+            .Where(o => o.Date.Date == date)
+            .SelectMany(o => o.OrderDetails)
+            .GroupBy(d => new
+            {
+                d.Product.ArticleNumber,
+                d.Product.ProductName,
+                BrandName = d.Product.Brand.BrandName,
+                GroupName = d.Product.Group.GroupName,
+                d.Product.Model
+            })
+            .Select(g => new SoldRow
+            {
+                ArticleNumber = g.Key.ArticleNumber,
+                ProductName = g.Key.ProductName,
+                BrandName = g.Key.BrandName,
+                GroupName = g.Key.GroupName,
+                Model = g.Key.Model,
+                Quantity = g.Sum(x => x.Quentity - (x.ReturnedQty ?? 0))
+            })
+            .Where(r => r.Quantity > 0)
+            .OrderBy(r => r.ArticleNumber)
+            .ToListAsync(ct);
+
+        return list;
+    }
+
+    /// <summary>
+    /// Gets all orders for a given courier (optionally only unpaid).
+    /// </summary>
+    public async Task<IReadOnlyList<OrderWithPaymentsDto>> GetOrdersByCourierAsync(
+     string courierId,
+     bool onlyUnpaid = true,
+     CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        try
+        {
+            var query = db.Orders
+                .AsNoTracking()
+                .Include(o => o.Customer)
+                .Include(o => o.OrderDetails)
+                .Where(o => o.CourierId == courierId);
+
+            if (onlyUnpaid)
+                query = query.Where(o => !o.IsPaid);
+
+            var data = await query
+                .Select(o => new OrderWithPaymentsDto
+                {
+                    OrderId = o.Id,
+                    Date = o.Date,
+                    CustomerId = o.CustomerId,
+                    FullName = o.Customer.FullName,
+                    Address = o.Customer.Address,
+                    IsPaid = o.IsPaid,
+
+                    // ✅ Total order sum (like "Продажа" in Access)
+                    SaleAmount = o.OrderDetails.Sum(d => d.Price * d.Quentity),
+
+                    // ✅ Total payments (like "Сумма платежа" in Access)
+                    PaymentAmount = db.Payments
+                                      .Where(p => p.OrderId == o.Id)
+                                      .Sum(p => (decimal?)p.Amount) ?? 0m
+                })
+                .OrderByDescending(x => x.Date)
+                .ToListAsync(ct);
+
+            return data;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetOrdersByCourierAsync for courier {CourierId}", courierId);
+            return Array.Empty<OrderWithPaymentsDto>();
+        }
+    }
+
+
+    /// <summary>
+    /// Updates payment status and payment amount of an order.
+    /// </summary>
+    public async Task<bool> UpdatePaymentStatusAsync(
+        string orderId,
+        bool isPaid,
+        CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        try
+        {
+            var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order == null)
+                return false;
+
+            order.IsPaid = isPaid;
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating payment status for order {OrderId}", orderId);
+            return false;
+        }
+    }
+
+    public async Task<IReadOnlyList<PendingOrderDto>> GetUnsentOrdersAsync()
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+
+        return await db.Orders
+            .Where(o => !o.IsSent) // only unsent
+            .OrderByDescending(o => o.Date) // ✅ latest first
+            .Select(o => new PendingOrderDto
+            {
+                Invoice = o.Id,
+                InvoiceNumber = o.Id,
+                Date = o.Date,
+                CustomerId = o.CustomerId,
+                IsSent = o.IsSent
+            })
+            .ToListAsync();
+    }
+
+    public async Task UpdateSentStatusAsync(string invoiceNumber, bool isSent)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == invoiceNumber);
+        if (order != null)
+        {
+            order.IsSent = isSent;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    public async Task<IReadOnlyList<AssignPickerDto>> GetOrdersInRangeForPickersAsync(
+     DateTime from,
+     DateTime to,
+     CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        try
+        {
+            var query = db.Orders
+                .AsNoTracking()
+                .Include(o => o.Customer)
+                .Include(o => o.Storekeeper) // ✅ join storekeeper
+                .Where(o => o.Date >= from && o.Date < to);
+
+            var data = await query
+                .Select(o => new AssignPickerDto
+                {
+                    OrderId = o.Id,
+                    CustomerName = o.Customer.FullName,
+                    Date = o.Date,
+                    PickerId = o.StorekeeperId,          // ✅ Id
+                    PickerName = o.Storekeeper.FullName // ✅ Display name
+                })
+                .OrderByDescending(o => o.Date)
+                .ToListAsync(ct);
+
+            return data;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetOrdersInRangeForPickersAsync({From}, {To})", from, to);
+            return Array.Empty<AssignPickerDto>();
+        }
+    }
+
+    public async Task<bool> UpdateAssignPickerAsync(string orderId, string? pickerId, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        try
+        {
+            var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order == null)
+                return false;
+
+            order.StorekeeperId = pickerId;  // ✅ set by Id
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in UpdateAssignPickerAsync for order {OrderId}", orderId);
+            return false;
+        }
+    }
 
 
 

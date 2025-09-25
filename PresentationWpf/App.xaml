@@ -192,7 +192,7 @@
             <Setter Property="Padding" Value="8,6"/>
         </Style>
 
-         <!--Now the grid style can reference it--> 
+         <!--Now the grid style can reference it--><!-- 
         <Style x:Key="SummaryGrid" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="CanUserAddRows" Value="False"/>
@@ -214,12 +214,105 @@
             <Setter Property="SelectionUnit" Value="FullRow"/>
             <Setter Property="SelectionMode" Value="Single"/>
 
-             <!--Center all cell text--> 
+             --><!--Center all cell text--><!-- 
             <Setter Property="TextBlock.TextAlignment" Value="Center"/>
           
+        </Style>-->
+
+        <!-- Close Button Style -->
+        <Style x:Key="CloseButton" TargetType="Button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#C0392B"/>
+            <!-- Dark Red -->
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="3"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E74C3C"/>
+                                <!-- Lighter Red -->
+                            </Trigger>
+                            <!-- Pressed -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#922B21"/>
+                                <!-- Darker Red -->
+                            </Trigger>
+                            <!-- Disabled -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#7F8C8D"/>
+                                <Setter Property="Foreground" Value="#BDC3C7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
-         <!--Rounded button with hover/pressed/focus states--> 
+
+        <Style x:Key="SummaryGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+            <Setter Property="HeadersVisibility" Value="all"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="RowHeight" Value="28"/>
+            <Setter Property="ColumnHeaderHeight" Value="32"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="GridLinesVisibility" Value="All"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#E1E1E8"/>
+            <Setter Property="VerticalGridLinesBrush" Value="#E1E1E8"/>
+            <Setter Property="RowBackground" Value="White"/>
+            <Setter Property="AlternatingRowBackground" Value="#FAFBFC"/>
+            <Setter Property="BorderBrush" Value="#DADDE1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="SelectionMode" Value="Extended"/>
+            <!-- Заголовки -->
+            <Setter Property="ColumnHeaderStyle" Value="{StaticResource SummaryHeader}"/>
+            <!-- Выравнивание по умолчанию -->
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <!-- Подстиль для текстовых ячеек -->
+        <Style x:Key="TextCellStyle" TargetType="TextBlock">
+            <Setter Property="Padding" Value="12,2,6,2"/>
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Подстиль для числовых ячеек -->
+        <Style x:Key="NumberCellStyle" TargetType="TextBlock">
+            <Setter Property="Padding" Value="6,2,12,2"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Подстиль для центровки ячеек -->
+        <Style x:Key="CenterCellStyle" TargetType="TextBlock">
+            <Setter Property="Padding" Value="6,2,12,2"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+
+        <!--Rounded button with hover/pressed/focus states--> 
         <Style x:Key="RoundedButtonStyle" TargetType="Button">
              <!--Base look--> 
             <Setter Property="Background" Value="#566366"/>

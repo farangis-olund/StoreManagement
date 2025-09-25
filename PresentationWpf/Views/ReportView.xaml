@@ -1,0 +1,68 @@
+﻿<UserControl x:Class="PresentationWpf.Views.ReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid x:Name="RootVisual" Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header row: printable info (left) + actions (right) -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- PRINTABLE header (will stay visible when printing) -->
+            <StackPanel x:Name="PrintableHeader"
+                  Grid.Column="0"
+                  Orientation="Vertical"
+                  Margin="0,0,16,8">
+                <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <TextBlock Text="{Binding OrganizationName}" Margin="0,0,12,0"/>
+                    <TextBlock Text="{Binding DisplayDate, StringFormat=Дата: {0:dd.MM.yyyy}}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- ACTION buttons (RIGHT). Hidden during printing -->
+            <StackPanel x:Name="ActionsBar"
+                  Grid.Column="1"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center">
+                <Button Content="Экспорт"
+                Style="{StaticResource GrayButton}"
+                Command="{Binding ExportCommand}"
+                Margin="0,0,8,0"/>
+                <Button Content="Печать"
+                Style="{StaticResource GrayButton}"
+                Background="Green"
+                Foreground="White"
+                Command="{Binding PrintCommand}"
+                CommandParameter="{Binding ElementName=RootVisual}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Table -->
+        <DataGrid x:Name="ReportGrid"
+              Grid.Row="1"
+              ItemsSource="{Binding Table.DefaultView}"
+              AutoGenerateColumns="True"
+              Style="{StaticResource SummaryGrid}"
+              IsReadOnly="True"
+              EnableRowVirtualization="False"
+              EnableColumnVirtualization="False"
+              ScrollViewer.CanContentScroll="False"
+              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+              ScrollViewer.VerticalScrollBarVisibility="Auto"
+              Margin="0"/>
+    </Grid>
+
+</UserControl>

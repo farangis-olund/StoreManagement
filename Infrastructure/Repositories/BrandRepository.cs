@@ -2,12 +2,14 @@
 using Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Repositories
+namespace Infrastructure.Repositories;
+
+public class BrandRepository : Repo<DatabaseContext, BrandEntity>
 {
-	public class BrandRepository : Repo<DatabaseContext, BrandEntity>
+    public BrandRepository(IDbContextFactory <DatabaseContext> contextFactory) : base(contextFactory)
     {
-        public BrandRepository(IDbContextFactory <DatabaseContext> contextFactory) : base(contextFactory)
-        {
-        }
+
     }
+
+
 }

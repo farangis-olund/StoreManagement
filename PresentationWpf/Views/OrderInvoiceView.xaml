@@ -74,11 +74,6 @@
                          CommandParameter="{Binding ElementName=Root}" 
                         ToolTip="Печать (Ctrl+P)"/>
 
-                <Button DockPanel.Dock="Left" Margin="10,0,10,0"
-                     Style="{StaticResource GrayButton}"
-                     Content="Назад"
-                     Command="{Binding BackToOrderCommand}"
-                     />
             </DockPanel>
         </Border>
         
@@ -117,9 +112,9 @@
                             <ColumnDefinition Width="220"/>
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel>
-                            <TextBlock Text="АВТО-ЗАПЧАСТИ" FontSize="22" FontWeight="Bold"/>
-                            <Rectangle Height="1" Fill="Gray" Margin="0,6,220,0"/>
+                        <StackPanel >
+                            <TextBlock Text="Магазин" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding ShopName}" Margin="0,4,0,0"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -324,7 +319,7 @@
                             </Border>
 
                             <Border Grid.Row="1" Grid.Column="3" Style="{StaticResource ThinBox}">
-                                <TextBlock Text="{Binding CurrentPayment, StringFormat={}{0:N2}}" Style="{StaticResource RightText}"/>
+                                <TextBlock Text="{Binding DebtPayment, StringFormat={}{0:N2}}" Style="{StaticResource RightText}"/>
                             </Border>
 
                             <Border Grid.Row="1" Grid.Column="4" Style="{StaticResource ThinBox}">

@@ -93,11 +93,16 @@
                  IsChecked="{Binding IsManagersSelected}"
                  Command="{Binding OpenManagersCommand}"/>
 
-            <RadioButton Content="Складчики"
+            <RadioButton Content="Комплектовщики"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsStorekeepersSelected}"
                  Command="{Binding OpenStorekeepersCommand}"/>
 
+            <RadioButton Content="Уровень клиента"
+               Style="{StaticResource AdminTopButtonStyle}"
+               IsChecked="{Binding IsStorekeepersSelected}"
+               Command="{Binding OpenStorekeepersCommand}"/>
+            
             <RadioButton Content="Справочники"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsReferencesSelected}"

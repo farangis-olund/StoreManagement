@@ -55,37 +55,86 @@ public class ReturnService
 		return number;
 	}
 
-	/// <summary>
-	/// Добавить возврат вместе с деталями.
-	/// </summary>
-	public async Task<ReturnEntity?> AddReturnAsync(ReturnEntity returnEntity)
-	{
-		try
-		{
-			if (string.IsNullOrWhiteSpace(returnEntity.Id))
-				returnEntity.Id = await GenerateUniqueReturnNumberAsync();
+    /// <summary>
+    /// Добавить возврат вместе с деталями.
+    /// </summary>
+    public async Task<ReturnEntity?> AddReturnAsync(ReturnEntity returnEntity)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(returnEntity.Id))
+                returnEntity.Id = await GenerateUniqueReturnNumberAsync();
 
-			foreach (var d in returnEntity.ReturnDetails)
-				d.ReturnId = returnEntity.Id;
+            foreach (var d in returnEntity.ReturnDetails)
+                d.ReturnId = returnEntity.Id;
 
-			await using var tx = await _db.Database.BeginTransactionAsync();
+            await using var tx = await _db.Database.BeginTransactionAsync();
 
-			var saved = await _returnRepository.AddAsync(returnEntity);
+            // 1. Save return itself
+            var saved = await _returnRepository.AddAsync(returnEntity);
+            // Reload with Product included
+				saved = await _db.Set<ReturnEntity>()
+                .Include(r => r.ReturnDetails)
+                    .ThenInclude(d => d.Product)
+                        .ThenInclude(p => p.Brand)
+				.Include(c=>c.Customer)
+                .FirstOrDefaultAsync(r => r.Id == returnEntity.Id);
 
-			await tx.CommitAsync();
-			return saved;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Ошибка при сохранении возврата");
-			return null;
-		}
-	}
+            // 2. Reduce remaining qty in order details
+            foreach (var detail in returnEntity.ReturnDetails)
+            {
+                var orderDetail = await _db.Set<OrderDetailEntity>()
+                    .FirstOrDefaultAsync(o =>
+                        o.OrderId == returnEntity.InvoiceNumber &&
+                        o.ArticleNumber == detail.ArticleNumber);
 
-	/// <summary>
-	/// Получить все возвраты.
-	/// </summary>
-	public async Task<IReadOnlyList<ReturnEntity>> GetReturnsAsync(CancellationToken ct = default)
+                if (orderDetail != null)
+                {
+                    // Decrease qty
+                    orderDetail.ReturnedQty = (orderDetail.ReturnedQty ?? 0) + detail.Quantity;
+
+                    // Clamp: prevent negative
+                    if (orderDetail.ReturnedQty > orderDetail.Quentity)
+                        orderDetail.ReturnedQty = orderDetail.Quentity;
+
+                    _db.Update(orderDetail);
+                }
+            }
+
+            // 3. If refund method is "Зачесть в баланс", update Customer.Dept
+            if (returnEntity.RefundMethod == "Зачесть в баланс"
+			&& !string.IsNullOrEmpty(returnEntity.CustomerId))
+            {
+                var customer = await _db.Set<CustomerEntity>()
+                    .FirstOrDefaultAsync(c => c.Id == returnEntity.CustomerId);
+
+                if (customer != null)
+                {
+                    customer.Debt -=(double) returnEntity.TotalAmount;
+                    _db.Update(customer);
+                }
+            }
+
+
+
+
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return saved;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при сохранении возврата");
+            return null;
+        }
+    }
+
+
+    /// <summary>
+    /// Получить все возвраты.
+    /// </summary>
+    public async Task<IReadOnlyList<ReturnEntity>> GetReturnsAsync(CancellationToken ct = default)
 	{
 		return await _db.Set<ReturnEntity>()
 			.AsNoTracking()

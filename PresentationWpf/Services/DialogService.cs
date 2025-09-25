@@ -68,19 +68,74 @@ public class DialogService
 		return Task.FromResult(result);
 	}
 
-	// Map VM -> Window hosting the UserControl
-	private Window CreateWindow(object vm) =>
-		vm switch
-		{
-			PresentationWpf.ViewModels.SummaryViewModel => new Window
-			{
-				Title = "Итоги по клиенту",
-				Width = 820,
-				Height = 520,
-				ResizeMode = ResizeMode.CanResize,
-				Content = new PresentationWpf.Views.SummaryWindow()
-			},
-			_ => throw new NotSupportedException(
-				$"No window mapping for {vm.GetType().Name}")
-		};
+    // Map VM -> Window hosting the UserControl
+    private Window CreateWindow(object vm) => vm switch
+    {
+        PresentationWpf.ViewModels.SummaryViewModel => new Window
+        {
+            Title = "Итоги по клиенту",
+            Width = 820,
+            Height = 520,
+            ResizeMode = ResizeMode.CanResize,
+            Content = new Views.SummaryWindow()
+        },
+
+        ViewModels.PendingOrdersViewModel => new Window
+        {
+            Title = "Неотправленные заказы",
+            Width = 500,
+            Height = 600,
+            ResizeMode = ResizeMode.CanResize,
+            Content = new Views.PendingOrdersView()
+        },
+
+        ViewModels.DeliveryOrdersViewModel dovm => CreateDeliveryOrdersWindow(dovm),
+
+        ViewModels.AssignPickersViewModel => new Window
+        {
+            Title = "Назначение комплектовщиков",
+            Width = 600,
+            Height = 500,
+            ResizeMode = ResizeMode.CanResize,
+            Content = new Views.AssignPickersView()
+        },
+
+        _ => throw new NotSupportedException(
+            $"No window mapping for {vm.GetType().Name}")
+    };
+
+    private Window CreateDeliveryOrdersWindow(ViewModels.DeliveryOrdersViewModel vm)
+    {
+        var window = new Window
+        {
+            Title = "Доставка заказов",
+            Width = 1200,
+            Height = 600,
+            ResizeMode = ResizeMode.CanResize,
+            Content = new Views.DeliveryOrdersView { DataContext = vm }
+        };
+
+        window.Closing += (s, e) =>
+        {
+            if (vm.HasUnsavedChanges)
+            {
+                var result = MessageBox.Show(
+                    "Вы изменили оплату, но не нажали 'Обновить'.\n" +
+                    "Хотите отменить изменения и закрыть окно?",
+                    "Подтверждение",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.No)
+                {
+                    e.Cancel = true; 
+                }
+            }
+        };
+
+        return window;
+    }
+
+
+
 }

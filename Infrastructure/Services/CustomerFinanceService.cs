@@ -129,7 +129,97 @@ public class CustomerFinanceService
 			ContractDate = contractDate
 		};
 	}
-	public async Task<decimal> EzhigodPogashenieAsync(string customerId, string orderId)
+
+
+    public async Task<CustomerFinanceInfo> GetFinanceInfoAsync(string customerId)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
+
+        decimal currentSale = 0;
+        decimal currentPayment = 0;
+        decimal previousPayments = 0;
+        decimal totalSales = 0;
+        decimal totalReturns = 0;
+        decimal customerDebt = 0;
+        decimal creditLimit = 0;
+        DateTime? contractDate = null;
+
+       
+        try
+        {
+            previousPayments = db.Payments
+                .Where(p => p.CustomerId == customerId)
+                .AsEnumerable()
+                .Sum(p => (decimal)(p.Amount));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Error in previousPayments query: " + ex);
+        }
+
+
+        try
+        {
+            // Customer info
+            var cust = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
+            if (cust != null)
+            {
+                customerDebt = (decimal)(cust.Debt ?? 0);
+                creditLimit = (decimal)(cust.Restriction ?? 0);
+                contractDate = cust.ContractDate;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Error in customer query: " + ex);
+        }
+
+        try
+        {
+            totalSales = db.OrderDetails
+                .Where(d => d.Order.CustomerId == customerId)
+                .AsEnumerable() // move to LINQ-to-Objects
+                .Sum(d => (decimal)(d.Price) * (d.Quentity));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Error in totalSales query: " + ex);
+        }
+
+
+        try
+        {
+            totalReturns = db.Returns
+                .Where(r => r.CustomerId == customerId)
+                .AsEnumerable()
+                .Sum(r => (decimal)(r.TotalAmount));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Error in totalReturns query: " + ex);
+        }
+
+
+        decimal oldDebt = (totalSales - totalReturns) - currentSale - previousPayments + customerDebt;
+        decimal balance = totalSales + customerDebt - previousPayments - currentPayment - totalReturns;
+
+        return new CustomerFinanceInfo
+        {
+            CurrentSale = currentSale,
+            CurrentPayment = currentPayment,
+            PreviousPayments = previousPayments,
+            CustomerDebt = customerDebt,
+            CreditLimit = creditLimit,
+            TotalSales = totalSales,
+            TotalReturns = totalReturns,
+            OldDebt = oldDebt,
+            Balance = balance,
+            ContractDate = contractDate
+        };
+    }
+
+
+    public async Task<decimal> EzhigodPogashenieAsync(string customerId, string orderId)
 	{
 		// 1. Get full finance info
 		var info = await GetFinanceInfoAsync(customerId, orderId);

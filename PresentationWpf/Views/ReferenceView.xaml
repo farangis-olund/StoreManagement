@@ -1,0 +1,90 @@
+﻿<UserControl x:Class="PresentationWpf.Views.ReferenceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+            d:DataContext="{d:DesignInstance Type=viewmodels:ReferenceViewModel}"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800" Background="White">
+
+    <UserControl.Resources>
+        <!-- Hyperlink-like button style -->
+        <Style x:Key="LinkButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,5"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock x:Name="TextBlockPart"
+                                   Text="{TemplateBinding Content}"
+                                   Foreground="#FF6200EE"
+                                   HorizontalAlignment="Left"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TextBlockPart" Property="TextDecorations" Value="Underline"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <!-- Left panel fixed -->
+            <ColumnDefinition Width="2"/>
+            <!-- Vertical line -->
+            <ColumnDefinition Width="*"/>
+            <!-- Right panel -->
+        </Grid.ColumnDefinitions>
+
+        <!-- LEFT PANEL -->
+        <StackPanel Grid.Column="0" Margin="20,20,10,20" HorizontalAlignment="Left">
+            <TextBlock Text="Справочники"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       Foreground="#333"
+                       Margin="0,0,0,20"/>
+
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Организация"
+                    Command="{Binding OpenOrganizationCommand}"/>
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Бренды"
+                    Command="{Binding OpenBrandCommand}"/>
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Фирмы"
+                    Command="{Binding OpenFirmCommand}"/>
+            <!--<Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Менеджеры"
+                    Command="{Binding OpenManagerCommand}"/>
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Складчики"
+                    Command="{Binding OpenWarehouseCommand}"/>-->
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Валюты"
+                    Command="{Binding OpenCurrencyCommand}"/>
+        </StackPanel>
+
+        <!-- VERTICAL SEPARATOR -->
+        <Border Grid.Column="1"
+            BorderBrush="LightGray"
+            BorderThickness="1,0,0,0"
+            Margin="0,80,0,100"/>
+
+        <!-- RIGHT PANEL (Content placeholder) -->
+        <ContentControl Grid.Column="2"
+                        Margin="20"
+                        Content="{Binding SelectedReferenceView}"/>
+    </Grid>
+</UserControl>

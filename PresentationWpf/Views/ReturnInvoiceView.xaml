@@ -1,0 +1,162 @@
+﻿<UserControl x:Class="PresentationWpf.Views.ReturnInvoiceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+            d:DataContext="{d:DesignInstance Type=viewmodels:ReturnInvoiceViewModel}"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="900">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- TOP BAR -->
+        <Border x:Name="TopBar" Grid.Row="0"
+            Background="White"
+            BorderBrush="#E0E0E0" BorderThickness="0,0,0,1"
+            Padding="12,8">
+            <DockPanel LastChildFill="False">
+                <Button DockPanel.Dock="Right"
+                    Style="{StaticResource GreenButton}"
+                    Content="Печать"
+                    Command="{Binding PrintCommand}"
+                    CommandParameter="{Binding ElementName=Root}"
+                    ToolTip="Печать (Ctrl+P)"/>
+            </DockPanel>
+        </Border>
+
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Auto">
+
+            <Border x:Name="InvoicePage"
+                Width="794" Height="1123"
+                Background="White"
+                HorizontalAlignment="Center" VerticalAlignment="Top"
+                Margin="20"
+                BorderBrush="#DDDDDD" BorderThickness="1" Padding="18">
+
+                <StackPanel Margin="20">
+
+                    <!-- HEADER -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Shop -->
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Магазин" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding ShopName}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Center title -->
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                            <TextBlock Text="ВОЗВРАТ ТОВАРА" FontSize="18"  />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="№ " FontWeight="Bold"/>
+                                <TextBlock Text="{Binding InvoiceNumber}" FontSize="14"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Date -->
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding Date, StringFormat=dd.MM.yyyy}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Margin="0,10"/>
+
+                    <!-- CUSTOMER -->
+                    <TextBlock>
+                        <Run Text="ФИО клиента: "/>
+                        <Run Text="{Binding CustomerName}"/>
+                    </TextBlock>
+
+                    <!-- ITEMS TABLE -->
+                    <DataGrid ItemsSource="{Binding Lines}" AutoGenerateColumns="False" Margin="0,10,0,10"
+              HeadersVisibility="Column" CanUserAddRows="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Артикул" Binding="{Binding Article}" Width="120"/>
+                            <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Бренд" Binding="{Binding Brand}" Width="100"/>
+                            <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" Width="100"/>
+                            <DataGridTextColumn Header="Модель" Binding="{Binding Model}" Width="150"/>
+                            <DataGridTextColumn Header="Кол-во" Binding="{Binding Quantity}" Width="60"/>
+                            <DataGridTextColumn Header="Сумма" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- TOTALS -->
+                    <Border BorderBrush="Gray" BorderThickness="1" Padding="5" Margin="0,10,0,10">
+                        <StackPanel>
+                            <TextBlock>
+                                <Run Text="Всего наименований: "/>
+                                <Run FontWeight="Bold" Text="{Binding TotalItems}"/>
+                                <Run Text=" | Итого на сумму: "/>
+                                <Run FontWeight="Bold" Text="{Binding TotalAmount, StringFormat={}{0:N2}}"/>
+                            </TextBlock>
+                            <TextBlock Text="{Binding TotalAmountWords}" FontStyle="Italic" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+
+
+                    <!-- REFUND NOTE -->
+                    <TextBlock Text="{Binding RefundNote}" FontStyle="Italic" Margin="0"/>
+
+                    <!-- BALANCE -->
+                    <Border BorderBrush="Gray" BorderThickness="1" Padding="5" Margin="0">
+                        <Grid Margin="50,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <!-- equal -->
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" HorizontalAlignment="Center">
+                                <Run Text="Ст.долг: " />
+                                <Run Text="{Binding OldDebt, StringFormat={}{0:N2}}" FontWeight="Bold"/>
+                            </TextBlock>
+
+                            <TextBlock Grid.Column="1" HorizontalAlignment="Center">
+                                <Run Text="Возврат: " />
+                                <Run Text="{Binding ReturnedAmount, StringFormat={}{0:N2}}" FontWeight="Bold"/>
+                            </TextBlock>
+
+                            <TextBlock Grid.Column="2" HorizontalAlignment="Center">
+                                <Run Text="Остаток: " />
+                                <Run Text="{Binding RemainingDebt, StringFormat={}{0:N2}}" FontWeight="Bold"/>
+                            </TextBlock>
+                        </Grid>
+
+                    </Border>
+
+
+                    <!-- FOOTER -->
+                    <Grid Margin="60,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="Разрешено ____________"/>
+                        <TextBlock Grid.Column="1" Text="Оплачено ____________" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="Отпустил ____________" HorizontalAlignment="Right"/>
+                    </Grid>
+                </StackPanel>
+
+            </Border>
+
+           
+    </ScrollViewer>
+    </Grid>
+</UserControl>

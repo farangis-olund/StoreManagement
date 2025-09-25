@@ -1,0 +1,111 @@
+﻿<UserControl x:Class="PresentationWpf.Views.DeliveryOrdersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+             d:DataContext="{d:DesignInstance Type=viewmodels:DeliveryOrdersViewModel}"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="1000">
+
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <!-- left panel -->
+            <ColumnDefinition Width="*"/>
+            <!-- right panel -->
+        </Grid.ColumnDefinitions>
+
+        <!-- LEFT PANEL -->
+        <DockPanel Grid.Column="0" Margin="0,0,10,0">
+            <!-- Courier selector on top -->
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Доставщик:" VerticalAlignment="Top" Margin="0,0,5,0"/>
+                <ComboBox ItemsSource="{Binding Couriers}"
+                          Height="30"
+                          FontSize="14"
+                          VerticalAlignment="Center"
+                          SelectedItem="{Binding SelectedCourier, Mode=TwoWay}"
+                          DisplayMemberPath="FullName"
+                          Width="170"/>
+            </StackPanel>
+
+            <!-- Sessions list -->
+            <DataGrid ItemsSource="{Binding DeliverySessions}"
+                      SelectedItem="{Binding SelectedSession, Mode=TwoWay}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      Style="{StaticResource SummaryGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Дата" Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy}}" Width="120"/>
+                    <DataGridTextColumn Header="Кол-во" Binding="{Binding OrdersCount}" Width="*" ElementStyle="{StaticResource CenterCellStyle}"/>
+                    
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+
+        <!-- RIGHT PANEL -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <!-- header -->
+                <RowDefinition Height="*"/>
+                <!-- detail grid -->
+                <RowDefinition Height="Auto"/>
+                <!-- footer totals -->
+            </Grid.RowDefinitions>
+
+            <!-- Header with exchange rate + buttons -->
+            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <TextBlock Text="Курс валюты 1 EURO" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox IsReadOnly="True" Text="{Binding ExchangeRate}" Width="60" Margin="0,0,2,0" VerticalAlignment="Center" HorizontalContentAlignment="Right" FontSize="14"/>
+                    <TextBlock Text="СМН" VerticalAlignment="Center" Margin="0,0,0,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="Обновить"  Style="{StaticResource GrayButton}"  Command="{Binding UpdateCommand}" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Печать"  Style="{StaticResource GrayButton}"  Command="{Binding PrintCommand}" Width="100"/>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- Orders detail grid -->
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding OrdersForSelectedDate}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      SelectionMode="Extended"
+                      Style="{StaticResource SummaryGrid}"
+                      IsReadOnly="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Код кл." Binding="{Binding CustomerId}" Width="80" ElementStyle="{StaticResource TextCellStyle}"/>
+                    <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*"/>
+                    <DataGridTextColumn Header="Адрес" Binding="{Binding Address}" Width="*"/>
+                    <DataGridTextColumn Header="Накладная" Binding="{Binding Invoice}" Width="100"/>
+                    <DataGridTextColumn Header="Сумма" Binding="{Binding Sale, StringFormat=N2}" Width="80" ElementStyle="{StaticResource NumberCellStyle}"/>
+                    <DataGridTextColumn Header="Сумма (СМН)" Binding="{Binding Amount, StringFormat=N2}" Width="110" ElementStyle="{StaticResource NumberCellStyle}"/>
+                    <DataGridTextColumn Header="Платеж" Binding="{Binding Payment, StringFormat=N2}" Width="100" ElementStyle="{StaticResource NumberCellStyle}"/>
+                    <DataGridTemplateColumn Header="Оплачено" Width="90">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsPaid, Mode=TwoWay}"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Footer totals -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                <TextBlock Text="ИТОГО:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding TotalAmount, StringFormat=N2}" 
+                           FontWeight="Bold" Foreground="DarkBlue" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

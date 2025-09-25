@@ -1,5 +1,6 @@
 ﻿
 using Infrastructure.Contexts;
+using Infrastructure.Helpers;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -52,8 +53,32 @@ public partial class App : Application
 				services.AddTransient<CoefficientViewModel>();
 				services.AddTransient<AdminViewModel>();
 				services.AddTransient<AdminView>();
+                services.AddTransient<ReturnInvoiceView>();
 
-				services.AddSingleton<UserSessionService>();
+               
+                services.AddTransient<ReferenceViewModel>();
+
+                services.AddTransient<ReturnInvoiceViewModel>();
+                
+				
+                services.AddTransient<StockViewModel>();
+
+               
+                services.AddTransient<TransferViewModel>();
+                
+                services.AddTransient<ImportViewModel>();
+
+               services.AddTransient<MovementViewModel>();
+
+                services.AddTransient<ReportViewModel>();
+
+                services.AddTransient<StockLocationViewModel>();
+                services.AddTransient<PendingOrdersViewModel>();
+                services.AddTransient<DeliveryOrdersViewModel>();
+                services.AddTransient<AssignPickersViewModel>();
+
+
+                services.AddSingleton<UserSessionService>();
 				services.AddSingleton<DataTransferService>();
 
                 services.AddScoped<ProductService>();
@@ -67,8 +92,11 @@ public partial class App : Application
 				services.AddScoped<ReturnService>();
 				services.AddTransient<CoefficientService>();
 				services.AddScoped<CustomerFinanceService>();
+				services.AddScoped<ReturnReasonService>();
+                services.AddScoped<OrganizationInfoService>();
+                services.AddScoped<ExportHelper>();
 
-				services.AddScoped<ProductRepository>();
+                services.AddScoped<ProductRepository>();
 				services.AddScoped<BrandRepository>();
 				services.AddScoped<CurrencyRepository>();
 				services.AddScoped<GroupRepository>();
@@ -82,11 +110,14 @@ public partial class App : Application
 				services.AddScoped<ReturnDetailRepository>();
 				services.AddScoped<CourierRepository>();
 				services.AddScoped<StorekeeperRepository>();
+                services.AddScoped<OrganizationInfoRepository>();
+                services.AddScoped<StockUpdateLogRepository>();
 
 
-				// ObservableColection
-				//services.AddTransient<List<Product>>();
-				string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True";
+
+                // ObservableColection
+                //services.AddTransient<List<Product>>();
+                string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True";
 				// datacontext
 				// services.AddDbContext<DatabaseContext>(x => x.UseSqlServer(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True", x => x.MigrationsAssembly(nameof(Infrastructure))));
 

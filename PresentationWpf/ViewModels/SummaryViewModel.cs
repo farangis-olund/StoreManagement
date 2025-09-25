@@ -145,20 +145,29 @@ public partial class SummaryViewModel : ObservableObject
 			}
 		}
 
-		
-		// navigate to invoice
-		var main = _serviceProvider.GetRequiredService<MainViewModel>();
-		var invoiceVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
-		_dataTransferService.SelectedOrder = order;
-		_dataTransferService.SelectedCustomerIdForReturn = CustomerId;
-		_ = invoiceVm.LoadInvoiceData();
-		main.CurrentViewModel = invoiceVm;
+        // 3) Build invoice ViewModel
+        var invoiceVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
+        _dataTransferService.SelectedOrder = order;
+        await invoiceVm.LoadInvoiceData();
 
-		// hide the Summary window while invoice is active
-		_serviceProvider.GetRequiredService<DialogService>()
-						.Hide<SummaryViewModel>();
+        // 4) Show in a centered window
+        var invoiceView = new OrderInvoiceView
+        {
+            DataContext = invoiceVm
+        };
 
-	}
+        var window = new Window
+        {
+            Title = "Печать накладной",
+            Content = invoiceView,
+            Width = 900,
+            Height = 700,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen
+        };
+
+        window.ShowDialog();
+
+    }
 	[RelayCommand]
 	private async Task ViewPaymentAsync()
 	{

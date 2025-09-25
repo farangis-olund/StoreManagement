@@ -12,7 +12,8 @@ public class OrderEntity
 	public bool Stock {  get; set; }
 	public bool DirectFromStock { get; set; }
 	public bool IsPaid { get; set; }
-	public string SuminWords { get; set; } = null!;
+    public bool IsSent { get; set; }
+    public string SuminWords { get; set; } = null!;
 	public bool IsBarter { get; set; }
 	public string? CourierId { get; set; }                // Доставщик
 	public CourierEntity? Courier { get; set; }

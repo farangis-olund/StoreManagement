@@ -34,10 +34,10 @@ public partial class MainViewModel : ObservableObject
 	}
 
 	[RelayCommand]
-	private void NavigateToProductsList()
+	private void NavigateToStock()
 	{
-		var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-		//mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<ProductListViewModel>();
+		//var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+		CurrentViewModel = _serviceProvider.GetRequiredService<StockViewModel>();
 	}
 
 	[RelayCommand]
@@ -77,5 +77,10 @@ public partial class MainViewModel : ObservableObject
 		mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<ReturnViewModel>();
 	}
 
-	
+    [RelayCommand]
+    public void GoHome()
+    {
+        CurrentViewModel = _serviceProvider.GetRequiredService<WelcomeViewModel>(); // clears content
+    }
+
 }

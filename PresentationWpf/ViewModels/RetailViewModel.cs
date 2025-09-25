@@ -340,14 +340,18 @@ public partial class RetailViewModel : ObservableObject
 	{
 		if (string.IsNullOrEmpty(alternative)) return;
 		AlternativeProductList.Clear();
-	
-		foreach (var product in ProductList.Where(p => p.Alternative == alternative))
-		{
-			AlternativeProductList.Add(product);
-		}
-	}
-	
-	[RelayCommand]
+
+        foreach (var product in ProductList
+			.Where(p => p.Alternative == alternative)
+			.GroupBy(p => p.ArticleNumber)
+			.Select(g => g.First()))
+        {
+            AlternativeProductList.Add(product);
+        }
+
+    }
+
+    [RelayCommand]
 	private void AddToChart(ProductModel product)
 	{
 		if (product != null && !SelectedProductList.Contains(product))
@@ -370,7 +374,6 @@ public partial class RetailViewModel : ObservableObject
 	}
 
 	[RelayCommand]
-	
 	private async Task SaveOrder()
 	{
 		if (SelectedProductList == null || !SelectedProductList.Any())
@@ -540,15 +543,8 @@ public partial class RetailViewModel : ObservableObject
 	{
 		ProductListView?.Refresh();
 	}
-		
-	//private void DisplayInvoiceView()
-	//{
-	//	var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-	//	var orderInvoiceViewModel = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
-	//	orderInvoiceViewModel.LoadInvoiceData();
-	//	mainViewModel.CurrentViewModel = orderInvoiceViewModel;
-	//}
-
+	
+	
 	private void DisplayBarterReportView() { }
 	
 	private bool CustomerFilter(object obj)
@@ -617,16 +613,9 @@ public partial class RetailViewModel : ObservableObject
 		var vm = _serviceProvider.GetRequiredService<SummaryViewModel>();
 
 		await vm.LoadAsync();
-
-		// Show it
+		
 		_dialogService.Show(vm);
-
-		//var vm = new SummaryViewModel(_orderService, _dataTransferService, _serviceProvider);
-
-		//await vm.LoadAsync();
-
-		//// MODEL-LESS:
-		//_dialogService.Show(vm);  // ⬅ instead of ShowDialogAsync
+		
 	}
 
 	public async Task SelectCustomerByIdAsync(string customerId)
@@ -777,6 +766,26 @@ public partial class RetailViewModel : ObservableObject
 	public Brush RequiredPurchaseColor => RequiredPurchase > 0 ? Brushes.Red : Brushes.Green;
 	public Brush PlannedPurchaseColor => PlannedPurchase > 0 ? Brushes.Red : Brushes.Green;
 
+    [RelayCommand]
+    private void ShowPendingOrders()
+    {
+        var vm = _serviceProvider.GetRequiredService<PendingOrdersViewModel>();
+        _dialogService.Show(vm);
+    }
+
+    [RelayCommand]
+    private void ShowDeliveryOrders()
+    {
+        var vm = _serviceProvider.GetRequiredService<DeliveryOrdersViewModel>();
+        _dialogService.Show(vm);
+    }
+
+    [RelayCommand]
+    private void ShowAssignPickers()
+    {
+        var vm = _serviceProvider.GetRequiredService<AssignPickersViewModel>();
+        _dialogService.Show(vm);
+    }
 
 }
 

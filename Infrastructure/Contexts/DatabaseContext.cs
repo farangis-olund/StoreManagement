@@ -31,10 +31,14 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 
 	public virtual DbSet<ReturnDetailEntity> ReturnDetails { get; set; }
 
-	public DbSet<RaschetKoefficentaEntity> RaschetKoefficenta { get; set; }
+	public virtual DbSet<RaschetKoefficentaEntity> RaschetKoefficenta { get; set; }
 
+	public virtual DbSet<ReturnReasonEntity> ReturnReasons { get; set; }
 
-	protected override void OnModelCreating(ModelBuilder modelBuilder)
+    public virtual DbSet<OrganizationInfoEntity> OrganizationInfo { get; set; }
+    public virtual DbSet<StockUpdateLogEntity> StockUpdateLog { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
 
 		foreach (var property in modelBuilder.Model
@@ -45,8 +49,11 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 			property.SetColumnType("decimal(18,2)");
 		}
 
+        modelBuilder.Entity<StockUpdateLogEntity>()
+		.HasIndex(x => x.UpdateDate)
+		.IsUnique();
 
-		modelBuilder.Entity<CustomerPaymentEntity>(b =>
+        modelBuilder.Entity<CustomerPaymentEntity>(b =>
 		{
 			b.ToTable("Payments"); // or your actual table name
 			b.HasKey(x => x.Id);
@@ -170,6 +177,11 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 				  .WithOne(d => d.Return)
 				  .HasForeignKey(d => d.ReturnId)
 				  .OnDelete(DeleteBehavior.Cascade);
+
+			entity.HasOne(e => e.ReturnReason)
+				  .WithMany(r => r.Returns)
+				  .HasForeignKey(e => e.ReturnReasonId)
+				  .OnDelete(DeleteBehavior.Restrict);
 		});
 
 		modelBuilder.Entity<ReturnDetailEntity>(entity =>

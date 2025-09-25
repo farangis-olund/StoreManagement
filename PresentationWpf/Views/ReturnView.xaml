@@ -4,9 +4,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:PresentationWpf.Views"
-            
+            xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+            d:DataContext="{d:DesignInstance Type=viewmodels:ReturnViewModel}"
              mc:Ignorable="d" 
-             d:DesignHeight="500" d:DesignWidth="1000"  
+             d:DesignHeight="600" d:DesignWidth="1000"  
              xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
              xmlns:ei="http://schemas.microsoft.com/expression/2010/interactions">
 
@@ -159,21 +160,24 @@
 
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Клиент (код/ФИО)" Margin="0,0,0,4"/>
-                                <ComboBox Height="30"
-                              ItemsSource="{Binding CustomersFiltered}"
-                              SelectedValuePath="Id"
-                              DisplayMemberPath="FullName"
-                              SelectedValue="{Binding ManualCustomerId}"/>
+                                <ComboBox Height="30" Width="200"
+                                     ItemsSource="{Binding CustomersFiltered}"
+                                      SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
+                                      IsEditable="True"
+                                      IsTextSearchEnabled="True"
+                                      StaysOpenOnEdit="True"
+                                      DisplayMemberPath="Display"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Margin="12,0,0,0">
                                 <TextBlock Text="Товар (артикул)" Margin="0,0,0,4"/>
-                                <ComboBox Height="30" Width="200"
-                              ItemsSource="{Binding ProductsLookup}"
-                              SelectedItem="{Binding SelectedManualProduct, Mode=TwoWay}"
-                              SelectedValuePath="Article"
-                              DisplayMemberPath="Display"
-                              SelectedValue="{Binding ManualArticle}"/>
+                                <ComboBox Height="30" Width="300"
+                                      ItemsSource="{Binding ProductsLookup}"
+                                      SelectedItem="{Binding SelectedManualProduct, Mode=TwoWay}"
+                                          IsEditable="True"
+                                          IsTextSearchEnabled="True"
+                                          StaysOpenOnEdit="True"
+                                      DisplayMemberPath="Display"/>
                             </StackPanel>
                         </Grid>
 
@@ -200,7 +204,7 @@
                             </StackPanel>
 
                             <DockPanel Grid.Column="4" LastChildFill="False">
-                                <Button Content="Добавить позицию" Width="170" Height="30"
+                                <Button Content="Добавить позицию" Width="170" Height="40"
                             Command="{Binding AddManualLineCommand}"
                             IsEnabled="{Binding ManualMode}"
                             Style="{StaticResource OrangeButton}"/>
@@ -218,54 +222,65 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Lines grid -->
-                    <GroupBox Header="Позиции возврата" Grid.Column="0">
-                        <DockPanel>
-                         
+                <GroupBox Header="Позиции возврата" Grid.Column="0">
+                    <DockPanel LastChildFill="True">
                         <DataGrid ItemsSource="{Binding Lines}"
-                      AutoGenerateColumns="False"
-                      SelectionMode="Extended"
-                      IsReadOnly="False"
-                      Style="{StaticResource SummaryGrid}">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Артикул" Binding="{Binding Article}" Width="120"/>
-                                    <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="*"/>
-                                    <DataGridTextColumn Header="Бренд" Binding="{Binding Brand}" Width="100"/>
-                                    <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" Width="100"/>
-                                    <DataGridTextColumn Header="Модель" Binding="{Binding Model}" Width="100"/>
-                                    <DataGridTextColumn Header="Куплено"   Binding="{Binding PurchasedQty}"  Width="70" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="К возврату" Binding="{Binding ReturnQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
-                                    <DataGridTextColumn Header="Цена" Binding="{Binding Price, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N2}}" Width="80"/>
-                                    <DataGridTextColumn Header="Сумма" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="90" IsReadOnly="True"/>
-                                    <DataGridTemplateColumn Header="">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                            <Button Content="-" Background="#8B0000" Width="50" Height="24" FontSize="10" Style="{StaticResource RoundedButtonStyle}" 
-                                                  Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                  CommandParameter="{Binding}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
-                    </GroupBox>
+          AutoGenerateColumns="False"
+          SelectionMode="Extended"
+          IsReadOnly="False"
+          Style="{StaticResource SummaryGrid}"
+          ColumnWidth="Auto"
+          CanUserResizeColumns="True"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+          ScrollViewer.VerticalScrollBarVisibility="Auto">
 
-                    <!-- Right panel -->
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Артикул" Binding="{Binding Article}" Width="150"/>
+                                <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="200"/>
+                                <DataGridTextColumn Header="Бренд" Binding="{Binding Brand}" Width="80"/>
+                                <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" Width="80"/>
+                                <DataGridTextColumn Header="Модель" Binding="{Binding Model}" Width="*"/>
+                                <DataGridTextColumn Header="Кол" Binding="{Binding PurchasedQty}" Width="60" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="К возврату" Binding="{Binding ReturnQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
+                                <DataGridTextColumn Header="Цена" Binding="{Binding Price, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N2}}" Width="80"/>
+                                <DataGridTextColumn Header="Сумма" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="100" IsReadOnly="True"/>
+
+                                <DataGridTemplateColumn Header="" Width="60">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="-" Background="#8B0000" Width="50" Height="24" FontSize="10"
+                            Style="{StaticResource RoundedButtonStyle}"
+                            Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                            CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                    </DockPanel>
+                </GroupBox>
+
+                <!-- Right panel -->
                     <StackPanel Grid.Column="2">
                         <GroupBox Header="Оформление">
                             <StackPanel Margin="8">
-                                <TextBlock Text="Причина"/>
-                                <TextBox Text="{Binding Reason}"/>
+                            <TextBlock Text="Причина" />
+                            <ComboBox Height="32" Margin="0,0,0,5"
+                                  ItemsSource="{Binding ReturnReasons}"
+                                  DisplayMemberPath="Name"
+                                  SelectedItem="{Binding SelectedReturnReason, Mode=TwoWay}"
+                                  FontSize="14"/>
 
-                                <TextBlock Text="Способ возврата средств" Margin="0,6,0,0"/>
-                                <ComboBox SelectedValue="{Binding RefundMethod}">
-                                    <ComboBoxItem Content="Наличные" Tag="cash"/>
-                                    <ComboBoxItem Content="Зачесть в баланс" Tag="credit"/>
-                                    <ComboBoxItem Content="Перевод" Tag="transfer"/>
-                                </ComboBox>
+                            <TextBlock Text="Способ возврата средств" Margin="0,6,0,0"/>
+                            <ComboBox  Height="32" Margin="0,0,0,5"
+                                ItemsSource="{Binding RefundMethods}" 
+                                SelectedItem="{Binding RefundMethod, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                            />  
 
-                                <TextBlock Text="Комментарий" Margin="0,6,0,0"/>
+                            <TextBlock Text="Комментарий" Margin="0,6,0,0"/>
                                 <TextBox Text="{Binding Comment}" AcceptsReturn="True" Height="80"/>
                             </StackPanel>
                         </GroupBox>
@@ -273,11 +288,11 @@
                         <GroupBox Header="Итоги" Margin="0,8,0,0">
                             <StackPanel Margin="8">
                                 <DockPanel>
-                                    <TextBlock Text="Сумма:" DockPanel.Dock="Left"/>
-                                    <TextBlock Text="{Binding Subtotal, StringFormat={}{0:N2}}" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                    <TextBlock Text="Сумма" DockPanel.Dock="Left"/>
+                                    <!--<TextBlock Text="{Binding Subtotal, StringFormat={}{0:N2}}" FontWeight="Bold" HorizontalAlignment="Right"/>-->
                                 </DockPanel>
                                 <DockPanel>
-                                    <TextBlock Text="К возврату:" DockPanel.Dock="Left"/>
+                                    <TextBlock Text="возврата:" DockPanel.Dock="Left"/>
                                     <TextBlock Text="{Binding RefundAmount, StringFormat={}{0:N2}}" FontWeight="Bold" HorizontalAlignment="Right"/>
                                 </DockPanel>
                             </StackPanel>
@@ -288,7 +303,7 @@
                         <Button Content="Оформить возврат"
                            
                             Height="34" Width="140" HorizontalAlignment="Right"
-                            Command="{Binding SubmitAsyncCommand}"
+                            Command="{Binding SubmitCommand}"
                             Style="{StaticResource GreenButton}"/>
                     </DockPanel>
                 </StackPanel>

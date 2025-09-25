@@ -272,6 +272,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("Quentity")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ReturnedQty")
+                        .HasColumnType("int");
+
                     b.HasKey("OrderId", "ArticleNumber");
 
                     b.HasIndex("ArticleNumber");
@@ -300,6 +303,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsPaid")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSent")
                         .HasColumnType("bit");
 
                     b.Property<double>("Rate")
@@ -336,6 +342,38 @@ namespace Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.OrganizationInfoEntity", b =>
+                {
+                    b.Property<string>("OrganizationCode")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExportPath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImportPath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Region")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("OrganizationCode");
+
+                    b.ToTable("OrganizationInfo");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.PriceLevelEntity", b =>
@@ -559,12 +597,12 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsManual")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Reason")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("RefundMethod")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ReturnReasonId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
@@ -573,7 +611,30 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("CustomerId");
 
+                    b.HasIndex("ReturnReasonId");
+
                     b.ToTable("Returns");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ReturnReasonEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReturnReasons");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.RoleEntity", b =>
@@ -612,6 +673,31 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("SalesManagers");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.StockUpdateLogEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdateDate")
+                        .IsUnique();
+
+                    b.ToTable("StockUpdateLog");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.StorekeeperEntity", b =>
@@ -832,7 +918,14 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Infrastructure.Entities.ReturnReasonEntity", "ReturnReason")
+                        .WithMany("Returns")
+                        .HasForeignKey("ReturnReasonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Customer");
+
+                    b.Navigation("ReturnReason");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.UserRoleEntity", b =>
@@ -896,6 +989,11 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Infrastructure.Entities.ReturnEntity", b =>
                 {
                     b.Navigation("ReturnDetails");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ReturnReasonEntity", b =>
+                {
+                    b.Navigation("Returns");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.RoleEntity", b =>

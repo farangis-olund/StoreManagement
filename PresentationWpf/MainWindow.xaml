@@ -10,7 +10,7 @@
         d:DataContext="{d:DesignInstance Type=viewmodels:MainViewModel}"
        
         mc:Ignorable="d"
-        Title="" Height="800" Width="1400" Background="#fdfffe"  WindowStartupLocation="CenterScreen">
+        Title="" Height="900" Width="1400" Background="#fdfffe"  WindowStartupLocation="CenterScreen">
         
     <!--<Window.Resources>
 
@@ -102,6 +102,22 @@
             </Setter>
         </Style>
 
+        <Style x:Key="LogoButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ArrowToggleButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -150,12 +166,30 @@
       
 
         <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E">
-            <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E">
+            
+            <!--<StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E">
                 <Grid Background="#302D3E" Margin="0,20,0,0" Width="40">
                     <Image Source="Images/icons/wheel.png"> </Image>
                 </Grid>
                 <TextBlock Text="AutoSpaire Store" FontWeight="Bold" HorizontalAlignment="Center" FontSize="12" Foreground="Wheat" VerticalAlignment="Top" Margin="0,0,0,20"/>
-            </StackPanel>
+            </StackPanel>-->
+            <Button Command="{Binding GoHomeCommand}"
+               Style="{StaticResource LogoButtonStyle}">
+                <StackPanel Background="#302D3E" Margin="0,0,0,0">
+                    <Grid Background="#302D3E" Margin="0,20,0,0" Width="40">
+                        <Image Source="Images/icons/wheel.png"/>
+                    </Grid>
+                    <TextBlock Text="AutoSpaire Store"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   FontSize="12"
+                   Foreground="Wheat"
+                   VerticalAlignment="Top"
+                   Margin="0,0,0,20"/>
+                </StackPanel>
+            </Button>
+
+
             <StackPanel Grid.Column="0" Margin="0,0,0,0" Background="#302D3E" Visibility="{Binding IsLoggedIn, Converter={StaticResource BooleanToVisibilityConverter}}">
 
                 <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToSaleListCommand}" Margin="0,0,0,0">
@@ -179,7 +213,7 @@
                     </StackPanel>
                 </RadioButton>
         
-                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}" Margin="0,0,0,0">
+                <RadioButton GroupName="Sidebar" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToStockCommand}" Margin="0,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Truck"  Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
                         <TextBlock Text="Инвентарь" FontSize="16"  Style="{StaticResource CustomTextBlockStyle}" VerticalAlignment="Center" Margin="10,0,0,0"/>
@@ -283,6 +317,50 @@
                 <DataTemplate DataType="{x:Type viewmodels:AdminViewModel}">
                     <views:AdminView/>
                 </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ReturnInvoiceViewModel}">
+                    <views:ReturnInvoiceView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ReferenceViewModel}">
+                    <views:ReferenceView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:StockViewModel}">
+                    <views:StockView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:TransferViewModel}">
+                    <views:TransferView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:MovementViewModel}">
+                    <views:MovementView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ImportViewModel}">
+                    <views:ImportView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ReportViewModel}">
+                    <views:ReportView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type viewmodels:StockLocationViewModel}">
+                    <views:StockLocationView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:PendingOrdersViewModel}">
+                    <views:PendingOrdersView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:DeliveryOrdersViewModel}">
+                    <views:DeliveryOrdersView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:AssignPickersViewModel}">
+                    <views:AssignPickersView/>
+                </DataTemplate>
+
 
             </ContentControl.Resources>
         </ContentControl>

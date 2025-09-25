@@ -1,0 +1,94 @@
+﻿<UserControl x:Class="PresentationWpf.Views.AssignPickersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="600">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ComboBox for today's orders -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Накладной №:" 
+                   VerticalAlignment="Center" 
+                   Margin="0,0,10,0"/>
+            <ComboBox ItemsSource="{Binding OrderIds}"
+                  SelectedItem="{Binding SelectedOrderId, Mode=TwoWay}"
+                  VerticalAlignment="Center" FontSize="14" Width="200" Height="32"/>
+        </StackPanel>
+
+        <!-- DataGrid -->
+        <DataGrid Grid.Row="1"
+              ItemsSource="{Binding FilteredOrders}"
+              Style="{StaticResource SummaryGrid}"
+              AutoGenerateColumns="False"
+              IsReadOnly="false"
+              CanUserAddRows="False"
+              Margin="0,0,0,10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Накладной №"
+                                Binding="{Binding OrderId}"
+                                IsReadOnly="True" Width="120"/>
+                <DataGridTextColumn Header="Клиент"
+                                Binding="{Binding CustomerName}"
+                                IsReadOnly="True" Width="120"/>
+                <DataGridTextColumn Header="Дата"
+                                Binding="{Binding Date, StringFormat=\{0:dd.MM.yyyy\}}"
+                                IsReadOnly="True" Width="120"/>
+
+                <DataGridComboBoxColumn Header="Сборщик"
+                        SelectedValueBinding="{Binding PickerId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        SelectedValuePath="Id"
+                        DisplayMemberPath="FullName"
+                        Width="*">
+                    <!-- show text when not editing -->
+                    <DataGridComboBoxColumn.ElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                    Value="{Binding DataContext.StorekeeperList,
+                                    RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="FullName"/>
+                            <Setter Property="SelectedValuePath" Value="Id"/>
+                            <Setter Property="IsHitTestVisible" Value="False"/>
+                            <!-- prevents interaction in display mode -->
+                            <Setter Property="Focusable" Value="False"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </DataGridComboBoxColumn.ElementStyle>
+
+                    <!-- allow editing on double-click -->
+                    <DataGridComboBoxColumn.EditingElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                    Value="{Binding DataContext.StorekeeperList,
+                                    RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="FullName"/>
+                            <Setter Property="SelectedValuePath" Value="Id"/>
+                            <Setter Property="IsEditable" Value="False"/>
+                            <!-- dropdown only -->
+                            <Setter Property="IsReadOnly" Value="False"/>
+                        </Style>
+                    </DataGridComboBoxColumn.EditingElementStyle>
+                </DataGridComboBoxColumn>
+
+
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Update button -->
+        <Button Grid.Row="2" 
+            Content="Обновить"
+            Style="{StaticResource GrayButton}"
+            Width="120" 
+            HorizontalAlignment="Right"
+            Command="{Binding UpdateCommand}"/>
+    </Grid>
+
+</UserControl>

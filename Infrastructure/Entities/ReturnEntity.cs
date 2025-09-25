@@ -12,9 +12,11 @@ public class ReturnEntity
 	public bool IsManual { get; set; }                 // Ручное оформление (true = вручную, false = по накладной)
 
 	public string RefundMethod { get; set; } = "cash"; // Способ возврата (наличные, перевод, зачёт и т.д.)
-	public string? Reason { get; set; }                // Причина возврата
+	public int? ReturnReasonId { get; set; }            // Причина возврата
 	public string? Comment { get; set; }               // Доп. комментарии
 
 	public virtual CustomerEntity? Customer { get; set; }
 	public virtual ICollection<ReturnDetailEntity> ReturnDetails { get; set; } = [];
+
+	public virtual ReturnReasonEntity? ReturnReason { get; set; }
 }

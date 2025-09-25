@@ -75,9 +75,9 @@ public partial class AdminViewModel : ObservableObject
 	[RelayCommand]
 	private void OpenReferences()
 	{
-		//ResetSelection();
-		//IsReferencesSelected = true;
-		//CurrentViewModel = _serviceProvider.GetService<ReferencesViewModel>();
+		ResetSelection();
+		IsReferencesSelected = true;
+		CurrentViewModel = _serviceProvider.GetService<ReferenceViewModel>();
 	}
 
 	// --- Helper ---
