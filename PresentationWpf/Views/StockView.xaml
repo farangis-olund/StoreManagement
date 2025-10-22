@@ -9,13 +9,14 @@
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="810">
     <UserControl.Resources>
+        <!-- Base brushes -->
         <SolidColorBrush x:Key="AdminTopBackground" Color="#3E3B4E"/>
         <SolidColorBrush x:Key="AdminTopHover" Color="#4E4B60"/>
         <SolidColorBrush x:Key="AdminTopPressed" Color="#2D2C34"/>
         <SolidColorBrush x:Key="AdminTopSelected" Color="#FFB347"/>
-        <!-- акцент -->
 
-        <Style x:Key="AdminTopButtonStyle" TargetType="RadioButton">
+        <!-- 👇 Base style shared by all top buttons -->
+        <Style x:Key="AdminTopBaseButtonStyle" TargetType="ButtonBase">
             <Setter Property="Height" Value="45"/>
             <Setter Property="MinWidth" Value="150"/>
             <Setter Property="FontSize" Value="14"/>
@@ -24,6 +25,10 @@
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Style for top bar RadioButtons -->
+        <Style x:Key="AdminTopButtonStyle" TargetType="RadioButton" BasedOn="{StaticResource AdminTopBaseButtonStyle}">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
@@ -37,15 +42,12 @@
                                           Margin="10,0,10,0"/>
                         </Grid>
                         <ControlTemplate.Triggers>
-                            <!-- Hover -->
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{StaticResource AdminTopHover}"/>
                             </Trigger>
-                            <!-- Pressed -->
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter Property="Background" Value="{StaticResource AdminTopPressed}"/>
                             </Trigger>
-                            <!-- Selected -->
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="BottomLine" Property="Background" Value="{StaticResource AdminTopSelected}"/>
                                 <Setter Property="FontWeight" Value="Bold"/>
@@ -55,9 +57,67 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Style for ToggleButton (dropdown main) -->
+        <Style x:Key="AdminTopToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource AdminTopBaseButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Border x:Name="BottomLine"
+                                Height="3"
+                                Background="Transparent"
+                                VerticalAlignment="Bottom"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="10,0,10,0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopPressed}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="BottomLine" Property="Background" Value="{StaticResource AdminTopSelected}"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AdminDropdownButtonStyle" TargetType="Button" BasedOn="{StaticResource AdminTopBaseButtonStyle}">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <!-- Increased horizontal padding -->
+            <Setter Property="Padding" Value="25,0,25,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <!-- Apply padding here so it affects content layout -->
+                            <ContentPresenter VerticalAlignment="Center"
+                                      HorizontalAlignment="Left"
+                                      Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopPressed}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
     </UserControl.Resources>
-
-
 
     <Grid>
         <Grid.RowDefinitions>
@@ -82,16 +142,43 @@
                  IsChecked="{Binding IsImportSelected}"
                  Command="{Binding OpenImportCommand}"/>
 
+            <!-- === Original Movement button (restored) === -->
             <RadioButton Content="Движение"
-                 Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsMovementSelected}"
-                 Command="{Binding OpenMovementCommand}"/>
+             Style="{StaticResource AdminTopButtonStyle}"
+             IsChecked="{Binding IsMovementSelected}"
+             Command="{Binding OpenMovementCommand}"/>
 
-            <RadioButton Content="Перемещение"
-                 Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsTransferSelected}"
-                 Command="{Binding OpenTransferCommand}"/>
-            
+            <!-- === Transfer with dropdown options === -->
+            <StackPanel Orientation="Vertical">
+                <ToggleButton x:Name="TransferButton"
+                  Content="Перемещение"
+                  Style="{StaticResource AdminTopToggleButtonStyle}"
+                  Command="{Binding OpenTransferCommand}"/>
+
+                <!-- Dropdown menu -->
+                <Popup x:Name="TransferPopup" Placement="Bottom"
+                   PlacementTarget="{Binding ElementName=TransferButton}"
+                   IsOpen="{Binding ElementName=TransferButton, Path=IsChecked, Mode=TwoWay}"
+                   StaysOpen="False">
+                    <Border Background="{StaticResource AdminTopBackground}"
+                        BorderBrush="#4E4B60"
+                        BorderThickness="1">
+                        <StackPanel>
+                            <Button Content="Получение и передача товаров"
+                                 Style="{StaticResource AdminDropdownButtonStyle}"
+                                 Command="{Binding OpenReceiveTransferCommand}"
+                                 Click="OnDropdownItemClick"/>
+                            <Button Content="Возврат и погашение полученных товаров"
+                                Style="{StaticResource AdminDropdownButtonStyle}"
+                                Command="{Binding OpenReturnDebtRepaymentCommand}"
+                                Click="OnDropdownItemClick"/>
+                           
+
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </StackPanel>
+
             <RadioButton Content="Назначение место на складе"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsStockLocationSelected}"

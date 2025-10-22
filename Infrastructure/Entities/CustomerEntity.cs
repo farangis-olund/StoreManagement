@@ -34,6 +34,7 @@ public class CustomerEntity
 	public ICollection<CustomerPaymentEntity> Payments { get; set; } = [];
 	public ICollection<ReturnEntity> Returns { get; set; } = [];
 	public ICollection<OrderEntity> Orders { get; set; } = [];
+	public ICollection<ManagerCustomerEntity> ManagerCustomers { get; set; } = [];
 
 	public static implicit operator CustomerEntity(Customer entity)
 	{

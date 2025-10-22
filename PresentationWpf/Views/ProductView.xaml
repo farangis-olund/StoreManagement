@@ -21,17 +21,26 @@
         </Grid.RowDefinitions>
 
 
-        <!-- === HEADER WITH CLOSE BUTTON === -->
-        <DockPanel Grid.Row="0"  Height="35">
-            
-            <Button Content="X" 
-                    HorizontalAlignment="Right"
-                    Style="{StaticResource CloseButton}"
-                    DockPanel.Dock="Right"
-                    Margin="0,0,10,0"
-                     Command="{Binding CloseCommand}"/>
+        <!-- === HEADER WITH TITLE AND CLOSE BUTTON === -->
+        <DockPanel Grid.Row="0" Height="50" LastChildFill="False">
+
+            <!-- 🔴 Close button on the right -->
+            <Button Content="X"
+            Style="{StaticResource CloseButton}"
+            DockPanel.Dock="Right"
+            Margin="0,0,10,0"
+            Command="{Binding CloseCommand}"/>
+
+            <!-- 🟢 Title on the left -->
+            <TextBlock Text="КАТАЛОГ ТОВАРОВ"
+               FontSize="18"
+               FontWeight="Bold"
+               Foreground="#333"
+               VerticalAlignment="Center"
+               Margin="10,0,0,0"/>
         </DockPanel>
-        
+
+
         <!-- === TOP MENU === -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Height="45" >
             <Button Content="Сохранить" Style="{StaticResource GrayButton}" Command="{Binding SaveCommand}" Margin="5"/>
@@ -39,7 +48,10 @@
             <Button Content="Удалить" Style="{StaticResource GrayButton}" 
                     Command="{Binding DeleteCommand}" Margin="5" 
                     CommandParameter="{Binding SelectedItems, ElementName=ProductsGrid}"/>
-           
+
+            <Button Content="Удалить всё" Style="{StaticResource GrayButton}" 
+                        Command="{Binding DeleteAllCommand}" Margin="5"/>
+
         </StackPanel>
 
         <!-- === SEARCH === -->
@@ -78,40 +90,54 @@
 
             <DataGrid.Columns>
                 <!-- Текстовые -->
+                <DataGridTextColumn Header="Нумерация" Binding="{Binding Numbering}"
+                     ElementStyle="{StaticResource NumberCellStyle}" />
+                
                 <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber}"
                                     ElementStyle="{StaticResource TextCellStyle}" />
-                <DataGridTextColumn Header="Название" Binding="{Binding ProductName}"
+               
+                <DataGridTextColumn Header="Наименование" Binding="{Binding ProductName}"
                                     ElementStyle="{StaticResource TextCellStyle}" />
-                <DataGridTextColumn Header="Модель" Binding="{Binding Model}"
-                                    ElementStyle="{StaticResource TextCellStyle}" />
+                
+                <DataGridTextColumn Header="Группа" Binding="{Binding GroupName}"
+                    ElementStyle="{StaticResource TextCellStyle}" />
+                
+                <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}"
+                    ElementStyle="{StaticResource TextCellStyle}" />
+
                 <DataGridTextColumn Header="Марка" Binding="{Binding Marka}"
+                     ElementStyle="{StaticResource TextCellStyle}" />
+                
+                <DataGridTextColumn Header="Модель" Width="*" Binding="{Binding Model}"
                                     ElementStyle="{StaticResource TextCellStyle}" />
+               
                 <DataGridTextColumn Header="Альтернатива" Binding="{Binding Alternative}"
                                     ElementStyle="{StaticResource TextCellStyle}" />
-                <DataGridTextColumn Header="Группа" Binding="{Binding GroupName}"
-                                    ElementStyle="{StaticResource TextCellStyle}" />
-                <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}"
-                                    ElementStyle="{StaticResource TextCellStyle}" />
-                <DataGridTextColumn Header="Склад" Binding="{Binding WarehousePlace}"
-                                    ElementStyle="{StaticResource TextCellStyle}" />
-
+                
+              
                 <!-- Числовые -->
-                <DataGridTextColumn Header="Количество" Binding="{Binding Quentity}"
+                <DataGridTextColumn Header="Кол" Binding="{Binding Quentity}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Мин. остаток" Binding="{Binding MinRemainingQuantity}"
+               
+                <DataGridTextColumn Header="Розн.€" Binding="{Binding RetailPriceEuro}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Розн. €" Binding="{Binding RetailPriceEuro}"
+                <DataGridTextColumn Header="Опт.€" Binding="{Binding WholesalePriceEuro}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Опт. €" Binding="{Binding WholesalePriceEuro}"
+                <DataGridTextColumn Header="Серв.€" Binding="{Binding ServicePriceEuro}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Серв. €" Binding="{Binding ServicePriceEuro}"
-                                    ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Опт1. €" Binding="{Binding WholesalePrice1Euro}"
+                <DataGridTextColumn Header="Опт1.€" Binding="{Binding WholesalePrice1Euro}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
                 <DataGridTextColumn Header="Нетто" Binding="{Binding NetPrice}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Мелк. опт" Binding="{Binding SmallWholesalePrice}"
+                <DataGridTextColumn Header="Мелк.опт" Binding="{Binding SmallWholesalePrice}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
+                
+                <DataGridTextColumn Header="Мин.ост" Binding="{Binding MinRemainingQuantity}"
+                     ElementStyle="{StaticResource NumberCellStyle}" />
+                
+                <DataGridTextColumn Header="Место" Binding="{Binding WarehousePlace}"
+                      ElementStyle="{StaticResource TextCellStyle}" />
+                
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

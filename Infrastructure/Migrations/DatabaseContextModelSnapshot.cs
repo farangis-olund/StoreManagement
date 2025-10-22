@@ -35,8 +35,10 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
                     b.Property<string>("CompanyName")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -44,7 +46,27 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BrandName")
                         .IsUnique();
 
+                    b.HasIndex("CategoryId");
+
                     b.ToTable("Brands");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.CategoryEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CategoryName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Categories");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.CourierEntity", b =>
@@ -246,15 +268,32 @@ namespace Infrastructure.Migrations
                     b.Property<string>("ManagerId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Brand")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("BrandId")
+                        .HasColumnType("int");
 
                     b.Property<double>("SalesPercentage")
                         .HasColumnType("float");
 
-                    b.HasKey("ManagerId", "Brand");
+                    b.HasKey("ManagerId", "BrandId");
+
+                    b.HasIndex("BrandId");
 
                     b.ToTable("ManagerBrands");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ManagerCustomerEntity", b =>
+                {
+                    b.Property<string>("ManagerId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CustomerId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("ManagerId", "CustomerId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("ManagerCustomers");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.OrderDetailEntity", b =>
@@ -432,6 +471,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<decimal>("NetPrice")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Numbering")
+                        .HasColumnType("int");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
@@ -675,6 +717,52 @@ namespace Infrastructure.Migrations
                     b.ToTable("SalesManagers");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.StockImportErrorEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ArticleNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StockImportErrors");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.StockMovementEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ItemCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("MovementDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StockMovements");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.StockUpdateLogEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -698,6 +786,57 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("StockUpdateLog");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.StoreEntity", b =>
+                {
+                    b.Property<string>("StoreCode")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("StoreCode");
+
+                    b.ToTable("Stores");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.StoreExchangeEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ArticleNumber")
+                        .IsRequired()
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ExchangeType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoreCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArticleNumber");
+
+                    b.HasIndex("StoreCode");
+
+                    b.ToTable("StoreExchanges");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.StorekeeperEntity", b =>
@@ -769,6 +908,15 @@ namespace Infrastructure.Migrations
                     b.ToTable("UserRoles");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.BrandEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.CategoryEntity", "Category")
+                        .WithMany("Brands")
+                        .HasForeignKey("CategoryId");
+
+                    b.Navigation("Category");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.CustomerEntity", b =>
                 {
                     b.HasOne("Infrastructure.Entities.PriceLevelEntity", "PriceLevel")
@@ -813,11 +961,38 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.ManagerBrandEntity", b =>
                 {
+                    b.HasOne("Infrastructure.Entities.BrandEntity", "Brand")
+                        .WithMany("ManagerBrands")
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Infrastructure.Entities.SalesManagerEntity", "Manager")
                         .WithMany("ManagerBrands")
                         .HasForeignKey("ManagerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Brand");
+
+                    b.Navigation("Manager");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ManagerCustomerEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.CustomerEntity", "Customer")
+                        .WithMany("ManagerCustomers")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Entities.SalesManagerEntity", "Manager")
+                        .WithMany("ManagerCustomers")
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
 
                     b.Navigation("Manager");
                 });
@@ -928,6 +1103,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("ReturnReason");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.StoreExchangeEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.ProductEntity", "Product")
+                        .WithMany()
+                        .HasForeignKey("ArticleNumber")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Entities.StoreEntity", "Store")
+                        .WithMany("StoreExchanges")
+                        .HasForeignKey("StoreCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.UserRoleEntity", b =>
                 {
                     b.HasOne("Infrastructure.Entities.RoleEntity", "Role")
@@ -949,7 +1143,14 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.BrandEntity", b =>
                 {
+                    b.Navigation("ManagerBrands");
+
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.CategoryEntity", b =>
+                {
+                    b.Navigation("Brands");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.CourierEntity", b =>
@@ -959,6 +1160,8 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.CustomerEntity", b =>
                 {
+                    b.Navigation("ManagerCustomers");
+
                     b.Navigation("Orders");
 
                     b.Navigation("Payments");
@@ -1006,6 +1209,13 @@ namespace Infrastructure.Migrations
                     b.Navigation("Customers");
 
                     b.Navigation("ManagerBrands");
+
+                    b.Navigation("ManagerCustomers");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.StoreEntity", b =>
+                {
+                    b.Navigation("StoreExchanges");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.StorekeeperEntity", b =>

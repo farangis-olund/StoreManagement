@@ -18,13 +18,32 @@
 
         <!-- Close button in header (top-right) -->
         <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <!-- left side (text) -->
+                <ColumnDefinition Width="Auto" />
+                <!-- right side (button) -->
+            </Grid.ColumnDefinitions>
+
+            <!-- 🟢 Title on the left -->
+            <TextBlock Text="ИМПОРТ ТОВАРОВ"
+               FontSize="18"
+               FontWeight="Bold"
+               VerticalAlignment="Center"
+               HorizontalAlignment="Left"
+               Foreground="#333"
+               Margin="10,0,0,0"/>
+
+            <!-- 🔴 Close button on the right -->
             <Button Content="X"
-                    Style="{StaticResource CloseButton}"
-                    Command="{Binding CloseCommand}"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Margin="0,0,0,5"/>
+            Style="{StaticResource CloseButton}"
+            Command="{Binding CloseCommand}"
+            Grid.Column="1"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="0,5,5,0"/>
         </Grid>
+
 
         <!-- Date + Action buttons row -->
         <Grid Grid.Row="1" Margin="0,20,0,10">

@@ -1,0 +1,158 @@
+﻿<UserControl x:Class="PresentationWpf.Views.BrandView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+            d:DataContext="{d:DesignInstance Type=viewmodels:BrandViewModel}"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800">
+
+    <Grid Background="#F5F5F5" Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Header -->
+            <RowDefinition Height="Auto"/>
+            <!-- Top controls -->
+            <RowDefinition Height="*"/>
+            <!-- DataGrid -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Text="БРЕНДЫ И НАЗНАЧЕНИЕ ФИРМ"
+                   FontSize="22"
+                   FontWeight="Bold"
+                   Margin="0,0,0,10"
+                   HorizontalAlignment="Left"/>
+
+        <!-- Top controls -->
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <!-- Label -->
+                <ColumnDefinition Width="250"/>
+                <!-- ComboBox -->
+                <ColumnDefinition Width="20"/>
+                <!-- Space -->
+                <ColumnDefinition Width="120"/>
+                <!-- Button -->
+                <ColumnDefinition Width="120"/>
+                <!-- Button -->
+                <ColumnDefinition Width="120"/>
+                <!-- Button -->
+                <ColumnDefinition Width="100"/>
+                <!-- Button -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Label "ПЕРЕЙТИ ПО ФИРМАМ" -->
+            <Label Content="ПЕРЕЙТИ ПО ФИРМАМ"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   Margin="0,0,8,0"/>
+
+            <!-- ComboBox next to Label -->
+            <ComboBox Grid.Column="1"
+                  Height="28"
+                  IsEditable="True"
+                  ItemsSource="{Binding Firms}"
+                  SelectedItem="{Binding SelectedFirm}"/>
+
+
+            <!-- Buttons -->
+            <Button Grid.Column="3" Content="Показать всё" Width="100" Height="30"
+                    Command="{Binding ShowAllCommand}"  Style="{StaticResource GrayButton}"/>
+            <Button Grid.Column="4" Content="Новые бренды" Width="110" Height="30"
+                    Command="{Binding NewBrandCommand}"  Style="{StaticResource GrayButton}"/>
+            <Button Grid.Column="5" Content="Сохранить" Width="100" Height="30" 
+                    Style="{StaticResource GrayButton}" Command="{Binding SaveChangesCommand}"/>
+        </Grid>
+
+        <!-- Data Grid -->
+        <DataGrid Grid.Row="2"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column"
+                  CanUserAddRows="True"
+                  CanUserDeleteRows="True"
+                  Margin="10"
+                  IsReadOnly="False"
+                  ItemsSource="{Binding Brands}"
+                  SelectedItem="{Binding SelectedBrand}"
+                  Style="{StaticResource SummaryGrid}">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}" Width="*" />
+
+                <!-- Category ComboBox -->
+                <DataGridComboBoxColumn Header="Категория"
+    SelectedValueBinding="{Binding CategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+    SelectedValuePath="Id"
+    DisplayMemberPath="CategoryName"
+    Width="*">
+
+                    <!-- Display mode -->
+                    <DataGridComboBoxColumn.ElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                Value="{Binding DataContext.Categories,
+                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="CategoryName"/>
+                            <Setter Property="SelectedValuePath" Value="Id"/>
+                            <Setter Property="IsHitTestVisible" Value="False"/>
+                            <Setter Property="Focusable" Value="False"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </DataGridComboBoxColumn.ElementStyle>
+
+                    <!-- Edit mode -->
+                    <DataGridComboBoxColumn.EditingElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                Value="{Binding DataContext.Categories,
+                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="CategoryName"/>
+                            <Setter Property="SelectedValuePath" Value="Id"/>
+                            <Setter Property="IsEditable" Value="False"/>
+                            <Setter Property="IsReadOnly" Value="False"/>
+                        </Style>
+                    </DataGridComboBoxColumn.EditingElementStyle>
+                </DataGridComboBoxColumn>
+
+
+                <!-- Firm ComboBox -->
+                <DataGridComboBoxColumn Header="Фирма"
+    SelectedValueBinding="{Binding CompanyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+    Width="*">
+
+                    <!-- Display mode -->
+                    <DataGridComboBoxColumn.ElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                Value="{Binding DataContext.Firms,
+                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="."/>
+                            <Setter Property="SelectedValuePath" Value="."/>
+                            <Setter Property="IsHitTestVisible" Value="False"/>
+                            <Setter Property="Focusable" Value="False"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </DataGridComboBoxColumn.ElementStyle>
+
+                    <!-- Edit mode -->
+                    <DataGridComboBoxColumn.EditingElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                Value="{Binding DataContext.Firms,
+                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="."/>
+                            <Setter Property="SelectedValuePath" Value="."/>
+                            <Setter Property="IsEditable" Value="False"/>
+                            <Setter Property="IsReadOnly" Value="False"/>
+                        </Style>
+                    </DataGridComboBoxColumn.EditingElementStyle>
+                </DataGridComboBoxColumn>
+
+
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

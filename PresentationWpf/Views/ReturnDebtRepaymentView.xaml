@@ -1,0 +1,236 @@
+﻿<UserControl x:Class="PresentationWpf.Views.ReturnDebtRepaymentView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Header -->
+            <RowDefinition Height="Auto"/>
+            <!-- Buttons -->
+            <RowDefinition Height="*"/>
+            <!-- Main content -->
+        </Grid.RowDefinitions>
+
+        <!-- === Header with Close Button === -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="ВОЗВРАТ И ПОГАЩЕНИЕ ПОЛУЧЕННЫХ ТОВАРОВ"
+                       FontWeight="Bold"
+                       FontSize="18"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left"/>
+            <Button Content="X"
+                    Style="{StaticResource CloseButton}"
+                    Command="{Binding CloseCommand}"
+                    DockPanel.Dock="Right"
+                    HorizontalAlignment="Right"/>
+        </DockPanel>
+
+        <!-- === Top two buttons === -->
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Left"
+                    Margin="0,10,0,0">
+            <ToggleButton Content="ПОЛУЧЕНИЕ ВОЗВРАТА"
+                    Width="200" Height="45"
+                    FontWeight="Bold"
+                    Background="#DFDFC0" 
+                     Style="{StaticResource TabButton}"
+                Command="{Binding SelectReturnCommand}"
+                    Margin="0,0"/>
+            <ToggleButton Content="ПОГАЩЕНИЕ ДОЛГА"
+                    Width="200" Height="45"
+                    FontWeight="Bold"
+                    Background="#C1C19A" 
+                    Style="{StaticResource TabButton}"
+                    Command="{Binding SelectRepaymentCommand}"
+                    Margin="5,0"/>
+        </StackPanel>
+
+        <!-- === Main content area === -->
+        <Border Grid.Row="2"
+                Background="{Binding ContentBackground}"
+                Margin="0"
+                Padding="20"
+                >
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- === Controls section (EXACT same structure as TransferReceiveView) === -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Description -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="7"
+                               Text="{Binding DescriptionText}"
+                               Foreground="DarkRed" FontStyle="Italic" FontSize="16"
+                               Margin="0,0,0,10"/>
+
+                    <!-- Store Selection (same position as in TransferReceiveView) -->
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="С какого магазина:" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="1" Grid.Column="1"
+                              ItemsSource="{Binding Stores}"
+                              HorizontalAlignment="Left"
+                              SelectedItem="{Binding SelectedStore}"
+                              DisplayMemberPath="StoreCode"
+                              FontSize="14"
+                              IsEditable="True"
+                              Width="150" Height="30" Margin="10,3,0,3"/>
+
+                    <!-- Buttons: Просмотр + Оформить -->
+                    <StackPanel Grid.Row="1" Grid.Column="6"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,0,0,0">
+                        <Button Content="Просмотр"
+                            Style="{StaticResource GrayButton}"
+                            Width="100" Height="35"
+                            Margin="0,0,10,0"
+                            Command="{Binding ShowCommand}"
+                             />
+
+                        <Button Content="Оформить"
+                            Width="120" Height="35"
+                            Style="{StaticResource GreenButton}"
+                            Command="{Binding SubmitCommand}"
+                           />
+                    </StackPanel>
+
+
+                    <!-- === Artikul + Quantity section (side by side + hideable) === -->
+                    <Grid Grid.Row="2"
+                          Grid.ColumnSpan="7"
+                          Visibility="{Binding IsInputVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                          Margin="0,10,0,0">
+
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <!-- Label -->
+                            <ColumnDefinition Width="280"/>
+                            <!-- ComboBox -->
+                            <ColumnDefinition Width="Auto"/>
+                            <!-- Label -->
+                            <ColumnDefinition Width="120"/>
+                            <!-- TextBox -->
+                            <ColumnDefinition Width="*"/>
+                            <!-- Spacer -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Артикул -->
+                        <TextBlock Grid.Column="0"
+                           Text="Артикул:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,5,0"/>
+
+                        <ComboBox Grid.Column="1"
+                              x:Name="ArtikulComboBox"
+                              ItemsSource="{Binding ArtikulList}"
+                              SelectedItem="{Binding SelectedArtikul, Mode=TwoWay}"
+                              IsEditable="True"
+                              IsTextSearchEnabled="True"
+                              StaysOpenOnEdit="True"
+                              DisplayMemberPath="Artikul"
+                              FontSize="14"
+                              Width="260" Height="30"
+                              Margin="5,0,10,0"
+                              IsEnabled="{Binding IsArtikulEnabled}">
+                            <ComboBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding ConfirmSelectedArtikulCommand}" />
+                            </ComboBox.InputBindings>
+                        </ComboBox>
+
+                        <!-- Количество -->
+                        <TextBlock Grid.Column="2"
+                               Text="Количество:"
+                               VerticalAlignment="Center"
+                               Margin="10,0,5,0"/>
+
+                        <TextBox Grid.Column="3"
+                             FontSize="14"
+                             x:Name="QuantityTextBox"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding OrderQuantity, UpdateSourceTrigger=PropertyChanged}"
+                             Width="100" Height="30"
+                             Margin="0,0,0,0">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding ApplyQuantityCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                    </Grid>
+
+                </Grid>
+
+                <!-- === DataGrid section === -->
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Products}"
+                          Style="{StaticResource SummaryGrid}"
+                          RowHeight="28"
+                          IsReadOnly="False">
+
+                    <DataGrid.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                        </Style>
+                    </DataGrid.CellStyle>
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Артикул" Binding="{Binding Artikul}" ElementStyle="{StaticResource CenterCellStyle}" Width="150"/>
+                        <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" ElementStyle="{StaticResource CenterCellStyle}" Width="*"/>
+                        <DataGridTextColumn Header="Бренд" Binding="{Binding Brand}" ElementStyle="{StaticResource CenterCellStyle}" Width="120"/>
+                        <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" ElementStyle="{StaticResource CenterCellStyle}" Width="120"/>
+                        <DataGridTextColumn Header="Cклад" Binding="{Binding WarehouseQuantity}" ElementStyle="{StaticResource NumberCellStyle}" Width="80"/>
+                        <DataGridTextColumn Header="Долг" Binding="{Binding Debt}" ElementStyle="{StaticResource NumberCellStyle}" Width="80"/>
+
+                        <!-- Editable green Quantity column -->
+                        <DataGridTextColumn Header="Кол-во"
+                                            Binding="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="80" IsReadOnly="False">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Background" Value="#A7E3B1"/>
+                                    <Setter Property="TextAlignment" Value="Center"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Padding" Value="10"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                            <DataGridTextColumn.EditingElementStyle>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Background" Value="#A7E3B1"/>
+                                    <Setter Property="TextAlignment" Value="Center"/>
+                                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.EditingElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="Место" Binding="{Binding Location}" ElementStyle="{StaticResource CenterCellStyle}" Width="120"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

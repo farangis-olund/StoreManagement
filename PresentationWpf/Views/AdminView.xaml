@@ -73,10 +73,18 @@
             Background="{StaticResource AdminTopBackground}"
             Height="45">
 
-            <RadioButton Content="Пользователи"
+          
+          
+            <RadioButton Content="Бренды и фирмы"
                  Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsUsersSelected}"
-                 Command="{Binding OpenUsersCommand}"/>
+                 IsChecked="{Binding IsBrandsSelected}"
+                 Command="{Binding OpenBrandsCommand}"/>
+
+            <RadioButton Content="Менеджеры"
+                  Style="{StaticResource AdminTopButtonStyle}"
+                  IsChecked="{Binding IsManagersSelected}"
+                  Command="{Binding OpenManagersCommand}"/>
+
 
             <RadioButton Content="Коэффициенты"
                  Style="{StaticResource AdminTopButtonStyle}"
@@ -88,21 +96,12 @@
                  IsChecked="{Binding IsBonusesSelected}"
                  Command="{Binding OpenBonusesCommand}"/>
 
-            <RadioButton Content="Менеджеры"
-                 Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsManagersSelected}"
-                 Command="{Binding OpenManagersCommand}"/>
-
-            <RadioButton Content="Комплектовщики"
-                 Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsStorekeepersSelected}"
-                 Command="{Binding OpenStorekeepersCommand}"/>
-
-            <RadioButton Content="Уровень клиента"
+            <RadioButton Content="Пользователи"
                Style="{StaticResource AdminTopButtonStyle}"
-               IsChecked="{Binding IsStorekeepersSelected}"
-               Command="{Binding OpenStorekeepersCommand}"/>
-            
+               IsChecked="{Binding IsUsersSelected}"
+               Command="{Binding OpenUsersCommand}"/>
+
+
             <RadioButton Content="Справочники"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsReferencesSelected}"

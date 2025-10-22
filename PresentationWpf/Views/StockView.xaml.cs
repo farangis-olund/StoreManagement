@@ -24,5 +24,11 @@ namespace PresentationWpf.Views
         {
             InitializeComponent();
         }
+
+        private void OnDropdownItemClick(object sender, RoutedEventArgs e)
+        {
+            TransferButton.IsChecked = false; 
+        }
+
     }
 }

@@ -17,22 +17,29 @@ public class GroupService
         _logger = logger;
     }
 
-    public async Task<GroupEntity> AddGroupAsync(string GroupName)
+    public async Task<GroupEntity?> AddGroupAsync(string groupName)
+{
+    try
     {
-        try
-        {
-            var existingGroup = await _groupRepository.GetOneAsync(b => b.GroupName == GroupName)
-                                  ?? await _groupRepository.AddAsync(new GroupEntity { GroupName = GroupName });
+        var existingGroup = await _groupRepository.GetOneAsync(g => g.GroupName == groupName);
 
-            return existingGroup;
-        }
-        catch (Exception ex)
+        // ✅ Only add if it doesn't exist or name is null/empty
+        if (existingGroup == null || string.IsNullOrEmpty(existingGroup.GroupName))
         {
-            _logger.LogError($"Error getting/adding Group: {ex.Message}");
-            Debug.WriteLine($"Error getting/adding Group: {ex.Message}");
-            return null!;
+            var newGroup = new GroupEntity { GroupName = groupName };
+            await _groupRepository.AddAsync(newGroup);
+            return newGroup;
         }
+
+        return existingGroup;
     }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, $"Error getting/adding group '{groupName}'");
+        Debug.WriteLine($"Error getting/adding group: {ex.Message}");
+        return null;
+    }
+}
 
 
     public async Task<GroupEntity> GetGroupAsync(string GroupName)

@@ -3,10 +3,69 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:PresentationWpf.Views"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
-    <Grid>
-            
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Header with Close button -->
+            <RowDefinition Height="Auto"/>
+            <!-- Search & update panel -->
+            <RowDefinition Height="*"/>
+            <!-- Data grid -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="НАЗНАЧЕНИЕ МЕСТА НА СКЛАДЕ"
+                       FontWeight="Bold"
+                       FontSize="18"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left"/>
+            <Button Content="X"
+                    Style="{StaticResource CloseButton}"
+                    Command="{Binding CloseCommand}"
+                    HorizontalAlignment="Right"
+                    DockPanel.Dock="Right"/>
+        </DockPanel>
+
+        <!-- Search and Update panel -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Артикул:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <ComboBox Width="250"
+                      ItemsSource="{Binding Articles}"
+                      VerticalContentAlignment="Center"
+                      IsEditable="True"
+                      Height="30"
+                      SelectedItem="{Binding SelectedArticle}"
+                      Margin="0,0,10,0"/>
+
+            <TextBlock Text="Новое место:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <TextBox Width="100"
+                     VerticalContentAlignment="Center"
+                     Text="{Binding NewWarehousePlace, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="NewPlaceTextBox_KeyDown"/>
+        </StackPanel>
+
+        <!-- DataGrid -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding StockItems}"
+                  Style="{StaticResource SummaryGrid}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="True"
+                  HeadersVisibility="Column"
+                  Margin="0,5,0,0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber}" Width="100"/>
+                <DataGridTextColumn Header="Наименование" Binding="{Binding ProductName}" Width="150"/>
+                <DataGridTextColumn Header="Группа" Binding="{Binding GroupName}" Width="100"/>
+                <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}" Width="100"/>
+                <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" Width="100"/>
+                <DataGridTextColumn Header="Модель" Binding="{Binding Model}" Width="100"/>
+                <DataGridTextColumn Header="Место на складе" Binding="{Binding WarehousePlace}" Width="150"/>
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </UserControl>

@@ -361,6 +361,37 @@
                     <views:AssignPickersView/>
                 </DataTemplate>
 
+                <DataTemplate DataType="{x:Type viewmodels:TransferReceiveViewModel}">
+                    <views:TransferReceiveView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ReturnDebtRepaymentViewModel}">
+                    <views:ReturnDebtRepaymentView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:UserViewModel}">
+                    <views:UserView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ManagerViewModel}">
+                    <views:ManagerView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:BrandViewModel}">
+                    <views:BrandView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:BonusesViewModel}">
+                    <views:BonusesView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ManagerInfoViewModel}">
+                    <views:ManagerInfoView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:AssignPickerInfoViewModel}">
+                    <views:AssignPickerInfoView/>
+                </DataTemplate>
 
             </ContentControl.Resources>
         </ContentControl>

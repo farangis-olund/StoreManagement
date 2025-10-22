@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PresentationWpf.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,6 +24,17 @@ namespace PresentationWpf.Views
         public StockLocationView()
         {
             InitializeComponent();
+        }
+
+        private async void NewPlaceTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (DataContext is StockLocationViewModel vm && vm.SelectedArticle != null)
+                {
+                    await vm.UpdateWarehousePlaceAsync();
+                }
+            }
         }
     }
 }

@@ -59,18 +59,21 @@
             <Button Style="{StaticResource LinkButtonStyle}" 
                     Content="Организация"
                     Command="{Binding OpenOrganizationCommand}"/>
+
+
             <Button Style="{StaticResource LinkButtonStyle}" 
-                    Content="Бренды"
-                    Command="{Binding OpenBrandCommand}"/>
+                    Content="Управление ролями"
+                    Command="{Binding OpenRoleCommand}"/>
+            
+
             <Button Style="{StaticResource LinkButtonStyle}" 
-                    Content="Фирмы"
-                    Command="{Binding OpenFirmCommand}"/>
-            <!--<Button Style="{StaticResource LinkButtonStyle}" 
-                    Content="Менеджеры"
-                    Command="{Binding OpenManagerCommand}"/>
+                 Content="Комплектовщики"
+                 Command="{Binding OpenAssignPickerCommand}"/>
+
             <Button Style="{StaticResource LinkButtonStyle}" 
-                    Content="Складчики"
-                    Command="{Binding OpenWarehouseCommand}"/>-->
+                 Content="Менеджеры"
+                 Command="{Binding OpenManagerCommand}"/>
+                     
             <Button Style="{StaticResource LinkButtonStyle}" 
                     Content="Валюты"
                     Command="{Binding OpenCurrencyCommand}"/>

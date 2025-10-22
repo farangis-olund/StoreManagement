@@ -1,4 +1,5 @@
-﻿using Infrastructure.Contexts;
+﻿using DocumentFormat.OpenXml.InkML;
+using Infrastructure.Contexts;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Repositories;
@@ -242,6 +243,120 @@ public class ProductService
     {
         return await _db.Products
             .AnyAsync(p => p.ArticleNumber == articleNumber);
+    }
+
+
+    // Insert movement (Receipt or WriteOff)
+    public async Task InsertStockMovementAsync(
+        int itemCount,
+        DateTime date,
+        string type,
+        CancellationToken ct = default)
+    {
+        var entry = new StockMovementEntity
+        {
+            MovementDate = date,
+            ItemCount = itemCount,
+            MovementType = type, // "Receipt" or "WriteOff"
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.StockMovements.Add(entry);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // Check if a stock movement of given type exists for date
+    public async Task<bool> IsStockMovementExistAsync(
+        DateTime date,
+        string type,
+        CancellationToken ct = default)
+    {
+        return await _db.StockMovements
+            .AnyAsync(p => p.MovementDate == date && p.MovementType == type, ct);
+    }
+
+    // ✅ Get current product stock
+    public async Task<int> GetProductQuantityAsync(string articleNumber, CancellationToken ct = default)
+    {
+        var product = await _db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.ArticleNumber == articleNumber, ct);
+
+        return product?.Quentity ?? 0;
+    }
+
+    // ✅ Update product stock (add / subtract)
+    public async Task UpdateProductQuantityAsync(int qty, string articleNumber, string operation, CancellationToken ct = default)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.ArticleNumber == articleNumber, ct);
+        if (product == null) return;
+
+        if (operation == "+")
+            product.Quentity += qty;
+        else if (operation == "-")
+            product.Quentity -= qty;
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // ✅ Delete all import errors
+    public async Task ClearStockImportErrorsAsync(CancellationToken ct = default)
+    {
+        var all = _db.Set<StockImportErrorEntity>();
+        _db.RemoveRange(all);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // ✅ Insert missing article error
+    public async Task AddStockImportErrorAsync(int qty, string articleNumber, CancellationToken ct = default)
+    {
+        var err = new StockImportErrorEntity
+        {
+            ArticleNumber = articleNumber,
+            Quantity = qty
+           
+        };
+        _db.Add(err);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // ✅ Get product by article
+    public async Task<Product?> GetProductByArticleNumberAsync(string articleNumber, CancellationToken ct = default)
+    {
+        return await _db.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.ArticleNumber == articleNumber, ct);
+    }
+
+    public async Task<List<StockImportErrorEntity>> GetStockImportErrorsAsync(CancellationToken ct = default)
+    {
+        return await _db.Set<StockImportErrorEntity>()
+            .AsNoTracking()
+            .ToListAsync(ct);
+    }
+
+    public async Task UpdateWarehousePlaceAsync(string articleNumber, string newPlace, CancellationToken ct = default)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.ArticleNumber == articleNumber, ct);
+        if (product == null) return;
+
+        product.WarehousePlace = newPlace;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<bool> DeleteAllProductsAsync()
+    {
+        try
+        {
+            // Example if using EF Core:
+            _db.Products.RemoveRange(_db.Products);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
 }

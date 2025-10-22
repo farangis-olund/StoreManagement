@@ -8,12 +8,16 @@ namespace PresentationWpf.ViewModels;
 public partial class ReferenceViewModel : ObservableObject
 {
     private readonly OrganizationInfoService _orgService;
+	private readonly ManagerService _managerService;
+	private readonly StorekeeperService _storekeeperService;
 
-    [ObservableProperty] private object? selectedReferenceView;
+	[ObservableProperty] private object? selectedReferenceView;
 
-    public ReferenceViewModel(OrganizationInfoService orgService)
+    public ReferenceViewModel(OrganizationInfoService orgService, ManagerService managerService, StorekeeperService storekeeperService)
     {
         _orgService = orgService;
+		_managerService = managerService;
+		_storekeeperService = storekeeperService;
     }
 
     [RelayCommand]
@@ -24,4 +28,23 @@ public partial class ReferenceViewModel : ObservableObject
             DataContext = new OrganizationInfoViewModel(_orgService)
         };
     }
+
+	[RelayCommand]
+	private void OpenManager()
+	{
+		SelectedReferenceView = new ManagerInfoView
+		{
+			DataContext = new ManagerInfoViewModel(_managerService)
+		};
+	}
+
+
+	[RelayCommand]
+	private void OpenAssignPicker()
+	{
+		SelectedReferenceView = new AssignPickerInfoView
+		{
+			DataContext = new AssignPickerInfoViewModel(_storekeeperService)
+		};
+	}
 }

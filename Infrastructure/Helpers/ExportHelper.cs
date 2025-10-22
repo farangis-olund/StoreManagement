@@ -92,4 +92,48 @@ public class ExportHelper
         } while (File.Exists(candidate));
         return candidate;
     }
+
+    // ========================
+    // IMPORT
+    // ========================
+
+    public DataTable? ImportExcel(string filePath, string sheetName = "Sheet1")
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return null;
+
+        try
+        {
+            using var workbook = new XLWorkbook(filePath);
+            var worksheet = workbook.Worksheets.FirstOrDefault(ws => ws.Name == sheetName)
+                         ?? workbook.Worksheets.First();
+
+            var dt = new DataTable();
+            bool firstRow = true;
+
+            foreach (var row in worksheet.RowsUsed())
+            {
+                if (firstRow)
+                {
+                    foreach (var cell in row.Cells())
+                        dt.Columns.Add(cell.Value.ToString());
+                    firstRow = false;
+                }
+                else
+                {
+                    var dataRow = dt.NewRow();
+                    int i = 0;
+                    foreach (var cell in row.Cells(1, dt.Columns.Count))
+                        dataRow[i++] = cell.Value.ToString();
+                    dt.Rows.Add(dataRow);
+                }
+            }
+
+            return dt;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

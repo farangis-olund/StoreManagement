@@ -22,17 +22,16 @@ public partial class AdminViewModel : ObservableObject
 	public AdminViewModel(IServiceProvider serviceProvider)
 	{
 		_serviceProvider = serviceProvider;
-		// Открываем по умолчанию "Пользователи"
-		OpenUsers();
+	
 	}
 
 	// === Пользователи ===
 	[RelayCommand]
 	private void OpenUsers()
 	{
-		//ResetSelection();
-		//IsUsersSelected = true;
-		//CurrentViewModel = _serviceProvider.GetService<UserViewModel>();
+		ResetSelection();
+		IsUsersSelected = true;
+		CurrentViewModel = _serviceProvider.GetService<UserViewModel>();
 	}
 
 	// === Коэффициенты ===
@@ -48,27 +47,27 @@ public partial class AdminViewModel : ObservableObject
 	[RelayCommand]
 	private void OpenBonuses()
 	{
-		//ResetSelection();
-		//IsBonusesSelected = true;
-		//CurrentViewModel = _serviceProvider.GetService<BonusesViewModel>();
+		ResetSelection();
+		IsBonusesSelected = true;
+		CurrentViewModel = _serviceProvider.GetService<BonusesViewModel>();
 	}
 
 	// === Менеджеры ===
 	[RelayCommand]
 	private void OpenManagers()
 	{
-		//ResetSelection();
-		//IsManagersSelected = true;
-		//CurrentViewModel = _serviceProvider.GetService<ManagerViewModel>();
+		ResetSelection();
+		IsManagersSelected = true;
+		CurrentViewModel = _serviceProvider.GetService<ManagerViewModel>();
 	}
 
 	// === Складчики ===
 	[RelayCommand]
-	private void OpenStorekeepers()
+	private void OpenBrands()
 	{
-		////ResetSelection();
-		////IsStorekeepersSelected = true;
-		//CurrentViewModel = _serviceProvider.GetService<StorekeeperViewModel>();
+		ResetSelection();
+		IsStorekeepersSelected = true;
+		CurrentViewModel = _serviceProvider.GetService<BrandViewModel>();
 	}
 
 	// === Справочники ===

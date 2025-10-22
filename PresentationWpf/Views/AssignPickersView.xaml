@@ -21,6 +21,7 @@
                    Margin="0,0,10,0"/>
             <ComboBox ItemsSource="{Binding OrderIds}"
                   SelectedItem="{Binding SelectedOrderId, Mode=TwoWay}"
+                      IsEditable="True"
                   VerticalAlignment="Center" FontSize="14" Width="200" Height="32"/>
         </StackPanel>
 

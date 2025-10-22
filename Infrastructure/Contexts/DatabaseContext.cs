@@ -7,9 +7,9 @@ namespace Infrastructure.Contexts;
 public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) : DbContext(options)
 {
 	public virtual DbSet<BrandEntity> Brands { get; set; }
-    public virtual DbSet<CurrencyEntity> Currencies { get; set; }
-    public virtual DbSet<GroupEntity> Groups { get; set; }
-    public virtual DbSet<ProductEntity> Products { get; set; }
+	public virtual DbSet<CurrencyEntity> Currencies { get; set; }
+	public virtual DbSet<GroupEntity> Groups { get; set; }
+	public virtual DbSet<ProductEntity> Products { get; set; }
 	public virtual DbSet<CustomerEntity> Customers { get; set; }
 	public virtual DbSet<UserEntity> Users { get; set; }
 	public virtual DbSet<RoleEntity> Roles { get; set; }
@@ -35,11 +35,19 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 
 	public virtual DbSet<ReturnReasonEntity> ReturnReasons { get; set; }
 
-    public virtual DbSet<OrganizationInfoEntity> OrganizationInfo { get; set; }
-    public virtual DbSet<StockUpdateLogEntity> StockUpdateLog { get; set; }
+	public virtual DbSet<OrganizationInfoEntity> OrganizationInfo { get; set; }
+	public virtual DbSet<StockUpdateLogEntity> StockUpdateLog { get; set; }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
+	public virtual DbSet<StockMovementEntity> StockMovements { get; set; }
+	public virtual DbSet<StockImportErrorEntity> StockImportErrors { get; set; }
+
+	public virtual DbSet<StoreEntity> Stores { get; set; }
+	public virtual DbSet<StoreExchangeEntity> StoreExchanges { get; set; }
+	public virtual DbSet<CategoryEntity> Categories { get; set; }
+	public virtual DbSet<ManagerCustomerEntity> ManagerCustomers { get; set; }
+
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
+	{
 
 		foreach (var property in modelBuilder.Model
 		.GetEntityTypes()
@@ -49,11 +57,11 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 			property.SetColumnType("decimal(18,2)");
 		}
 
-        modelBuilder.Entity<StockUpdateLogEntity>()
+		modelBuilder.Entity<StockUpdateLogEntity>()
 		.HasIndex(x => x.UpdateDate)
 		.IsUnique();
 
-        modelBuilder.Entity<CustomerPaymentEntity>(b =>
+		modelBuilder.Entity<CustomerPaymentEntity>(b =>
 		{
 			b.ToTable("Payments"); // or your actual table name
 			b.HasKey(x => x.Id);
@@ -64,9 +72,16 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 			 .HasForeignKey(x => x.CustomerId)
 			 .HasPrincipalKey(c => c.Id)
 			 .OnDelete(DeleteBehavior.Restrict);
-						
+
 		});
-			
+
+		modelBuilder.Entity<StoreEntity>()
+	   .HasKey(s => s.StoreCode);
+
+		modelBuilder.Entity<StoreExchangeEntity>()
+			.HasOne(se => se.Store)
+			.WithMany(s => s.StoreExchanges)
+			.HasForeignKey(se => se.StoreCode);
 
 		modelBuilder.Entity<CustomerEntity>()
 		.HasOne(c => c.SalesManager)
@@ -79,40 +94,32 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 		.WithOne(r => r.Customer)
 		.HasForeignKey(r => r.CustomerId);
 
-		modelBuilder.Entity<ManagerBrandEntity>()
-	.HasKey(mb => new { mb.ManagerId, mb.Brand });
-
-		modelBuilder.Entity<ManagerBrandEntity>()
-			.HasOne(mb => mb.Manager)
-			.WithMany(m => m.ManagerBrands)
-			.HasForeignKey(mb => mb.ManagerId);
-	
 
 		modelBuilder.Entity<BrandEntity>()
-            .HasIndex(x => x.BrandName)
-            .IsUnique();
+			.HasIndex(x => x.BrandName)
+			.IsUnique();
 
-        modelBuilder.Entity<GroupEntity>()
-            .HasIndex(x => x.GroupName)
-            .IsUnique();
+		modelBuilder.Entity<GroupEntity>()
+			.HasIndex(x => x.GroupName)
+			.IsUnique();
 
-        modelBuilder.Entity<CurrencyEntity>()
-            .HasIndex(x => x.Code)
-            .IsUnique();
-		        
+		modelBuilder.Entity<CurrencyEntity>()
+			.HasIndex(x => x.Code)
+			.IsUnique();
 
-        modelBuilder.Entity<ProductEntity>(entity =>
-        {
-            entity.HasOne(c => c.Brand)
-                .WithMany(z => z.Products)
-                .HasForeignKey(d => d.BrandId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            entity.HasOne(c => c.Group)
-                .WithMany(z => z.Products)
-                .HasForeignKey(d => d.GroupId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+
+		modelBuilder.Entity<ProductEntity>(entity =>
+		{
+			entity.HasOne(c => c.Brand)
+				.WithMany(z => z.Products)
+				.HasForeignKey(d => d.BrandId)
+				.OnDelete(DeleteBehavior.Cascade);
+
+			entity.HasOne(c => c.Group)
+				.WithMany(z => z.Products)
+				.HasForeignKey(d => d.GroupId)
+				.OnDelete(DeleteBehavior.Cascade);
+		});
 
 		modelBuilder.Entity<OrderEntity>()
 		  .HasOne(o => o.Courier)
@@ -153,13 +160,13 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 		modelBuilder.Entity<UserRoleEntity>()
 			.HasKey(ur => new { ur.UserId, ur.RoleId });
 
-		
+
 		modelBuilder.Entity<UserRoleEntity>()
 			.HasOne(ur => ur.User)
 			.WithMany(u => u.UserRoles)
 			.HasForeignKey(ur => ur.UserId);
 
-		
+
 		modelBuilder.Entity<UserRoleEntity>()
 			.HasOne(ur => ur.Role)
 			.WithMany(r => r.UserRoles)
@@ -169,7 +176,7 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 		modelBuilder.Entity<ReturnEntity>(entity =>
 		{
 			entity.HasOne(e => e.Customer)
-				  .WithMany(c => c.Returns)   
+				  .WithMany(c => c.Returns)
 				  .HasForeignKey(e => e.CustomerId)
 				  .OnDelete(DeleteBehavior.Restrict);
 
@@ -195,5 +202,14 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) 
 				  .HasForeignKey(d => d.ArticleNumber)
 				  .HasPrincipalKey(p => p.ArticleNumber);
 		});
+		modelBuilder.Entity<ManagerBrandEntity>()
+			.HasKey(x => new { x.ManagerId, x.BrandId });
+				
+
+		modelBuilder.Entity<ManagerCustomerEntity>()
+			.HasKey(x => new { x.ManagerId, x.CustomerId });
+
+		
+
 	}
 }

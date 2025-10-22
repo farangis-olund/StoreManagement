@@ -32,16 +32,11 @@
                 <DataGridTextColumn Header="Дата" Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy}}" Width="100"/>
                 <DataGridTextColumn Header="Код клиента" Binding="{Binding CustomerId}" Width="100" ElementStyle="{StaticResource CenterCellStyle}"/>
 
-                <DataGridTemplateColumn Header="Отправлено" Width="*" >
-                    
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsSent, Mode=TwoWay}"
-                                  VerticalAlignment="Center"
-                                  HorizontalAlignment="Center"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
+                <DataGridCheckBoxColumn Header="Отправлено"
+                        Binding="{Binding IsSent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        Width="*"/>
+
+
 
             </DataGrid.Columns>
         </DataGrid>

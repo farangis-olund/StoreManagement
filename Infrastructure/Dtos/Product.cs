@@ -7,7 +7,8 @@ namespace Infrastructure.Dtos;
 
 public class Product 
 {
-    public string ArticleNumber { get; set; } = null!;
+	public int Numbering { get; set; }
+	public string ArticleNumber { get; set; } = null!;
     public string ProductName { get; set; } = null!;
     public string Model { get; set; } = null!;
 	public string Marka { get; set; } = null!;
@@ -42,6 +43,7 @@ public class Product
     {
         return new Product
         {
+            Numbering = entity.Numbering,
             ArticleNumber = entity.ArticleNumber,
             ProductName = entity.ProductName,
             Model = entity.Model,

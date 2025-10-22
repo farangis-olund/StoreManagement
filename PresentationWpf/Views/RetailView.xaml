@@ -392,8 +392,8 @@
               IsEditable="True" TextSearch.TextPath="FullName" FontSize="12"/>
 
                     <!-- Цена закупа -->
-                    <TextBlock Text="Цена закупа" Grid.Row="1" Grid.Column="6" VerticalAlignment="Center" FontSize="12" Margin="2"/>
-                    <TextBox Grid.Row="1" IsReadOnly="True" Grid.Column="7" Margin="2" Text="{Binding SelectedCustomer.PriceType}" FontSize="12"/>
+                    <TextBlock Text="Тел" Grid.Row="1" Grid.Column="6" VerticalAlignment="Center" FontSize="12" Margin="2"/>
+                    <TextBox Grid.Row="1" IsReadOnly="True" Grid.Column="7" Margin="2" Text="{Binding SelectedCustomer.MobilePhone}" FontSize="12"/>
 
                     <!-- Заказ прямо со склада -->
                     <TextBlock Text="Заказ прямо со склада" Grid.Row="1" Grid.Column="9" VerticalAlignment="Center" FontSize="12" Margin="2"/>
@@ -599,12 +599,12 @@
 
 
                 <Label Grid.Column="0" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="18" Foreground="#e67e22" >Альтернативы товара</Label>
-                <DataGrid GridLinesVisibility="None" IsReadOnly="True" Margin="5" FontSize="16" ItemsSource="{Binding AlternativeProductList}" AutoGenerateColumns="False">
+                <DataGrid GridLinesVisibility="None" IsReadOnly="True" Margin="5" FontSize="12" ItemsSource="{Binding AlternativeProductList}" AutoGenerateColumns="False">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Бренд" MaxWidth="150" Binding="{Binding BrandName}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
-                        <DataGridTextColumn Header="Кол" MaxWidth="60" Binding="{Binding Quentity}" ElementStyle="{StaticResource TextBlockPaddingStyle}" />
-                        <DataGridTextColumn Header="СМН" MaxWidth="70" Binding="{Binding RetailPrice, StringFormat=\{0:F2\}}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
-                        <DataGridTextColumn Header="€" MaxWidth="70" Binding="{Binding CustomerPrice, StringFormat=\{0:F2\}}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
+                        <DataGridTextColumn Header="Бренд" Width="65" Binding="{Binding BrandName}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
+                        <DataGridTextColumn Header="Кол" Width="35" Binding="{Binding Quentity}" ElementStyle="{StaticResource TextBlockPaddingStyle}" />
+                        <DataGridTextColumn Header="СМН" Width="60" Binding="{Binding RetailPrice, StringFormat=\{0:F2\}}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
+                        <DataGridTextColumn Header="€" Width="50" Binding="{Binding CustomerPrice, StringFormat=\{0:F2\}}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
                         <!-- Add Button Column -->
                         <DataGridTemplateColumn Header="Добавить">
                             <DataGridTemplateColumn.CellTemplate>

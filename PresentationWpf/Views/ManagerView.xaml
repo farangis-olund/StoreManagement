@@ -1,0 +1,311 @@
+﻿<UserControl x:Class="PresentationWpf.Views.ManagerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="900">
+
+    <Grid Background="#F5F5F5" Margin="10">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- Header -->
+            <RowDefinition Height="Auto"/>   <!-- Manager info -->
+            <RowDefinition Height="*"/>
+            <!-- Grids -->
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" BorderThickness="1" BorderBrush="#CCC" Padding="8" Background="#E8E8E8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="220"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="МЕНЕДЖЕРЫ ПО ПРОДАЖАМ"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Grid.ColumnSpan="3"/>
+
+                <Label Grid.Column="1"
+                       Content="Перейти:"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Right"
+                       Margin="0,0,5,0"/>
+
+                <ComboBox Grid.Column="2"
+                          Height="30"
+                          FontSize="14"
+                          ItemsSource="{Binding Managers}"
+                          SelectedValuePath="Id"
+                          DisplayMemberPath="FullName"
+                          SelectedValue="{Binding SelectedManagerId, Mode=TwoWay}"
+                          IsEditable="True"/>
+            </Grid>
+        </Border>
+
+        <!-- MANAGER INFO -->
+        <Border Grid.Row="1" BorderThickness="1" BorderBrush="#CCC" Margin="0,8,0,0" Padding="10" Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Label 1 -->
+                    <ColumnDefinition Width="120"/>
+                    <!-- TextBox 1 -->
+                    <ColumnDefinition Width="20"/>
+                    <!-- GAP -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Label 2 -->
+                    <ColumnDefinition Width="140"/>
+                    <!-- TextBox 2 -->
+                    <ColumnDefinition Width="20"/>
+                    <!-- GAP -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Label 3 -->
+                    <ColumnDefinition Width="140"/>
+                    <!-- TextBox 3 -->
+                    <ColumnDefinition Width="20"/>
+                    <!-- GAP -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Label 3 -->
+                    <ColumnDefinition Width="160"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Код менеджера -->
+                <Label Content="Код менеджера:" Grid.Column="0"
+               VerticalAlignment="Center"
+               HorizontalAlignment="Right"
+               Margin="0,0,5,0"/>
+
+                <TextBox Grid.Column="1"
+                 Text="{Binding ManagerCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Height="30"
+                 FontSize="14"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 Margin="0,0,5,0"/>
+
+                <!-- ФИО -->
+                <Label Content="ФИО:" Grid.Column="3"
+               VerticalAlignment="Center"
+               HorizontalAlignment="Right"
+               Margin="0,0,5,0"/>
+
+                <TextBox Grid.Column="4"
+                 Text="{Binding ManagerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Height="30"
+                 FontSize="14"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 Margin="0,0,5,0"/>
+
+                <!-- Адрес -->
+                <Label Content="Адрес:" Grid.Column="6"
+               VerticalAlignment="Center"
+               HorizontalAlignment="Right"
+               Margin="0,0,5,0"/>
+
+                <TextBox Grid.Column="7"
+                 Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Height="30"
+                 FontSize="14"
+                 VerticalAlignment="Center"
+                 VerticalContentAlignment="Center"
+                 Margin="0,0,5,0"/>
+                <!-- Тел -->
+                <Label Content="Тел:" Grid.Column="9"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Right"
+                    Margin="0,0,5,0"/>
+                <TextBox Grid.Column="10"
+                  Text="{Binding Contacts, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                  Height="30"
+                  FontSize="14"
+                  VerticalAlignment="Center"
+                  VerticalContentAlignment="Center"
+                  Margin="0,0,5,0"/>
+            </Grid>
+        </Border>
+
+
+        <!-- GRIDS SECTION -->
+        <Border Grid.Row="2" BorderThickness="1" BorderBrush="#CCC" Margin="0,8,0,0" Padding="8" Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- CLIENTS GRID -->
+                <GroupBox Header="Клиенты" Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Stretch">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <!-- Buttons -->
+                            <RowDefinition Height="*"/>
+                            <!-- Grid -->
+                        </Grid.RowDefinitions>
+
+                        <!-- BUTTONS ROW -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                                        <Button Content="Сохранить"
+                                Width="100"
+                                Height="30"
+                                Command="{Binding SaveCustomersCommand}"
+                                IsEnabled="{Binding IsManagerSelected}" 
+                                Style="{StaticResource GrayButton}"
+                                Margin="0,0,10,0"/>
+                        </StackPanel>
+
+                        <!-- DATA GRID -->
+                        <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Clients}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="True"
+                          CanUserDeleteRows="True"
+                          IsReadOnly="False"
+                          Margin="0"
+                          VerticalAlignment="Stretch"
+                          HorizontalAlignment="Stretch"
+                          IsEnabled="{Binding IsManagerSelected}"
+                          Style="{StaticResource SummaryGrid}">
+
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Код клиента" Width="150" >
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding CustomerId}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <ComboBox
+                                                SelectedValue="{Binding CustomerId, Mode=TwoWay}"
+                                                SelectedValuePath="Id"
+                                                ItemsSource="{Binding DataContext.AllClients, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                DisplayMemberPath="Id"
+                                                Width="150" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Header="ФИО"
+                                    Binding="{Binding CustomerName, Mode=OneWay}"
+                                    IsReadOnly="True"
+                                    Width="*" />
+
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                    </Grid>
+                </GroupBox>
+
+
+
+                <!-- FIRMS GRID WITH CONTROLS ON TOP -->
+                <GroupBox Header="Фирмы" Grid.Column="1" VerticalAlignment="Stretch">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- BUTTONS + % TEXTBOX ABOVE -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                            <Label Content="Процент:" VerticalAlignment="Center"/>
+                            <TextBox Width="60"
+                             Height="30"
+                             FontSize="14"
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             Text="{Binding SalePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                             Margin="5,0,0,0"/>
+                            <Button Content="Добавить всё"
+                                    HorizontalAlignment="Right"
+                            Width="100"
+                            Height="30"
+                            Margin="10,0,0,0"
+                            Command="{Binding AddAllFirmsCommand}"
+                            IsEnabled="{Binding IsManagerSelected}"
+                            Style="{StaticResource GrayButton}" />
+                            <Button Content="Удалить всё"
+                            Width="100"
+                            Height="30"
+                            Margin="10,0,0,0"
+                            Command="{Binding DeleteFirmCommand}"
+                            IsEnabled="{Binding IsManagerSelected}"
+                            Style="{StaticResource GrayButton}" />
+
+                            <Button Content="Сохранить"
+                                Width="100"
+                                Height="30"
+                                Margin="10,0,0,0"
+                                Command="{Binding SaveFirmCommand}"
+                                IsEnabled="{Binding IsManagerSelected}"
+                                Style="{StaticResource GrayButton}" />
+                            
+                        </StackPanel>
+
+                        <!-- FIRMS GRID -->
+                        <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Firms}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="True"
+                          CanUserDeleteRows="True"
+                          IsReadOnly="False"
+                          Margin="0"
+                          VerticalAlignment="Stretch"
+                          HorizontalAlignment="Stretch"
+                          IsEnabled="{Binding IsManagerSelected}"
+                          Style="{StaticResource SummaryGrid}">
+                            
+                            <DataGrid.Columns>
+                                <DataGridComboBoxColumn Header="Фирма"
+                                    SelectedValueBinding="{Binding BrandId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    SelectedValuePath="Id"
+                                    DisplayMemberPath="BrandName"
+                                    Width="*">
+
+                                    <!-- Display mode -->
+                                    <DataGridComboBoxColumn.ElementStyle>
+                                        <Style TargetType="ComboBox">
+                                            <Setter Property="ItemsSource"
+                                            Value="{Binding DataContext.AllFirms, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                                            <Setter Property="DisplayMemberPath" Value="BrandName" />
+                                            <Setter Property="SelectedValuePath" Value="Id" />
+                                            <Setter Property="IsHitTestVisible" Value="False" />
+                                            <Setter Property="Focusable" Value="False" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                        </Style>
+                                    </DataGridComboBoxColumn.ElementStyle>
+
+                                    <!-- Edit mode -->
+                                    <DataGridComboBoxColumn.EditingElementStyle>
+                                        <Style TargetType="ComboBox">
+                                            <Setter Property="ItemsSource"
+                                                Value="{Binding DataContext.AllFirms, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                                            <Setter Property="DisplayMemberPath" Value="BrandName" />
+                                            <Setter Property="SelectedValuePath" Value="Id" />
+                                            <Setter Property="IsEditable" Value="False" />
+                                            <Setter Property="IsReadOnly" Value="False" />
+                                        </Style>
+                                    </DataGridComboBoxColumn.EditingElementStyle>
+                                </DataGridComboBoxColumn>
+
+                                <DataGridTextColumn Header="% для продаж"
+                                            Binding="{Binding SalesPercentage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </GroupBox>
+            </Grid>
+        </Border>
+
+    </Grid>
+</UserControl>

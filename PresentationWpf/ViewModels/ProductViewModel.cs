@@ -46,8 +46,11 @@ public partial class ProductViewModel : ObservableObject
     [RelayCommand]
     private void Close()
     {
+        SelectedProduct = null;
+        FilterText = string.Empty;
+        SearchAllWords = false;
         RequestClose?.Invoke();
-        //_stock.CloseCatalog();
+       
     }
 
     [RelayCommand]
@@ -82,13 +85,14 @@ public partial class ProductViewModel : ObservableObject
            
             var entity = new ProductEntity
             {
+                Numbering = product.Numbering,
                 ArticleNumber = product.ArticleNumber,
                 ProductName = product.ProductName,
                 Model = product.Model,
                 Marka = product.Marka,
                 Alternative = product.Alternative,
-                GroupId = brandEntity.Id,
-                BrandId = groupEntity.Id,
+                GroupId = groupEntity.Id,
+                BrandId = brandEntity.Id,
                 Quentity = product.Quentity,
                 WarehousePlace = product.WarehousePlace,
                 MinRemainingQuantity = product.MinRemainingQuantity,
@@ -124,32 +128,62 @@ public partial class ProductViewModel : ObservableObject
         );
     }
 
-    [RelayCommand]
-    public async Task DeleteAsync(System.Collections.IList? itemsToDelete)
+	[RelayCommand]
+	public async Task DeleteAsync(System.Collections.IList? itemsToDelete)
+	{
+		if (itemsToDelete == null || itemsToDelete.Count == 0)
+			return;
+
+		// ✅ Filter only real Product objects
+		var products = itemsToDelete
+			.OfType<Product>() // <-- filters only correct type
+			.ToList();
+
+		if (products.Count == 0)
+			return;
+
+		int count = products.Count;
+
+		var result = MessageBox.Show(
+			$"Вы действительно хотите удалить {count} артикул(ов)?",
+			"Подтверждение удаления",
+			MessageBoxButton.YesNo,
+			MessageBoxImage.Warning);
+
+		if (result != MessageBoxResult.Yes)
+			return;
+
+		foreach (var product in products)
+		{
+			var success = await _productService.DeleteProductByArticleAsync(product.ArticleNumber);
+			if (success)
+			{
+				Products.Remove(product);
+			}
+		}
+	}
+
+
+	[RelayCommand]
+    public async Task DeleteAllAsync()
     {
-        if (itemsToDelete == null || itemsToDelete.Count == 0)
-            return;
-
-        var products = itemsToDelete.Cast<Product>().ToList();
-
-        int count = itemsToDelete.Count;
-
         var result = MessageBox.Show(
-            $"Вы действительно хотите удалить {count} артикул{(count > 1 ? "ов" : "")}?",
+            "Вы действительно хотите удалить все товары?",
             "Подтверждение удаления",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
         if (result == MessageBoxResult.Yes)
         {
-            foreach (var product in products)
+            var success = await _productService.DeleteAllProductsAsync();
+
+            if (success)
             {
-                var success = await _productService.DeleteProductByArticleAsync(product.ArticleNumber);
-                if (success)
-                    Products.Remove(product);
+                Products.Clear(); 
             }
         }
     }
+
 
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();

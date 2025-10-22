@@ -10,8 +10,9 @@ public class ProductEntity
     [StringLength(50)]
     [Unicode(false)]
     public string ArticleNumber { get; set; } = null!;
+	public int Numbering { get; set; }
 
-    [StringLength(100)]
+	[StringLength(100)]
     public string ProductName { get; set; } = null!;
     public string Model { get; set; } = null!;
     public string Marka { get; set; } = null!;
