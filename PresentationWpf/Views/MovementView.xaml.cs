@@ -26,6 +26,18 @@ namespace PresentationWpf.Views
                     else if (vm.IsOutgoing)
                         await vm.AddOutgoingAsync();
                 }
+
+                ArticleComboBox.Focus();
+                e.Handled = true;
+            }
+        }
+
+        private void ArticleComboBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                QuantityTextBox.Focus();
+                e.Handled = true;
             }
         }
 

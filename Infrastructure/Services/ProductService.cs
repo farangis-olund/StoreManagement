@@ -57,7 +57,7 @@ public class ProductService
 	public async Task<decimal> GetDefaultPriceAsync(string article)
 	{
 		var product = await GetProductByArticleAsync(article);
-		return product?.RetailPriceEuro ?? 0m;
+		return product?.PriceLevel1 ?? 0m;
 	}
 
 

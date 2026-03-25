@@ -8,6 +8,7 @@
              xmlns:local="clr-namespace:PresentationWpf.Views"
              xmlns:views="clr-namespace:PresentationWpf.Views"
              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+             xmlns:conv="clr-namespace:PresentationWpf.Converters"
               d:DataContext="{d:DesignInstance Type=viewmodels:RetailViewModel}"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="1000"
@@ -16,7 +17,8 @@
     <UserControl.Resources>
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-
+       
+        
         <!-- Put in Window/Page/UserControl.Resources -->
         <Style x:Key="PriceEditorStyle" TargetType="TextBox">
             <Setter Property="IsReadOnly" Value="True"/>
@@ -183,6 +185,9 @@
         <Style TargetType="TextBox">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
+        
+        <conv:LeftMarginConverter x:Key="LeftMarginConverter"/>
+
     </UserControl.Resources>
 
     <Grid>
@@ -211,8 +216,9 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
+             
                 <!-- StackPanel info for order -->
-                <StackPanel Background="#E0E5E6" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,10,0" Height="34">
+                <StackPanel Grid.Row="0" Background="#E0E5E6" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,10,0" Height="34">
                     <!-- Exchange Rate Display -->
                     <TextBlock Text="Продавец:" FontWeight="Bold" FontSize="11" Margin="0,2,10,10"/>
                     <TextBlock Text="{Binding User}" FontSize="14" Margin="0,0,20,10"/>
@@ -311,7 +317,7 @@
 
                     <!-- Уровень -->
                     <TextBlock Text="Уровень" Grid.Row="0" Grid.Column="6" VerticalAlignment="Center"  FontSize="12" Margin="2"/>
-                    <TextBox Grid.Row="0" IsReadOnly="True" Grid.Column="7" Text="{Binding SelectedCustomer.PriceLevelId}" FontSize="12" Margin="2"/>
+                    <TextBox Grid.Row="0" IsReadOnly="True" Grid.Column="7" Text="{Binding SelectedCustomer.PriceType}" FontSize="12" Margin="2"/>
 
                     <!-- Ограничение -->
                     <TextBlock Text="Ограничение" Grid.Row="0" Grid.Column="9" VerticalAlignment="Center" FontSize="12" Margin="2"/>
@@ -446,8 +452,26 @@
 
 
                     <!--DataGrid (scrolls)-->
-                    <DataGrid Grid.Row="1" CanUserAddRows="False" MaxHeight="600" GridLinesVisibility="None" Margin="10,0" FontSize="16" ItemsSource="{Binding SelectedProductList}" AutoGenerateColumns="False" IsReadOnly="False">
-                        
+                    <DataGrid x:Name="CartGrid" Grid.Row="1" CanUserAddRows="False" MaxHeight="600" GridLinesVisibility="None" Margin="10,0" FontSize="16" ItemsSource="{Binding SelectedProductList}" AutoGenerateColumns="False" IsReadOnly="False">
+
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                
+                                <Style.Triggers>
+
+                                    <!-- 🔥 Invalid row after SaveOrder validation -->
+                                    <DataTrigger Binding="{Binding IsInvalid}" Value="True">
+                                        <Setter Property="Foreground" Value="#FF3B30"/>        <!-- red -->
+                                        
+                                    </DataTrigger>
+                                 
+
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+
+
+
                         <DataGrid.Columns>
                             <DataGridTextColumn MaxWidth="150" Header="Артикул" IsReadOnly="True" Binding="{Binding ArticleNumber}" ElementStyle="{StaticResource TextBlockPaddingStyle}" />
                             <DataGridTextColumn MaxWidth="350" Header="Наименование" IsReadOnly="True" Binding="{Binding ProductName}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
@@ -517,16 +541,43 @@
                     <TextBlock  Grid.Row="2" HorizontalAlignment="Right" Margin="10" FontSize="16" FontWeight="Bold" Text="{Binding TotalSum, StringFormat='Итоговая Сумма (СМН): {0:F2}'}" />
                 </Grid>
 
-
                 <!-- Search Controls -->
                 <Grid Grid.Row="3" Margin="5,5,5,4">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="auto"/>    <!-- Checkbox -->
+                        <RowDefinition Height="Auto"/>     <!-- SearchBox + Suggestion -->
+                        
                     </Grid.RowDefinitions>
-                    <CheckBox Content="Поиск всех кл.слов" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="18" Foreground="#e67e22" Margin="10,0,0,0" Grid.Row="0" IsChecked="{Binding SearchAllWords}" />
-                    <TextBox Style="{StaticResource RoundedTextBoxStyle}" Width="400" Height="50" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="5,7" Tag="Поиск" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <CheckBox Grid.Row="0" Content="Поиск всех кл.слов" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="18" Foreground="#e67e22" Margin="10,0,0,0"  IsChecked="{Binding SearchAllWords}" />
+
+                    <Grid Grid.Row="1"
+                        Width="400" Height="60" HorizontalAlignment="Left">
+
+                        <!-- Main input -->
+                        <TextBox x:Name="SearchBox"
+                             Style="{StaticResource RoundedTextBoxStyle}"
+                             Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+            
+                             FontSize="18"
+                             HorizontalContentAlignment="Left"
+                              
+                             VerticalContentAlignment="Center"
+                             KeyDown="SearchBox_KeyDown"/>
+
+                        <!-- Inline suggestion -->
+                        <TextBlock Text="{Binding InlineSuggestion}"
+                               Padding="10"
+                               FontSize="18"
+                               Foreground="LightGray"
+                               IsHitTestVisible="False"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               Margin="{Binding InlineSuggestionOffset, Converter={StaticResource LeftMarginConverter}}"/>
+
+                    </Grid>
+                    
+              
 
                 </Grid>
 

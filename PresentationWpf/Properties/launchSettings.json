@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "PresentationWpf": {
+      "commandName": "Project",
+      "jsWebView2Debugging": false,
+      "nativeDebugging": false
+    }
+  }
+}

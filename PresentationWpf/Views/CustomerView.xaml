@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:PresentationWpf.Views"
-             
+              xmlns:fa="http://schemas.fontawesome.io/icons/"
              xmlns:views="clr-namespace:PresentationWpf.Views"
              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewmodels:CustomerViewModel}"
@@ -20,23 +20,30 @@
             <Setter Property="Padding" Value="10,4"/>
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="Normal"/>
+
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="4"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+
                             <ContentPresenter x:Name="contentPresenter"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
                         </Border>
+
                         <ControlTemplate.Triggers>
+
+                            <!-- 🔵 HOVER EFFECT -->
                             <Trigger Property="IsMouseOver" Value="True">
-                               
-                                <Setter TargetName="contentPresenter" Property="TextElement.FontWeight" Value="Bold"/>
+                                <Setter TargetName="border" Property="Background" Value="#EEE"/>
+                                <Setter Property="Foreground" Value="#000"/>
+                                <!-- Text + Icon -->
                             </Trigger>
+
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -44,8 +51,8 @@
         </Style>
 
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#E6762F"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="Black"/>
+           
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,5,0,2"/>
         </Style>
@@ -69,10 +76,38 @@
               StaysOpenOnEdit="True"
               TextSearch.TextPath="DisplayText" />
 
-            <Button Content="Создать" Command="{Binding CreateCustomerCommand}" Style="{StaticResource TransparentHoverButton}" Margin="0,0,15,0" Width="100" VerticalAlignment="Center"/>
-            <Button Content="Сохранить" Command="{Binding SaveCustomerCommand}" Style="{StaticResource TransparentHoverButton}" Margin="0,0,15,0" Width="100" VerticalAlignment="Center"/>
-            <Button Content="Удалить" Command="{Binding DeleteCustomerCommand}" Style="{StaticResource TransparentHoverButton}" Margin="0,0,15,0" Width="100" VerticalAlignment="Center"/>
+            <Button Command="{Binding CreateCustomerCommand}" 
+            Style="{StaticResource TransparentHoverButton}" 
+            Margin="0,0,15,0" 
+            Width="160" 
+            VerticalAlignment="Center">
 
+                    <StackPanel Orientation="Horizontal">
+                        <fa:ImageAwesome Icon="Plus" 
+                             
+                             Width="12" 
+                             Height="12" 
+                             Margin="0,5,6,0"
+                             VerticalAlignment="Center"  
+                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                             <TextBlock Text="Новый клиент" FontSize="16" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding SaveCustomerCommand}" 
+                Style="{StaticResource TransparentHoverButton}" 
+                Margin="0,0,15,0" 
+                Width="120" 
+                VerticalAlignment="Center">
+
+                        <StackPanel Orientation="Horizontal">
+                            <fa:ImageAwesome Icon="Save" 
+                                 Width="14" 
+                                 Height="14" 
+                                 Margin="0,5,6,0"
+                                 VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock Text="Сохранить" FontSize="16" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
         </StackPanel>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" >
@@ -89,7 +124,10 @@
                 <!-- Left Column -->
                 <StackPanel Grid.Column="0" Margin="10,10,10,10" DataContext="{Binding SelectedCustomer}" >
                     <!-- ФИО -->
-                    <TextBlock Text="ФИО" />
+                    <TextBlock >
+                          <Run Text="ФИО" Foreground="Black"/>
+                          <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
                     <TextBox Height="32" Margin="0,0,0,5" VerticalContentAlignment="Center" Padding="5"
                 Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" FontSize="14"/>
 
@@ -99,46 +137,59 @@
                     Text="{Binding Email,UpdateSourceTrigger=PropertyChanged}" FontSize="14"/>
 
                     <!-- Мобильный телефон -->
-                    <TextBlock Text="Мобильный телефон" />
+                    <TextBlock >
+                        <Run Text="Мобильный телефон" Foreground="Black"/>
+                        <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
+                    
                     <TextBox Height="32" Margin="0,0,0,5" VerticalContentAlignment="Center" Padding="5"
                     Text="{Binding MobilePhone, UpdateSourceTrigger=PropertyChanged}" FontSize="14"/>
 
                     <!-- Адрес -->
-                    <TextBlock Text="Адрес" />
+                    <TextBlock >
+                        <Run Text="Адрес" Foreground="Black"/>
+                        <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
                     <TextBox Height="32" Margin="0,0,0,5" VerticalContentAlignment="Center" Padding="5"
                     Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" FontSize="14" />
 
                     <!-- Город -->
-                    <TextBlock Text="Город" />
+                    <TextBlock >
+                            <Run Text="Город" Foreground="Black"/>
+                            <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
                     <ComboBox Height="32" Margin="0,0,0,5" Padding="5"
-                       ItemsSource="{Binding DataContext.DistinctCities, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        SelectedItem="{Binding City, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                      IsEditable="True"
-                      FontSize="14"/>
-
+                          ItemsSource="{Binding DataContext.DistinctCities, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          SelectedItem="{Binding City, Mode=TwoWay}"
+                          Text="{Binding City, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsEditable="True"
+                          IsTextSearchEnabled="False"
+                          FontSize="14"/>
 
                     <!-- Область -->
-                    <TextBlock Text="Область" />
+                    <TextBlock >
+                        <Run Text="Область" Foreground="Black"/>
+                        <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
                     <ComboBox Height="32" Margin="0,0,0,5" Padding="5"
                       ItemsSource="{Binding DataContext.DistinctRegions, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                         SelectedItem="{Binding Region, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedItem="{Binding Region, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      Text="{Binding Region, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                       IsEditable="True"
                       FontSize="14"/>
 
-
-                    <!-- Индекс -->
-                    <TextBlock Text="Индекс" />
-                    <TextBox Height="32" Margin="0,0,0,5" VerticalContentAlignment="Center" Padding="5"
-                    Text="{Binding PostalCode, UpdateSourceTrigger=PropertyChanged}" FontSize="14"/>
 
                 </StackPanel>
 
                 <!-- Middle Column -->
                 <StackPanel Grid.Column="1" Margin="10,10,10,10" DataContext="{Binding SelectedCustomer}">
-                    <TextBlock Text="Уровень" />
+                    <TextBlock >
+                        <Run Text="Уровень" Foreground="Black"/>
+                        <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
                     <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
                       ItemsSource="{Binding DataContext.PriceLevels, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                      DisplayMemberPath="Level"
+                      DisplayMemberPath="PriceType"
                       SelectedValuePath="Level"
                       SelectedValue="{Binding PriceLevelId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -146,12 +197,22 @@
                     <TextBlock Text="Примечания" />
                     <TextBox Height="60" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
                     Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock Text="Задолжность" />
-                    <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Debt, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5" />
-                    <TextBlock Text="Ограничение" />
-                    <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Restriction, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
+                    
+                    <StackPanel Visibility="{Binding DataContext.CanViewDebt,
+                     RelativeSource={RelativeSource AncestorType=UserControl},
+                     Converter={StaticResource BoolToVisibilityConverter}}">                       
+                        <TextBlock Text="Задолжность" />
+                        <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Debt, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5" />
                     </StackPanel>
+                    
+                    <StackPanel Visibility="{Binding DataContext.CanViewRestriction,
+                     RelativeSource={RelativeSource AncestorType=UserControl},
+                     Converter={StaticResource BoolToVisibilityConverter}}">
+                         <TextBlock Text="Ограничение" />
+                        <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Restriction, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
+                    </StackPanel>
+                
+                </StackPanel>
 
                 <!-- Right Column -->
                 <StackPanel Grid.Column="2" Margin="10,10,10,10"  DataContext="{Binding SelectedCustomer}" >
@@ -175,17 +236,25 @@
                             Command="{Binding DataContext.CalculateCoefficientsForCustomerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
 
                     </StackPanel>
-                    
-                    <TextBlock Text="Территория" />
+
+                    <TextBlock >
+                        <Run Text="Территория" Foreground="Black"/>
+                        <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
                     <ComboBox Height="32" Margin="0,0,0,5" Padding="5"
                        ItemsSource="{Binding DataContext.DistinctTerritories, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         SelectedItem="{Binding Territory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          Text="{Binding Territory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"    
                       IsEditable="True"
                       FontSize="14"/>
                     
                     <CheckBox Content="ИсключитьЕжедПогашение"  IsChecked="{Binding ExcludeMonthlyRepayment, UpdateSourceTrigger=PropertyChanged}" FontSize="14"  Margin="0,0,0,5" />
 
-                    <TextBlock Text="Менеджер по продажам" />
+                    <TextBlock >
+                        <Run Text="Менеджер по продажам" Foreground="Black"/>
+                        <Run Text="*" Foreground="Red"/>
+                    </TextBlock>
+                   
                     <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
                         ItemsSource="{Binding DataContext.SalesManagers, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         DisplayMemberPath="FullName"

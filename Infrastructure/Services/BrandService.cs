@@ -40,7 +40,7 @@ public class BrandService
 				BrandName = brandName,
 				CompanyName = string.Empty,
 				CategoryId = null
-			};
+            };
 
 			return await _brandRepository.AddAsync(newBrand);
 		}
@@ -52,28 +52,69 @@ public class BrandService
 		}
 	}
 
+    public async Task<BrandEntity?> AddBrandAsync(string brandName, string firm, int categoryId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(brandName))
+                return null;
 
-	/// <summary>
-	/// Returns a brand by name.
-	/// </summary>
-	public async Task<BrandEntity?> GetBrandAsync(string brandName)
-	{
-		try
-		{
-			return await _brandRepository.GetOneAsync(b => b.BrandName == brandName);
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error fetching brand {BrandName}", brandName);
-			Debug.WriteLine($"Error fetching brand {brandName}: {ex}");
-			return null;
-		}
-	}
+            var existingBrand = await _brandRepository.GetOneAsync(b => b.BrandName == brandName);
 
-	/// <summary>
-	/// Returns all brands including their related categories.
-	/// </summary>
-	public async Task<IEnumerable<BrandEntity>> GetAllBrandsAsync()
+            // ✅ Return if a valid brand already exists
+            if (existingBrand != null && !string.IsNullOrEmpty(existingBrand.BrandName))
+                return existingBrand;
+
+            // Otherwise, create a new one
+            var newBrand = new BrandEntity
+            {
+                BrandName = brandName,
+                CompanyName = firm,
+                CategoryId = categoryId
+            };
+
+            return await _brandRepository.AddAsync(newBrand);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding brand {BrandName}", brandName);
+            Debug.WriteLine($"Error adding brand {brandName}: {ex}");
+            return null;
+        }
+    }
+
+
+    /// <summary>
+    /// Returns a brand by name or null if it does not exist.
+    /// </summary>
+    public async Task<BrandEntity?> GetBrandAsync(string brandName)
+    {
+        if (string.IsNullOrWhiteSpace(brandName))
+            return null;
+
+        try
+        {
+            var brand = await _brandRepository.GetOneAsync(b => b.BrandName == brandName);
+            return brand; // may be null — that’s fine
+        }
+        catch (InvalidOperationException)
+        {
+            // Happens if repository throws when not found
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching brand {BrandName}", brandName);
+            Debug.WriteLine($"Error fetching brand {brandName}: {ex.Message}");
+            return null;
+        }
+    }
+
+
+    /// <summary>
+    /// Returns all brands including their related categories.
+    /// </summary>
+    public async Task<IEnumerable<BrandEntity>> GetAllBrandsAsync()
 	{
 		try
 		{

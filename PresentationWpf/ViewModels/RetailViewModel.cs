@@ -13,6 +13,8 @@ using Infrastructure.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Infrastructure.Repositories;
 using System.Windows.Media;
+using PresentationWpf.Views;
+using System.Globalization;
 
 
 namespace PresentationWpf.ViewModels;
@@ -81,7 +83,9 @@ public partial class RetailViewModel : ObservableObject
 
 		CustomersView = CollectionViewSource.GetDefaultView(AllCustomers);
 		CustomersView.Filter = CustomerFilter;
-	}
+
+        
+    }
 
 	[ObservableProperty]
 	private ObservableCollection<ProductModel> _productList = [];
@@ -178,7 +182,8 @@ public partial class RetailViewModel : ObservableObject
 		set
 		{
 			SetProperty(ref _filterText, value);
-			ApplyFilter();
+            UpdateInlineSuggestion();
+            ApplyFilter();
 		}
 	}
 
@@ -194,24 +199,87 @@ public partial class RetailViewModel : ObservableObject
 		}
 	}
 
-	public ICollectionView ProductListView { get; private set; } = null!;
+    [ObservableProperty]
+    private string inlineSuggestion;
+
+    [ObservableProperty]
+    private double inlineSuggestionOffset;
+
+    [ObservableProperty]
+    private string fullSuggestion;
+
+    private void UpdateInlineSuggestion()
+    {
+        if (string.IsNullOrWhiteSpace(FilterText))
+        {
+            InlineSuggestion = "";
+            FullSuggestion = "";
+            InlineSuggestionOffset = 0;
+            return;
+        }
+
+        var match = ProductList
+            .Select(p => p.ArticleNumber)
+            .FirstOrDefault(a =>
+                a.StartsWith(FilterText, StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrEmpty(match))
+        {
+            InlineSuggestion = "";
+            FullSuggestion = "";
+            InlineSuggestionOffset = 0;
+            return;
+        }
+
+        // 👇 store full suggestion
+        FullSuggestion = match;
+
+        // 👇 remaining suffix
+        var remaining = match.Substring(FilterText.Length);
+
+        InlineSuggestion = remaining;
+
+        if (string.IsNullOrEmpty(remaining))
+        {
+            InlineSuggestionOffset = 0;
+            return;
+        }
+
+        // measure width
+        var formatted = new FormattedText(
+            FilterText,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"),
+            18,
+            Brushes.Black,
+            1.0
+        );
+
+        InlineSuggestionOffset = formatted.Width;
+    }
+
+
+
+    public ICollectionView ProductListView { get; private set; } = null!;
 
 	public async Task InitializeAsync()
 	{
 		User = _userSessionService.FirstName + " " + _userSessionService.LastName;
 
-		// 1) Make sure rate is valid (avoid multiplying by 0)
-		var rate = _userSessionService.ExchangeRate;
+        // 1) Make sure rate is valid (avoid multiplying by 0)
+        var rate = _userSessionService.ExchangeRate;
 		ExchangeRate = rate > 0 ? rate : 1;
-		
 
-		// 2) Get products (DTOs) and convert to ProductModel using your implicit operator
-		var productDtos = await _productService.GetAllProductAsync(); // IEnumerable<Product> (DTO)
-		foreach (var dto in productDtos.Where(p => p.Quentity > 0))
+        ProductList.Clear();
+
+        // 2) Get products (DTOs) and convert to ProductModel using your implicit operator
+        var productDtos = await _productService.GetAllProductAsync(); 
+		foreach (var dto in productDtos)
 		{
-			var pm = (ProductModel)dto;     // uses implicit operator to fill euro prices
-			pm.ExchangeRate = ExchangeRate; // triggers Retail/Customer price recompute
-			pm.RefreshPrices();             // ensure initial bindings show values
+			var pm = (ProductModel)dto;     
+			pm.ExchangeRate = ExchangeRate; 
+			pm.RefreshPrices();             
 			ProductList.Add(pm);
 		}
 
@@ -232,24 +300,37 @@ public partial class RetailViewModel : ObservableObject
 	{
 		new TerritoryOption { Value = null, Display = "Все территории" }
 	};
-		SelectedTerritory = null;                 // show all by default
-		SelectedSalesManager = null;              // no manager selected -> view shows all customers
+		SelectedTerritory = null;                 
+		SelectedSalesManager = null;             
 
-		// 4) Other lookups
-		var couriers = await _courierRepo.GetAllAsync();
-		CourierList = new ObservableCollection<Courier>(couriers.Select(e => (Courier)e));
+        // 4) Other lookups — only Active = true
 
-		var storekeepers = await _storekeeperRepo.GetAllAsync();
-		StorekeeperList = new ObservableCollection<Storekeeper>(storekeepers.Select(e => (Storekeeper)e));
+        var couriers = await _courierRepo.GetAllAsync();
+        CourierList = new ObservableCollection<Courier>(
+            couriers
+                .Where(e => e.Active)
+                .Select(e => (Courier)e)
+        );
 
-		var salesManagers = await _salesManagerRepo.GetAllAsync();
-		SalesManagerList = new ObservableCollection<SalesManager>(salesManagers.Select(e => (SalesManager)e));
+        var storekeepers = await _storekeeperRepo.GetAllAsync();
+        StorekeeperList = new ObservableCollection<Storekeeper>(
+            storekeepers
+                .Where(e => e.Active)
+                .Select(e => (Storekeeper)e)
+        );
+
+        var salesManagers = await _salesManagerRepo.GetAllAsync();
+        SalesManagerList = new ObservableCollection<SalesManager>(
+            salesManagers
+                .Where(e => e.Active)
+                .Select(e => (SalesManager)e)
+        );
 
 
-	}
+    }
 
 
-	private ObservableCollection<ProductModel> _alternativeProductList;
+    private ObservableCollection<ProductModel> _alternativeProductList;
 	public ObservableCollection<ProductModel> AlternativeProductList
 	{
 		get { return _alternativeProductList; }
@@ -351,20 +432,57 @@ public partial class RetailViewModel : ObservableObject
 
     }
 
-    [RelayCommand]
-	private void AddToChart(ProductModel product)
-	{
-		if (product != null && !SelectedProductList.Contains(product))
-		{
-			product.OrderQuentity = 0;
-
-			SelectedProductList.Add(product);
-		}
-
-		
-	}
+    public event Action OnProductAdded;
 
 	[RelayCommand]
+    private void AddToChart(ProductModel product)
+    {
+        
+		if (product == null)
+            return;
+
+
+        if (SelectedCustomer == null)
+        {
+            MessageBox.Show("Для оформление заказа, сперва выберите клиента.", "Ошибка");
+            return;
+        }
+
+        // ❗ Product quantity check
+        if (product.Quentity == null || product.Quentity == 0)
+        {
+            MessageBox.Show(
+                "Товар отсутствует на складе. Пожалуйста, выберите альтернативный товар.",
+                "Невозможно добавить",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+
+        // ❗ Prevent duplicates
+        if (SelectedProductList.Contains(product))
+        {
+            MessageBox.Show(
+                "Этот товар уже добавлен в корзину.",
+                "Информация",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            return;
+        }
+
+        
+        product.OrderQuentity = 0;
+
+        // Add to chart
+        SelectedProductList.Add(product);
+
+        OnProductAdded?.Invoke();
+    }
+
+
+    [RelayCommand]
 	private void RemoveProduct(ProductModel product)
 	{
 		if (product != null && SelectedProductList.Contains(product))
@@ -373,123 +491,198 @@ public partial class RetailViewModel : ObservableObject
 		}
 	}
 
-	[RelayCommand]
-	private async Task SaveOrder()
-	{
-		if (SelectedProductList == null || !SelectedProductList.Any())
-		{
-			MessageBox.Show("Список продуктов пуст. Пожалуйста, добавьте хотя бы один товар.", "Ошибка");
-			return;
-		}
-
-		// if barter -> require a manual price on each line
-		if (IsBarter)
-		{
-			var noPrice = SelectedProductList
-				.FirstOrDefault(p => p.OrderQuentity <= 0 || !p.BarterPriceSom.HasValue);
-			if (noPrice != null)
-			{
-				MessageBox.Show(
-					$"В режиме бартера у каждой позиции должно быть указано значение цены и количество > 0.\n" +
-					$"Проверьте товар: {noPrice.ArticleNumber} — {noPrice.ProductName}.",
-					"Ошибка");
-				return;
-			}
-		}
-
-		// compute totals with effective price (barter price if set, otherwise normal)
-		var totalSum = SelectedProductList.Sum(p => (p.EffectivePriceSom ?? 0m) * p.OrderQuentity);
-		if (totalSum <= 0)
-		{
-			MessageBox.Show("Сумма заказа не может быть 0. Пожалуйста, проверьте количество заказа.", "Ошибка");
-			return;
-		}
-
-		if (SelectedCustomer == null)
-		{
-			MessageBox.Show("Для оформление заказа, сперва выберите клиента.", "Ошибка");
-			return;
-		}
-		// Only validate courier / storekeeper if NOT barter
-		if (!IsBarter)
-		{
-			if (SelectedCourier == null)
-			{
-				MessageBox.Show("Для оформление заказа, сперва укажите доставщика.", "Ошибка");
-				return;
-			}
-
-			if (SelectedStorekeeper == null)
-			{
-				MessageBox.Show("Для оформление заказа, сперва укажите складчика.", "Ошибка");
-				return;
-			}
-		}
+    public event Action<ProductModel>? OnInvalidQuantityFound;
 
 
-		var totalSumInWords = NumberToWordsConverter.ConvertToRussianWords(totalSum);
+    [RelayCommand]
 
-		// Build persistence entity
-		var orderEntity = new OrderEntity
-		{
-			Date = DateTime.Now,
-			Rate = ExchangeRate,
-			UserId = _userSessionService.UserId,
-			WithoutInvoice = IsSellingWithoutInvoice,
-			DirectFromStock = DirectFromStock,
-			Stock = false,
-			IsPaid = false,
-			SuminWords = totalSumInWords,
-			CustomerId = SelectedCustomer.Id,
-			IsBarter = IsBarter,
+    private async Task SaveOrder()
+    {
+        try
+        {
+            if (SelectedProductList == null || !SelectedProductList.Any())
+            {
+                MessageBox.Show("Список продуктов пуст. Пожалуйста, добавьте хотя бы один товар.", "Ошибка");
+                return;
+            }
 
-			OrderDetails = SelectedProductList.Select(p =>
-			{
-				// pick the unit price according to mode
-				var unit = IsBarter
-					? (p.BarterPriceSom ?? 0m)
-					: (p.CustomerPriceSom ?? 0m);
+            if (SelectedCustomer == null)
+            {
+                MessageBox.Show("Для оформление заказа, сперва выберите клиента.", "Ошибка");
+                return;
+            }
 
-				var qty = Math.Max(0, p.OrderQuentity);
-				return new OrderDetailEntity
-				{
-					ArticleNumber = p.ArticleNumber,
-					Quentity = qty,
-					Price = qty > 0 ? unit : 0m
-				};
-			}).ToList()
-		};
-		if (!IsBarter)
-		{
-			orderEntity.CourierId = SelectedCourier!.Id;
-			orderEntity.StorekeeperId = SelectedStorekeeper!.Id;
-		}
+            // ❗ Validate that every product has quantity > 0
+            var noQuantityProduct = SelectedProductList
+                .FirstOrDefault(p => p.OrderQuentity <= 0);
 
+            if (noQuantityProduct != null)
+            {
+                MessageBox.Show(
+                    $"Для оформления заказа у каждого товара должно быть указано количество.\n" +
+                    $"Проверьте позицию: {noQuantityProduct.ArticleNumber} — {noQuantityProduct.ProductName}.",
+                    "Количество не указано",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
 
-		var result = await _orderService.AddOrderAsync(orderEntity);
+                foreach (var item in SelectedProductList)
+                    item.IsInvalid = item.OrderQuentity <= 0;
 
-		if (result != null)
-		{
-			MessageBox.Show("Заказ успешно оформлен!", "Оформление заказа");
-
-			//_dataTransferService.SelectedOrder = newOrder;
-			SelectedProductList.Clear();
-			await RefreshProductsAsync();
-
-			// Print: barter report vs invoice
-			if (IsBarter)
-				DisplayBarterReportView();  // TODO: your method that opens the simple barter report
-			//else
-			//	DisplayInvoiceView();       // existing invoice printer
-		}
-		else
-		{
-			MessageBox.Show("По некоторым причинам заказ неоформлен, попробуйте еще раз!", "Оформление заказа");
-		}
-	}
+                OnInvalidQuantityFound?.Invoke(noQuantityProduct);
+                return;
+            }
 
 
-	private void OnProductModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+            // ✅ Validate barter prices
+            if (IsBarter)
+            {
+                var noPrice = SelectedProductList
+                    .FirstOrDefault(p => p.OrderQuentity <= 0 || !p.BarterPriceSom.HasValue);
+                if (noPrice != null)
+                {
+                    MessageBox.Show(
+                        $"В режиме бартера у каждой позиции должно быть указано значение цены и количество > 0.\n" +
+                        $"Проверьте товар: {noPrice.ArticleNumber} — {noPrice.ProductName}.",
+                        "Ошибка");
+                    return;
+                }
+            }
+
+            // Compute totals
+            var totalSum = SelectedProductList.Sum(p => (p.EffectivePriceSom ?? 0m) * p.OrderQuentity);
+            if (totalSum <= 0)
+            {
+                MessageBox.Show("Сумма заказа не может быть 0. Пожалуйста, проверьте количество заказа.", "Ошибка");
+                return;
+            }
+
+            // Only validate courier/storekeeper if NOT barter
+            if (!IsBarter)
+            {
+                if (SelectedCourier == null)
+                {
+                    MessageBox.Show("Для оформление заказа, сперва укажите доставщика.", "Ошибка");
+                    return;
+                }
+                if (SelectedStorekeeper == null)
+                {
+                    MessageBox.Show("Для оформление заказа, сперва укажите складчика.", "Ошибка");
+                    return;
+                }
+            }
+
+            var orderEntity = new OrderEntity
+            {
+                Date = DateTime.Now,
+                Rate = ExchangeRate,
+                UserId = _userSessionService.UserId,
+                CustomerId = SelectedCustomer.Id,
+                WithoutInvoice = IsSellingWithoutInvoice,
+                DirectFromStock = DirectFromStock,
+                Stock = false,
+                IsPaid = false,
+                IsBarter = IsBarter,
+                SuminWords = NumberToWordsConverter.ConvertToRussianWords(totalSum),
+                OrderDetails = SelectedProductList.Select(p => new OrderDetailEntity
+                {
+                    ArticleNumber = p.ArticleNumber,
+                    Quentity = p.OrderQuentity,
+                    Price = (IsBarter ? p.BarterPriceSom : p.CustomerPriceSom) ?? 0m
+                }).ToList()
+            };
+
+            if (!IsBarter)
+            {
+                orderEntity.CourierId = SelectedCourier!.Id;
+                orderEntity.StorekeeperId = SelectedStorekeeper!.Id;
+            }
+
+            var result = await _orderService.AddOrderAsync(orderEntity);
+
+            if (result == null)
+            {
+                MessageBox.Show("По некоторым причинам заказ не оформлен, попробуйте еще раз!", "Оформление заказа");
+                return;
+            }
+
+            // ✅ Success message
+            MessageBox.Show("Заказ успешно оформлен!", "Оформление заказа");
+
+            SelectedProductList.Clear();
+            await RefreshProductsAsync();
+
+            // ✅ Handle barter flow (add payment + report)
+            if (IsBarter)
+            {
+                await _orderService.AddPaymentAsync(
+                    customerId: result.CustomerId,
+                    amount: totalSum,
+                    amountInWords: result.SuminWords,
+                    date: DateTime.Today,
+                    orderId: result.Id,
+					rate: ExchangeRate);
+
+                var savedOrder = await _orderService.GetOrderAsync(result.Id);
+                if (savedOrder != null)
+                {
+                    var barterVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
+                    _dataTransferService.SelectedOrder = new CustomerOrder
+                    {
+                        Id = savedOrder.Id,
+                        Date = savedOrder.Date,
+                        Rate = savedOrder.Rate,
+                        CustomerFullName = savedOrder.Customer?.FullName,
+                        CustomerAddress = savedOrder.Customer?.Address,
+                        CustomerPhoneNumber = savedOrder.Customer?.MobilePhone,
+                        CustomerCity = savedOrder.Customer?.City,
+                        CustomerRegion = savedOrder.Customer?.Region,
+                        UserFullName = $"{savedOrder.User?.FirstName} {savedOrder.User?.LastName}",
+                        OrderDetails = savedOrder.OrderDetails?.Select(d => new OrderDetail
+                        {
+                            ArticleNumber = d.ArticleNumber,
+                            ProductName = d.Product?.ProductName,
+                            BrandName = d.Product?.Brand?.BrandName,
+                            Marka = d.Product?.Marka,
+                            Model = d.Product?.Model,
+                            Quentity = d.Quentity,
+                            Price = d.Price,
+                            Total = d.Quentity * d.Price
+                        }).ToList() ?? []
+                    };
+
+                    await barterVm.LoadInvoiceData();
+
+                    var pdfService = _serviceProvider.GetRequiredService<PdfService>();
+                    var pdfBytes = pdfService.GeneratePdfBytes(ReportType.BarterInvoice, barterVm);
+
+                    var preview = new DocumentPreviewView();
+                    preview.LoadPdf(pdfBytes);
+
+                    var window = new Window
+                    {
+                        Title = $"Бартерный документ № {savedOrder.Id}",
+                        Content = preview,
+                        Width = 900,
+                        Height = 900,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen
+                    };
+                    window.ShowDialog();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка при оформлении заказа: {ex.Message}", "Ошибка");
+        }
+        finally
+        {
+            // ✅ Always reset barter mode after saving (even on error)
+            IsBarter = false;
+        }
+    }
+
+
+    private void OnProductModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName == nameof(ProductModel.Total))
 		{
@@ -545,8 +738,6 @@ public partial class RetailViewModel : ObservableObject
 	}
 	
 	
-	private void DisplayBarterReportView() { }
-	
 	private bool CustomerFilter(object obj)
 	{
 		if (obj is not Customer c) return false;
@@ -592,7 +783,16 @@ public partial class RetailViewModel : ObservableObject
 		set
 		{
 			if (_isBarter == value) return;
-			_isBarter = value;
+
+            // 👇 Prevent enabling barter if customer has unpaid orders
+            if (value == true)
+            {
+                // async call not possible directly inside setter, so we handle safely
+                _ = CheckBarterEligibilityAsync();
+                return;
+            }
+
+            _isBarter = value;
 			OnPropertyChanged(nameof(IsBarter));
 
 			foreach (var item in SelectedProductList)
@@ -785,6 +985,51 @@ public partial class RetailViewModel : ObservableObject
     {
         var vm = _serviceProvider.GetRequiredService<AssignPickersViewModel>();
         _dialogService.Show(vm);
+    }
+
+    private async Task CheckBarterEligibilityAsync()
+    {
+        if (SelectedCustomer == null)
+        {
+            MessageBox.Show("Сначала выберите клиента.", "Бартер", MessageBoxButton.OK, MessageBoxImage.Warning);
+            IsBarter = false;
+            return;
+        }
+
+        // ✅ Ask order service if customer has unpaid orders
+        bool hasDebt = await _orderService.HasUnpaidOrdersAsync(SelectedCustomer.Id);
+
+        if (hasDebt)
+        {
+            MessageBox.Show(
+                $"У клиента {SelectedCustomer.FullName} есть неоплаченные платежи.\n" +
+                "Бартер невозможен, пока не погашены платежи.",
+                "Бартер недоступен",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            IsBarter = false; // keep it unchecked
+            return;
+        }
+
+        // ✅ All good — enable barter
+        _isBarter = true;
+        OnPropertyChanged(nameof(IsBarter));
+
+        foreach (var item in SelectedProductList)
+            item.ClearBarterPrice();
+    }
+
+    public void ResetState()
+    {
+        SelectedCustomer = null;
+        FilterText = "";
+        SelectedProductList.Clear();
+        SelectedSalesManager = null;
+        SelectedTerritory = null;
+
+        RequiredPurchase = 0;
+        PlannedPurchase = 0;
     }
 
 }

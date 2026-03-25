@@ -6,6 +6,11 @@ using System.Collections.ObjectModel;
 using System.Windows.Media;
 using System.Windows;
 using Infrastructure.Dtos;
+using PresentationWpf.Views;
+using System.IO;
+using QuestPDF.Fluent;
+using Infrastructure.Contexts;
+using Microsoft.EntityFrameworkCore;
 
 namespace PresentationWpf.ViewModels;
 
@@ -14,6 +19,9 @@ public partial class TransferReceiveViewModel : ObservableObject
     private readonly StoreService _storeService;
     private readonly StoreExchangeService _exchangeService;
     private readonly ProductService _productService;
+    private readonly OrganizationInfoService _organizationInfoService;
+    private readonly IDbContextFactory<DatabaseContext> _dbFactory;
+
     public event Action? RequestClose;
 
     [ObservableProperty] private ObservableCollection<StoreEntity> storeList = [];
@@ -44,11 +52,16 @@ public partial class TransferReceiveViewModel : ObservableObject
     public event Action? RequestFocusQuantity;
 
 
-    public TransferReceiveViewModel(StoreService storeService, StoreExchangeService exchangeService, ProductService productService)
+    public TransferReceiveViewModel(StoreService storeService, 
+        StoreExchangeService exchangeService, 
+        ProductService productService, 
+        OrganizationInfoService organizationInfoService, IDbContextFactory<DatabaseContext> dbFactory)
     {
         _storeService = storeService;
         _exchangeService = exchangeService;
         _productService = productService;
+        _organizationInfoService = organizationInfoService;
+        _dbFactory = dbFactory;
 
         _ = LoadStoresAsync();
        
@@ -114,7 +127,6 @@ public partial class TransferReceiveViewModel : ObservableObject
     }
 
     [RelayCommand]
-    // === Оформить (Submit) ===
     private async Task SubmitAsync()
     {
         // 🔹 Validate store selection
@@ -124,7 +136,7 @@ public partial class TransferReceiveViewModel : ObservableObject
             return;
         }
 
-        // 🔹 Validate that there is at least one product with Quantity > 0
+        // 🔹 Validate product list
         if (Products == null || Products.Count == 0 || !Products.Any(p => p.Quantity > 0))
         {
             MessageBox.Show("Добавьте товары с количеством больше 0 перед оформлением!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -132,6 +144,8 @@ public partial class TransferReceiveViewModel : ObservableObject
         }
 
         // 🔹 Create exchange entries for products that have quantity
+        var savedItems = new List<StoreExchangeEntity>();
+
         foreach (var product in Products.Where(p => p.Quantity > 0))
         {
             var newExchange = new StoreExchangeEntity
@@ -139,21 +153,73 @@ public partial class TransferReceiveViewModel : ObservableObject
                 StoreCode = SelectedStore.StoreCode,
                 ArticleNumber = product.Artikul,
                 Quantity = product.Quantity,
-                ExchangeType = currentType
+                ExchangeType = currentType // e.g. "приход" or "расход"
             };
 
             await _exchangeService.AddAsync(newExchange);
+            savedItems.Add(newExchange);
         }
+
+        // ✅ Clear UI
         Products.Clear();
         SelectedArtikul = null;
         OrderQuantity = 0;
-        // 🔹 Refresh data
+
+        // ✅ Refresh data
         await LoadArtikulsAsync();
 
-        MessageBox.Show("Оформление успешно завершено!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
+        // ✅ Prepare report data
+        var orgInfo = (await _organizationInfoService.GetShopDisplayAsync())?.Trim() ?? string.Empty;
+        var date = DateTime.Now;
 
-    // === Load Artikuls for ComboBox ===
+        // Load product details for report
+        var reportLines = new List<TransferReportLine>();
+        await using (var db = await _dbFactory.CreateDbContextAsync())
+        {
+            foreach (var item in savedItems)
+            {
+                var product = await db.Products
+                    .Include(p => p.Brand)
+                    .Include(p => p.Group)
+                    .FirstOrDefaultAsync(p => p.ArticleNumber == item.ArticleNumber);
+
+                reportLines.Add(new TransferReportLine
+                {
+                    Article = item.ArticleNumber,
+                    ProductName = product?.ProductName ?? string.Empty,
+                    Brand = product?.Brand?.BrandName ?? string.Empty,
+                    Marka = product?.Marka ?? string.Empty,
+                    Model = product?.Model ?? string.Empty,
+                    Quantity = item.Quantity,
+                    WarehousePlace = product?.WarehousePlace ?? string.Empty
+                });
+            }
+        }
+
+        // ✅ Create and generate PDF
+        var report = new Documents.TransferReportDocument(orgInfo, date, currentType, reportLines, Label1Text, "report", SelectedStore.StoreCode);
+
+        string folder = Path.Combine(Path.GetTempPath(), "Reports");
+        Directory.CreateDirectory(folder);
+        string filePath = Path.Combine(folder, $"Transfer_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+        report.GeneratePdf(filePath);
+
+        // ✅ Show print preview
+        var preview = new DocumentPreviewView(filePath);
+        var window = new Window
+        {
+            Title = $"Отчёт о {currentType}е товаров",
+            Content = preview,
+            Width = 900,
+            Height = 1000,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen
+        };
+        MessageBox.Show("Оформление успешно завершено!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+        window.ShowDialog();
+
+       
+    }
+    
     [RelayCommand]
     private async Task LoadArtikulsAsync()
     {
@@ -286,4 +352,16 @@ public partial class TransferProduct : ObservableObject
             }
         }
     }
+}
+
+public class TransferReportLine
+{
+    public string Article { get; set; } = "";
+    public string ProductName { get; set; } = "";
+    public string Brand { get; set; } = "";
+    public string Marka { get; set; } = "";
+    public string Model { get; set; } = "";
+    public int Quantity { get; set; }
+    public string WarehousePlace { get; set; } = "";
+
 }

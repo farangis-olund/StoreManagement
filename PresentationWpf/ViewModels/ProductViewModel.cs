@@ -96,12 +96,11 @@ public partial class ProductViewModel : ObservableObject
                 Quentity = product.Quentity,
                 WarehousePlace = product.WarehousePlace,
                 MinRemainingQuantity = product.MinRemainingQuantity,
-                RetailPriceEuro = product.RetailPriceEuro,
-                WholesalePriceEuro = product.WholesalePriceEuro,
-                ServicePriceEuro = product.ServicePriceEuro,
-                WholesalePrice1Euro = product.WholesalePrice1Euro,
-                NetPrice = product.NetPrice,
-                SmallWholesalePrice = product.SmallWholesalePrice
+                PriceLevel1 = product.PriceLevel1,
+                PriceLevel2 = product.PriceLevel2,
+                PriceLevel3 = product.PriceLevel3,
+                PriceLevel4 = product.PriceLevel4,
+                PriceLevel5 = product.PriceLevel5
             };
 
             if (exists)

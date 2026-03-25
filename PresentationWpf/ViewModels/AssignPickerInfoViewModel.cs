@@ -33,25 +33,31 @@ public partial class AssignPickerInfoViewModel : ObservableObject
 	[RelayCommand]
 	private void Add()
 	{
-		// Generate next storekeeper ID (K001, K002, ...)
-		var lastStorekeeper = Storekeepers
-			.Where(s => s.Id.StartsWith("K"))
-			.OrderByDescending(s => s.Id)
-			.FirstOrDefault();
+        // Generate next storekeeper ID (C1, C2, ...)
+        var lastStorekeeper = Storekeepers
+            .Where(s => s.Id.StartsWith("C"))
+            .OrderByDescending(s =>
+            {
+                var part = s.Id.Length > 1 ? s.Id.Substring(1) : "0";
+                return int.TryParse(part, out int num) ? num : 0;
+            })
+            .FirstOrDefault();
 
-		int nextNumber = 1;
+        int nextNumber = 1;
 
-		if (lastStorekeeper != null && lastStorekeeper.Id.Length > 1)
-		{
-			var numericPart = lastStorekeeper.Id.Substring(1);
-			if (int.TryParse(numericPart, out int number))
-				nextNumber = number + 1;
-		}
+        if (lastStorekeeper != null && lastStorekeeper.Id.Length > 1)
+        {
+            var numericPart = lastStorekeeper.Id.Substring(1);
+            if (int.TryParse(numericPart, out int number))
+                nextNumber = number + 1;
+        }
 
-		var newId = $"K{nextNumber:D3}";
+        // ✅ Format new ID as "C1", "C2", "C3" (no leading zeros)
+        var newId = $"C{nextNumber}";
 
-		// Create and add new storekeeper
-		SelectedStorekeeper = new StorekeeperEntity
+
+        // Create and add new storekeeper
+        SelectedStorekeeper = new StorekeeperEntity
 		{
 			Id = newId,
 			FullName = string.Empty,
@@ -74,14 +80,15 @@ public partial class AssignPickerInfoViewModel : ObservableObject
 	}
 
 	[RelayCommand]
-	private void Delete()
+	private async Task Delete()
 	{
 		if (SelectedStorekeeper == null)
 		{
 			MessageBox.Show("Выберите кладовщика для удаления.");
 			return;
 		}
-		Storekeepers.Remove(SelectedStorekeeper);
+        await _storekeeperService.DeleteStorekeeperAsync(SelectedStorekeeper.Id);
+        Storekeepers.Remove(SelectedStorekeeper);
 		SelectedStorekeeper = null;
 	}
 

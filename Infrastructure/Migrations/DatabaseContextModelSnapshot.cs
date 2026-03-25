@@ -95,6 +95,40 @@ namespace Infrastructure.Migrations
                     b.ToTable("Couriers");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.CourierPaymentEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountInEuro")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AmountInTJS")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CourierId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourierId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("CourierPayments");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.CurrencyEntity", b =>
                 {
                     b.Property<string>("Code")
@@ -211,6 +245,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("OrderId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -240,6 +277,44 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CurrencyCode");
 
                     b.ToTable("ExchangeRates");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ExpenseEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountEuro")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AmountSmn")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CourierId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourierId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Expenses");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.GroupEntity", b =>
@@ -305,7 +380,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Quentity")
@@ -360,9 +434,8 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.Property<bool>("Wholesale")
                         .HasColumnType("bit");
@@ -413,6 +486,26 @@ namespace Infrastructure.Migrations
                     b.HasKey("OrganizationCode");
 
                     b.ToTable("OrganizationInfo");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.PermissionEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.PriceLevelEntity", b =>
@@ -469,11 +562,23 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal>("NetPrice")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int>("Numbering")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("PriceLevel1")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PriceLevel2")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PriceLevel3")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PriceLevel4")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PriceLevel5")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
@@ -483,24 +588,9 @@ namespace Infrastructure.Migrations
                     b.Property<int>("Quentity")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("RetailPriceEuro")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("ServicePriceEuro")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("SmallWholesalePrice")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("WarehousePlace")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("WholesalePrice1Euro")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("WholesalePriceEuro")
-                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ArticleNumber");
 
@@ -639,6 +729,9 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsManual")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("RefundMethod")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -681,8 +774,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.RoleEntity", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -697,10 +793,36 @@ namespace Infrastructure.Migrations
                     b.ToTable("Roles");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.RolePermissionEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("PermissionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("RolePermissions");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.SalesManagerEntity", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Address")
                         .HasColumnType("nvarchar(max)");
@@ -863,8 +985,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.UserEntity", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
@@ -895,11 +1020,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.UserRoleEntity", b =>
                 {
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
-                    b.Property<string>("RoleId")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
 
                     b.HasKey("UserId", "RoleId");
 
@@ -915,6 +1040,25 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("CategoryId");
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.CourierPaymentEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.CourierEntity", "Courier")
+                        .WithMany()
+                        .HasForeignKey("CourierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Entities.OrderEntity", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Courier");
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.CustomerEntity", b =>
@@ -942,8 +1086,9 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("Infrastructure.Entities.OrderEntity", "Order")
-                        .WithMany()
-                        .HasForeignKey("OrderId");
+                        .WithMany("Payments")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Customer");
 
@@ -957,6 +1102,21 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("CurrencyCode");
 
                     b.Navigation("Currency");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ExpenseEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.CourierEntity", "Courier")
+                        .WithMany()
+                        .HasForeignKey("CourierId");
+
+                    b.HasOne("Infrastructure.Entities.UserEntity", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("Courier");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.ManagerBrandEntity", b =>
@@ -1002,7 +1162,7 @@ namespace Infrastructure.Migrations
                     b.HasOne("Infrastructure.Entities.ProductEntity", "Product")
                         .WithMany("OrderDetails")
                         .HasForeignKey("ArticleNumber")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Infrastructure.Entities.OrderEntity", "Order")
@@ -1052,13 +1212,13 @@ namespace Infrastructure.Migrations
                     b.HasOne("Infrastructure.Entities.BrandEntity", "Brand")
                         .WithMany("Products")
                         .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Infrastructure.Entities.GroupEntity", "Group")
                         .WithMany("Products")
                         .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Brand");
@@ -1071,7 +1231,7 @@ namespace Infrastructure.Migrations
                     b.HasOne("Infrastructure.Entities.ProductEntity", "Product")
                         .WithMany()
                         .HasForeignKey("ArticleNumber")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Infrastructure.Entities.ReturnEntity", "Return")
@@ -1101,6 +1261,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("ReturnReason");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.RolePermissionEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.PermissionEntity", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Entities.RoleEntity", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.StoreExchangeEntity", b =>
@@ -1177,6 +1356,13 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Infrastructure.Entities.OrderEntity", b =>
                 {
                     b.Navigation("OrderDetails");
+
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.PermissionEntity", b =>
+                {
+                    b.Navigation("RolePermissions");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.PriceLevelEntity", b =>
@@ -1201,6 +1387,8 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.RoleEntity", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("UserRoles");
                 });
 

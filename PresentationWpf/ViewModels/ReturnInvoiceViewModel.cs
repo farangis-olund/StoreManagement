@@ -52,9 +52,12 @@ public partial class ReturnInvoiceViewModel : ObservableObject
     [ObservableProperty] private string id = "";
     [ObservableProperty] private DateTime date;
     [ObservableProperty] private string customerName = "";
+    [ObservableProperty] private string customerId = "";
     [ObservableProperty] private decimal total;
     [ObservableProperty] private string shopName = "";
     [ObservableProperty] private string invoiceNumber = "";
+    [ObservableProperty] private string orderNumber = "";
+
 
     public void LoadInvoice()
     {

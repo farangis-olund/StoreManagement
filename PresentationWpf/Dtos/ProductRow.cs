@@ -20,8 +20,8 @@ public partial class ProductRow : ObservableObject
     public string BrandName => _dto.BrandName;
     public string Marka => _dto.Marka;
     public string Model => _dto.Model;
-    public decimal RetailPriceEuro => _dto.RetailPriceEuro;
-    public decimal WholesalePriceEuro => _dto.WholesalePriceEuro;
+    public decimal PriceLevel1 => _dto.PriceLevel1;
+    public decimal PriceLevel2 => _dto.PriceLevel2;
     public string WarehousePlace => _dto.WarehousePlace;
 
     [ObservableProperty] private int _quentity;

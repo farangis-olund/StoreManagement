@@ -119,19 +119,17 @@
                 <DataGridTextColumn Header="Кол" Binding="{Binding Quentity}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
                
-                <DataGridTextColumn Header="Розн.€" Binding="{Binding RetailPriceEuro}"
+                <DataGridTextColumn Header="Уровень5" Binding="{Binding PriceLevel5}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Опт.€" Binding="{Binding WholesalePriceEuro}"
+                <DataGridTextColumn Header="Уровень4" Binding="{Binding PriceLevel4}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Серв.€" Binding="{Binding ServicePriceEuro}"
+                <DataGridTextColumn Header="Уровень3" Binding="{Binding PriceLevel3}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Опт1.€" Binding="{Binding WholesalePrice1Euro}"
+                <DataGridTextColumn Header="Уровень2" Binding="{Binding PriceLevel2}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Нетто" Binding="{Binding NetPrice}"
+                <DataGridTextColumn Header="Уровень1" Binding="{Binding PriceLevel1}"
                                     ElementStyle="{StaticResource NumberCellStyle}" />
-                <DataGridTextColumn Header="Мелк.опт" Binding="{Binding SmallWholesalePrice}"
-                                    ElementStyle="{StaticResource NumberCellStyle}" />
-                
+                               
                 <DataGridTextColumn Header="Мин.ост" Binding="{Binding MinRemainingQuantity}"
                      ElementStyle="{StaticResource NumberCellStyle}" />
                 

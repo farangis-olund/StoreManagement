@@ -1,0 +1,89 @@
+﻿<UserControl x:Class="PresentationWpf.Views.CreateAdminView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="400" d:DesignWidth="500">
+    <UserControl.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+       
+        <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+        </Style>
+
+       
+    </UserControl.Resources>
+
+    <Grid Background="White">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="350"/>     <!-- LEFT MENU SPACE -->
+            <ColumnDefinition Width="*"/>       <!-- WORKSPACE -->
+        </Grid.ColumnDefinitions>
+
+        <!-- FORM AREA -->
+        <StackPanel Grid.Column="0" 
+                    Margin="40,40,10,10" 
+                    Orientation="Vertical"
+                    Width="350"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top">
+
+            <!-- Title -->
+            <TextBlock Text="Создание администратора"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       Margin="0,0,0,20"/>
+
+            <!-- Message -->
+            <TextBlock Text="{Binding Message}"
+                       Foreground="Tomato"
+                       Margin="5,8,5,10"/>
+
+            <!-- Fields -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Width="100" VerticalAlignment="Center" Text="Логин:"/>
+                <TextBox Height="30" Width="200"
+                         Text="{Binding UserName}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Width="100" VerticalAlignment="Center" Text="Имя:"/>
+                <TextBox Height="30" Width="200"
+                         Text="{Binding FirstName}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Width="100" VerticalAlignment="Center" Text="Фамилия:"/>
+                <TextBox Height="30" Width="200"
+                         Text="{Binding LastName}"/>
+            </StackPanel>
+           
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Width="100" VerticalAlignment="Center" Text="Пароль:"/>
+                <TextBox Height="30" Width="200"
+                         Text="{Binding Password}"/>
+            </StackPanel>
+            
+            <!-- Create Button -->
+            <Button Content="Создать"
+                    Width="200"
+                    Height="32"
+                    Margin="100,5,0,0"
+                    HorizontalAlignment="Left"
+                    Style="{StaticResource GrayButton}"
+                    Command="{Binding CreateCommand}"/>
+
+        </StackPanel>
+
+    </Grid>
+
+
+</UserControl>

@@ -9,7 +9,9 @@ public class CustomerOrder
 	public string? CustomerFullName { get; set; }
 	public string? CustomerLevel { get; set; }
 	public string? CustomerAddress { get; set; }
-	public string? CustomerPhoneNumber { get; set; }
+    public string? CustomerCity { get; set; }
+    public string? CustomerRegion { get; set; }
+    public string? CustomerPhoneNumber { get; set; }
 	public string UserFullName { get; set; } = null!;
 	public bool WithoutInvoice { get; set; } = false;
 	public bool DirectFromStock { get; set; }

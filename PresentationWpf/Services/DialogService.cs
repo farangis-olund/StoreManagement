@@ -30,7 +30,7 @@ public class DialogService
 		win.Closed += (_, __) => _open.Remove(key);
 
 		_open[key] = win;
-		win.Show();
+		win.ShowDialog();
 	}
 
 	public void Hide<TViewModel>()
@@ -71,10 +71,10 @@ public class DialogService
     // Map VM -> Window hosting the UserControl
     private Window CreateWindow(object vm) => vm switch
     {
-        PresentationWpf.ViewModels.SummaryViewModel => new Window
+        ViewModels.SummaryViewModel => new Window
         {
             Title = "Итоги по клиенту",
-            Width = 820,
+            Width = 1100,
             Height = 520,
             ResizeMode = ResizeMode.CanResize,
             Content = new Views.SummaryWindow()

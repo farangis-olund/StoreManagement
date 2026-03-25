@@ -24,17 +24,15 @@ public class Product
 	public double? ExchangeRate { get; set; }
     public double CustomerDiscountPercentage { get; set; } = 0;
 
-	public decimal RetailPriceEuro { get; set; }   // Розн Цена (Euro)
+	public decimal PriceLevel1 { get; set; }   
     
-	public decimal WholesalePriceEuro { get; set; }   // Опт Цена (Euro)
+	public decimal PriceLevel2 { get; set; }   
     	
-	public decimal ServicePriceEuro { get; set; }   // Серв Цена (Euro)
+	public decimal PriceLevel3 { get; set; }   
     	
-	public decimal WholesalePrice1Euro { get; set; }   // Опт Цена 1(Euro)
+	public decimal PriceLevel4 { get; set; }  
 
-	public decimal NetPrice { get; set; }   // Цена Нетто
-
-	public decimal SmallWholesalePrice { get; set; }   // Мелкооптовая Цена
+	public decimal PriceLevel5 { get; set; }   
      public string? Display {  get; set; }
     public int GroupId { get; set; }
     public int BrandId { get; set; }
@@ -53,13 +51,13 @@ public class Product
             BrandName = entity.Brand?.BrandName ?? string.Empty,
             Quentity = entity.Quentity,
             WarehousePlace = entity.WarehousePlace,
-            RetailPriceEuro = entity.RetailPriceEuro,
-            WholesalePriceEuro = entity.WholesalePriceEuro,
-            ServicePriceEuro = entity.ServicePriceEuro,
-            WholesalePrice1Euro = entity.WholesalePrice1Euro,
-            NetPrice = entity.NetPrice,
-            SmallWholesalePrice = entity.SmallWholesalePrice,
-			Display = $"{entity.ArticleNumber} · {entity.Brand?.BrandName} · {entity.ProductName}",
+            MinRemainingQuantity = entity.MinRemainingQuantity,
+            PriceLevel1 = entity.PriceLevel1,
+            PriceLevel2 = entity.PriceLevel2,
+            PriceLevel3 = entity.PriceLevel3,
+            PriceLevel4 = entity.PriceLevel4,
+            PriceLevel5 = entity.PriceLevel5,
+            Display = $"{entity.ArticleNumber} · {entity.Brand?.BrandName} · {entity.ProductName}",
             GroupId = entity.GroupId,
             BrandId = entity.BrandId,
 			OrderQuentity = 0,

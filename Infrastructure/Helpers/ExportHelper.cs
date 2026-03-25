@@ -41,22 +41,16 @@ public class ExportHelper
         try
         {
             using var wb = new XLWorkbook();
-            var ws = wb.Worksheets.Add(dt, "Лист1");   // creates a Table automatically
-
-            // Header/freeze/size
-            ws.Row(1).Style.Font.Bold = true;          // optional (table already bolds header)
-            ws.SheetView.FreezeRows(1);
-            ws.Columns().AdjustToContents();
-
-            // Use the table's own AutoFilter instead of RangeUsed().SetAutoFilter()
+            var ws = wb.Worksheets.Add(dt, "запрос_склад");   // creates a Table automatically
             var tbl = ws.Tables.FirstOrDefault();
             if (tbl != null)
             {
-                tbl.ShowAutoFilter = true;             // OK for table
+                tbl.Theme = XLTableTheme.None;       // removes blue style
+                tbl.ShowAutoFilter = false;          // hides filter arrows
             }
-            // else: if there is no table for some reason, you could fallback:
-            // ws.RangeUsed().SetAutoFilter();
 
+            ws.Columns().AdjustToContents();
+                     
             // Right-align numeric columns
             for (int i = 0; i < dt.Columns.Count; i++)
             {
@@ -67,7 +61,8 @@ public class ExportHelper
                     ws.Column(i + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
                 }
             }
-
+            ws.Style.Font.FontColor = XLColor.White;
+            ws.Protect("MyStrongPassword123");
             wb.SaveAs(fullPath);
             return true;
         }
@@ -99,6 +94,7 @@ public class ExportHelper
 
     public DataTable? ImportExcel(string filePath, string sheetName = "Sheet1")
     {
+        
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             return null;
 

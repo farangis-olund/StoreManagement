@@ -4,212 +4,210 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Contexts;
 
-public partial class DatabaseContext(DbContextOptions<DatabaseContext> options) : DbContext(options)
+public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
+    : DbContext(options)
 {
-	public virtual DbSet<BrandEntity> Brands { get; set; }
-	public virtual DbSet<CurrencyEntity> Currencies { get; set; }
-	public virtual DbSet<GroupEntity> Groups { get; set; }
-	public virtual DbSet<ProductEntity> Products { get; set; }
-	public virtual DbSet<CustomerEntity> Customers { get; set; }
-	public virtual DbSet<UserEntity> Users { get; set; }
-	public virtual DbSet<RoleEntity> Roles { get; set; }
-	public virtual DbSet<UserRoleEntity> UserRoles { get; set; }
-	public virtual DbSet<OrderDetailEntity> OrderDetails { get; set; }
-	public virtual DbSet<OrderEntity> Orders { get; set; }
+    public DbSet<BrandEntity> Brands { get; set; }
+    public DbSet<CurrencyEntity> Currencies { get; set; }
+    public DbSet<GroupEntity> Groups { get; set; }
+    public DbSet<ProductEntity> Products { get; set; }
+    public DbSet<CustomerEntity> Customers { get; set; }
 
-	public virtual DbSet<CustomerPaymentEntity> Payments { get; set; }
+    public DbSet<UserEntity> Users { get; set; }
+    public DbSet<RoleEntity> Roles { get; set; }
+    public DbSet<UserRoleEntity> UserRoles { get; set; }
+    public DbSet<RolePermissionEntity> RolePermissions { get; set; }
+    public DbSet<PermissionEntity> Permissions { get; set; }
 
-	public virtual DbSet<ExchangeRateEntity> ExchangeRates { get; set; }
+    public DbSet<OrderEntity> Orders { get; set; }
+    public DbSet<OrderDetailEntity> OrderDetails { get; set; }
+    public DbSet<CustomerPaymentEntity> Payments { get; set; }
 
-	public virtual DbSet<PriceLevelEntity> PriceLevels { get; set; }
-	public virtual DbSet<ManagerBrandEntity> ManagerBrands { get; set; }
-	public virtual DbSet<SalesManagerEntity> SalesManagers { get; set; }
-	public virtual DbSet<CourierEntity> Couriers { get; set; }
-	public virtual DbSet<StorekeeperEntity> Storekeepers { get; set; }
+    public DbSet<ExchangeRateEntity> ExchangeRates { get; set; }
+    public DbSet<PriceLevelEntity> PriceLevels { get; set; }
 
-	public virtual DbSet<ReturnEntity> Returns { get; set; }
+    public DbSet<SalesManagerEntity> SalesManagers { get; set; }
+    public DbSet<ManagerBrandEntity> ManagerBrands { get; set; }
+    public DbSet<ManagerCustomerEntity> ManagerCustomers { get; set; }
 
-	public virtual DbSet<ReturnDetailEntity> ReturnDetails { get; set; }
+    public DbSet<CourierEntity> Couriers { get; set; }
+    public DbSet<StorekeeperEntity> Storekeepers { get; set; }
 
-	public virtual DbSet<RaschetKoefficentaEntity> RaschetKoefficenta { get; set; }
+    public DbSet<ReturnEntity> Returns { get; set; }
+    public DbSet<ReturnDetailEntity> ReturnDetails { get; set; }
+    public DbSet<ReturnReasonEntity> ReturnReasons { get; set; }
 
-	public virtual DbSet<ReturnReasonEntity> ReturnReasons { get; set; }
-
-	public virtual DbSet<OrganizationInfoEntity> OrganizationInfo { get; set; }
-	public virtual DbSet<StockUpdateLogEntity> StockUpdateLog { get; set; }
-
-	public virtual DbSet<StockMovementEntity> StockMovements { get; set; }
-	public virtual DbSet<StockImportErrorEntity> StockImportErrors { get; set; }
-
-	public virtual DbSet<StoreEntity> Stores { get; set; }
-	public virtual DbSet<StoreExchangeEntity> StoreExchanges { get; set; }
-	public virtual DbSet<CategoryEntity> Categories { get; set; }
-	public virtual DbSet<ManagerCustomerEntity> ManagerCustomers { get; set; }
-
-	protected override void OnModelCreating(ModelBuilder modelBuilder)
-	{
-
-		foreach (var property in modelBuilder.Model
-		.GetEntityTypes()
-		.SelectMany(t => t.GetProperties())
-		.Where(p => p.ClrType == typeof(decimal)))
-		{
-			property.SetColumnType("decimal(18,2)");
-		}
-
-		modelBuilder.Entity<StockUpdateLogEntity>()
-		.HasIndex(x => x.UpdateDate)
-		.IsUnique();
-
-		modelBuilder.Entity<CustomerPaymentEntity>(b =>
-		{
-			b.ToTable("Payments"); // or your actual table name
-			b.HasKey(x => x.Id);
-			b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
-
-			b.HasOne(x => x.Customer)
-			 .WithMany(c => c.Payments)
-			 .HasForeignKey(x => x.CustomerId)
-			 .HasPrincipalKey(c => c.Id)
-			 .OnDelete(DeleteBehavior.Restrict);
-
-		});
-
-		modelBuilder.Entity<StoreEntity>()
-	   .HasKey(s => s.StoreCode);
-
-		modelBuilder.Entity<StoreExchangeEntity>()
-			.HasOne(se => se.Store)
-			.WithMany(s => s.StoreExchanges)
-			.HasForeignKey(se => se.StoreCode);
-
-		modelBuilder.Entity<CustomerEntity>()
-		.HasOne(c => c.SalesManager)
-		.WithMany(m => m.Customers)
-		.HasForeignKey(c => c.SalesManagerId)
-		.OnDelete(DeleteBehavior.Restrict); // or SetNull
-
-		modelBuilder.Entity<CustomerEntity>()
-		.HasMany(c => c.Returns)
-		.WithOne(r => r.Customer)
-		.HasForeignKey(r => r.CustomerId);
+    public DbSet<RaschetKoefficentaEntity> RaschetKoefficenta { get; set; }
+    public DbSet<OrganizationInfoEntity> OrganizationInfo { get; set; }
+    public DbSet<StockUpdateLogEntity> StockUpdateLog { get; set; }
+    public DbSet<StockMovementEntity> StockMovements { get; set; }
+    public DbSet<StockImportErrorEntity> StockImportErrors { get; set; }
+    public DbSet<StoreEntity> Stores { get; set; }
+    public DbSet<StoreExchangeEntity> StoreExchanges { get; set; }
+    public DbSet<CategoryEntity> Categories { get; set; }
+    public DbSet<ExpenseEntity> Expenses { get; set; }
+    public DbSet<CourierPaymentEntity> CourierPayments { get; set; }
 
 
-		modelBuilder.Entity<BrandEntity>()
-			.HasIndex(x => x.BrandName)
-			.IsUnique();
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Global decimal precision
+        foreach (var property in modelBuilder.Model
+            .GetEntityTypes()
+            .SelectMany(t => t.GetProperties())
+            .Where(p => p.ClrType == typeof(decimal)))
+        {
+            property.SetColumnType("decimal(18,2)");
+        }
 
-		modelBuilder.Entity<GroupEntity>()
-			.HasIndex(x => x.GroupName)
-			.IsUnique();
+        // =========================
+        // INDEXES
+        // =========================
+        modelBuilder.Entity<BrandEntity>().HasIndex(x => x.BrandName).IsUnique();
+        modelBuilder.Entity<GroupEntity>().HasIndex(x => x.GroupName).IsUnique();
+        modelBuilder.Entity<CurrencyEntity>().HasIndex(x => x.Code).IsUnique();
+        modelBuilder.Entity<StockUpdateLogEntity>().HasIndex(x => x.UpdateDate).IsUnique();
 
-		modelBuilder.Entity<CurrencyEntity>()
-			.HasIndex(x => x.Code)
-			.IsUnique();
+        // =========================
+        // PRODUCT
+        // =========================
+        modelBuilder.Entity<ProductEntity>()
+            .HasOne(p => p.Brand)
+            .WithMany(b => b.Products)
+            .HasForeignKey(p => p.BrandId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProductEntity>()
+            .HasOne(p => p.Group)
+            .WithMany(g => g.Products)
+            .HasForeignKey(p => p.GroupId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // =========================
+        // ORDER
+        // =========================
+        modelBuilder.Entity<OrderEntity>()
+            .HasOne(o => o.Courier)
+            .WithMany(c => c.Orders)
+            .HasForeignKey(o => o.CourierId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<OrderEntity>()
+            .HasOne(o => o.Storekeeper)
+            .WithMany(s => s.Orders)
+            .HasForeignKey(o => o.StorekeeperId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Order → OrderDetails (CASCADE)
+        modelBuilder.Entity<OrderDetailEntity>()
+            .HasKey(od => new { od.OrderId, od.ArticleNumber });
+
+        modelBuilder.Entity<OrderDetailEntity>()
+            .HasOne(od => od.Order)
+            .WithMany(o => o.OrderDetails)
+            .HasForeignKey(od => od.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrderDetailEntity>()
+            .HasOne(od => od.Product)
+            .WithMany(p => p.OrderDetails)
+            .HasForeignKey(od => od.ArticleNumber)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Order → Payments (CASCADE)
+        modelBuilder.Entity<CustomerPaymentEntity>(b =>
+        {
+            b.ToTable("Payments");
+            b.HasKey(x => x.Id);
+
+            b.HasOne(p => p.Order)
+                .WithMany(o => o.Payments)
+                .HasForeignKey(p => p.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(p => p.Customer)
+                .WithMany(c => c.Payments)
+                .HasForeignKey(p => p.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =========================
+        // CUSTOMER
+        // =========================
+        modelBuilder.Entity<CustomerEntity>()
+            .HasOne(c => c.SalesManager)
+            .WithMany(m => m.Customers)
+            .HasForeignKey(c => c.SalesManagerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // =========================
+        // RETURNS
+        // =========================
+        modelBuilder.Entity<ReturnEntity>(entity =>
+        {
+            entity.HasOne(r => r.Customer)
+                .WithMany(c => c.Returns)
+                .HasForeignKey(r => r.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.ReturnReason)
+                .WithMany(rr => rr.Returns)
+                .HasForeignKey(r => r.ReturnReasonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(r => r.ReturnDetails)
+                .WithOne(d => d.Return)
+                .HasForeignKey(d => d.ReturnId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReturnDetailEntity>()
+            .HasOne(d => d.Product)
+            .WithMany()
+            .HasForeignKey(d => d.ArticleNumber)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // =========================
+        // STORE
+        // =========================
+        modelBuilder.Entity<StoreEntity>()
+            .HasKey(s => s.StoreCode);
+
+        modelBuilder.Entity<StoreExchangeEntity>()
+            .HasOne(se => se.Store)
+            .WithMany(s => s.StoreExchanges)
+            .HasForeignKey(se => se.StoreCode);
+
+        // =========================
+        // MANY-TO-MANY
+        // =========================
+        modelBuilder.Entity<UserRoleEntity>()
+            .HasKey(x => new { x.UserId, x.RoleId });
+
+        modelBuilder.Entity<ManagerBrandEntity>()
+            .HasKey(x => new { x.ManagerId, x.BrandId });
+
+        modelBuilder.Entity<ManagerCustomerEntity>()
+            .HasKey(x => new { x.ManagerId, x.CustomerId });
 
 
-		modelBuilder.Entity<ProductEntity>(entity =>
-		{
-			entity.HasOne(c => c.Brand)
-				.WithMany(z => z.Products)
-				.HasForeignKey(d => d.BrandId)
-				.OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CourierPaymentEntity>(entity =>
+        {
+            entity.HasKey(x => x.Id);
 
-			entity.HasOne(c => c.Group)
-				.WithMany(z => z.Products)
-				.HasForeignKey(d => d.GroupId)
-				.OnDelete(DeleteBehavior.Cascade);
-		});
+            entity.Property(x => x.AmountInEuro).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.AmountInTJS).HasColumnType("decimal(18,2)");
 
-		modelBuilder.Entity<OrderEntity>()
-		  .HasOne(o => o.Courier)
-		  .WithMany(c => c.Orders)
-		  .HasForeignKey(o => o.CourierId)
-		  .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(x => x.Order)
+                .WithMany()
+                .HasForeignKey(x => x.OrderId)
+                .HasPrincipalKey(o => o.Id)
+                .OnDelete(DeleteBehavior.Restrict);
 
-		modelBuilder.Entity<OrderEntity>()
-			.HasOne(o => o.Storekeeper)
-			.WithMany(s => s.Orders)
-			.HasForeignKey(o => o.StorekeeperId)
-			.OnDelete(DeleteBehavior.SetNull);
-
-
-		modelBuilder.Entity<OrderDetailEntity>()
-	.HasKey(od => new { od.OrderId, od.ArticleNumber }); // Composite PK
-
-		modelBuilder.Entity<OrderDetailEntity>()
-			.Property(od => od.ArticleNumber)
-			.IsRequired()
-			.HasColumnType("varchar(50)");
-
-		modelBuilder.Entity<OrderDetailEntity>()
-			.Property(od => od.Price)
-			.HasPrecision(18, 2);
-
-		modelBuilder.Entity<OrderDetailEntity>()
-			.HasOne(od => od.Order)
-			.WithMany(o => o.OrderDetails)
-			.HasForeignKey(od => od.OrderId);
-
-		modelBuilder.Entity<OrderDetailEntity>()
-			.HasOne(od => od.Product)
-			.WithMany(p => p.OrderDetails)
-			.HasForeignKey(od => od.ArticleNumber);
-
-
-		modelBuilder.Entity<UserRoleEntity>()
-			.HasKey(ur => new { ur.UserId, ur.RoleId });
-
-
-		modelBuilder.Entity<UserRoleEntity>()
-			.HasOne(ur => ur.User)
-			.WithMany(u => u.UserRoles)
-			.HasForeignKey(ur => ur.UserId);
-
-
-		modelBuilder.Entity<UserRoleEntity>()
-			.HasOne(ur => ur.Role)
-			.WithMany(r => r.UserRoles)
-			.HasForeignKey(ur => ur.RoleId);
-
-		// ==== Returns ====
-		modelBuilder.Entity<ReturnEntity>(entity =>
-		{
-			entity.HasOne(e => e.Customer)
-				  .WithMany(c => c.Returns)
-				  .HasForeignKey(e => e.CustomerId)
-				  .OnDelete(DeleteBehavior.Restrict);
-
-			entity.HasMany(e => e.ReturnDetails)
-				  .WithOne(d => d.Return)
-				  .HasForeignKey(d => d.ReturnId)
-				  .OnDelete(DeleteBehavior.Cascade);
-
-			entity.HasOne(e => e.ReturnReason)
-				  .WithMany(r => r.Returns)
-				  .HasForeignKey(e => e.ReturnReasonId)
-				  .OnDelete(DeleteBehavior.Restrict);
-		});
-
-		modelBuilder.Entity<ReturnDetailEntity>(entity =>
-		{
-			entity.HasOne(d => d.Return)
-				  .WithMany(r => r.ReturnDetails)
-				  .HasForeignKey(d => d.ReturnId);
-
-			entity.HasOne(d => d.Product)
-				  .WithMany() // if ProductEntity does not expose ReturnDetails
-				  .HasForeignKey(d => d.ArticleNumber)
-				  .HasPrincipalKey(p => p.ArticleNumber);
-		});
-		modelBuilder.Entity<ManagerBrandEntity>()
-			.HasKey(x => new { x.ManagerId, x.BrandId });
-				
-
-		modelBuilder.Entity<ManagerCustomerEntity>()
-			.HasKey(x => new { x.ManagerId, x.CustomerId });
-
-		
-
-	}
+            entity.HasOne(x => x.Courier)
+                .WithMany()
+                .HasForeignKey(x => x.CourierId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
 }

@@ -45,46 +45,133 @@ public class StoreExchangeService
             .ToListAsync();
     }
 
-    // ─── Add record + update stock + cleanup old ─────
     public async Task AddAsync(StoreExchangeEntity exchange, CancellationToken ct = default)
     {
         if (exchange == null)
             throw new ArgumentNullException(nameof(exchange));
 
+        // Save repayment or borrow record first
         _context.StoreExchanges.Add(exchange);
         await _context.SaveChangesAsync(ct);
 
-        //  Update product stock based on the type
+        // STOCK UPDATE
         if (exchange.ExchangeType == "получение_товара")
-        {
-            // Your store RECEIVES product → increase stock
             await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "+", ct);
-        }
+
         else if (exchange.ExchangeType == "передача_товара")
-        {
-            // Your store SENDS product → decrease stock
             await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "-", ct);
+
+        else if (exchange.ExchangeType == "получение_возврата")
+            await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "+", ct);
+
+        else if (exchange.ExchangeType == "погащение_долга")
+            await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "-", ct);
+
+
+        // SPECIAL RULES
+        if (exchange.ExchangeType == "погащение_долга")
+        {
+            // 1️⃣ Remove from получение_товара (the debt)
+            await RemoveExchangeRecordsAsync(exchange.StoreCode, exchange.ArticleNumber, "получение_товара", exchange.Quantity, ct);
+
+            // 2️⃣ Remove this repayment entry itself
+            _context.StoreExchanges.Remove(exchange);
+            await _context.SaveChangesAsync(ct);
+
+            // 3️⃣ Remove all if debt fully repaid
+            await RemoveAllIfBalancedAsync(exchange.StoreCode, exchange.ArticleNumber, ct);
+            return;
         }
 
-
-        //  Update product stock based on the type
         if (exchange.ExchangeType == "получение_возврата")
         {
-            // Your store RECEIVES product → increase stock
-            await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "+", ct);
-
-            // Cleanup: remove corresponding "передача_товара" entries (already returned)
+            // Remove corresponding передача_товара
             await RemoveExchangeRecordsAsync(exchange.StoreCode, exchange.ArticleNumber, "передача_товара", exchange.Quantity, ct);
-        }
-        else if (exchange.ExchangeType == "погащение_долга")
-        {
-            // Your store SENDS product → decrease stock
-            await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "-", ct);
 
-            // Cleanup: remove corresponding "получение_товара" entries (already repaid)
-            await RemoveExchangeRecordsAsync(exchange.StoreCode, exchange.ArticleNumber, "получение_товара", exchange.Quantity, ct);
+            // And check if everything balances
+            await RemoveAllIfBalancedAsync(exchange.StoreCode, exchange.ArticleNumber, ct);
+            return;
         }
     }
+
+    private async Task RemoveAllIfBalancedAsync(
+    string storeCode,
+    string article,
+    CancellationToken ct)
+    {
+        int totalReceived = await _context.StoreExchanges
+            .Where(x => x.StoreCode == storeCode &&
+                        x.ArticleNumber == article &&
+                        x.ExchangeType == "получение_товара")
+            .SumAsync(x => x.Quantity, ct);
+
+        int totalRepaid = await _context.StoreExchanges
+            .Where(x => x.StoreCode == storeCode &&
+                        x.ArticleNumber == article &&
+                        x.ExchangeType == "погащение_долга")
+            .SumAsync(x => x.Quantity, ct);
+
+        if (totalReceived == totalRepaid)
+        {
+            // Remove everything for this store/article
+            var all = await _context.StoreExchanges
+                .Where(x => x.StoreCode == storeCode &&
+                            x.ArticleNumber == article)
+                .ToListAsync(ct);
+
+            _context.StoreExchanges.RemoveRange(all);
+            await _context.SaveChangesAsync(ct);
+        }
+    }
+
+
+    //// ─── Add record + update stock + cleanup old ─────
+    //public async Task AddAsync(StoreExchangeEntity exchange, CancellationToken ct = default)
+    //{
+    //    if (exchange == null)
+    //        throw new ArgumentNullException(nameof(exchange));
+
+    //    _context.StoreExchanges.Add(exchange);
+    //    await _context.SaveChangesAsync(ct);
+
+    //    //  Update product stock based on the type
+    //    if (exchange.ExchangeType == "получение_товара")
+    //    {
+    //        // Your store RECEIVES product → increase stock
+    //        await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "+", ct);
+    //    }
+    //    else if (exchange.ExchangeType == "передача_товара")
+    //    {
+    //        // Your store SENDS product → decrease stock
+    //        await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "-", ct);
+    //    }
+
+
+    //    //  Update product stock based on the type
+    //    if (exchange.ExchangeType == "получение_возврата")
+    //    {
+    //        // Your store RECEIVES product → increase stock
+    //        await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "+", ct);
+
+    //        // Cleanup: remove corresponding "передача_товара" entries (already returned)
+    //        await RemoveExchangeRecordsAsync(exchange.StoreCode, exchange.ArticleNumber, "передача_товара", exchange.Quantity, ct);
+
+    //        // Remove remaining debt if none exist
+    //        await CleanupDebtIfFullyPaidAsync(exchange.StoreCode, exchange.ArticleNumber, ct);
+    //    }
+    //    else if (exchange.ExchangeType == "погащение_долга")
+    //    {
+    //        // Your store SENDS product → decrease stock
+    //        await _productService.UpdateProductQuantityAsync(exchange.Quantity, exchange.ArticleNumber, "-", ct);
+
+
+    //        // Cleanup: remove corresponding "получение_товара" entries (already repaid)
+    //        await RemoveExchangeRecordsAsync(exchange.StoreCode, exchange.ArticleNumber, "получение_товара", exchange.Quantity, ct);
+
+    //        // Remove debt record completely if fully paid
+    //        await CleanupDebtIfFullyPaidAsync(exchange.StoreCode, exchange.ArticleNumber, ct);
+    //    }
+    //}
 
     // ─── Remove (or decrement) old exchange entries ──
     private async Task RemoveExchangeRecordsAsync(
@@ -124,6 +211,99 @@ public class StoreExchangeService
 
         await _context.SaveChangesAsync(ct);
     }
+
+    private readonly Dictionary<string, string> debtPairs = new()
+{
+    { "получение_возврата", "передача_товара" },
+    { "погащение_долга", "получение_товара" }
+};
+
+    private async Task ApplyDebtCleanupAsync(StoreExchangeEntity exchange, CancellationToken ct)
+    {
+        if (!debtPairs.TryGetValue(exchange.ExchangeType, out string debtType))
+            return;
+
+        var debtRecords = await _context.StoreExchanges
+            .Where(x => x.StoreCode == exchange.StoreCode &&
+                        x.ArticleNumber == exchange.ArticleNumber &&
+                        x.ExchangeType == debtType)
+            .OrderBy(x => x.Id)
+            .ToListAsync(ct);
+
+        int originalDebtCount = debtRecords.Count();   // <-- important
+
+        int remaining = exchange.Quantity;
+
+        foreach (var rec in debtRecords)
+        {
+            if (remaining <= 0) break;
+
+            if (rec.Quantity > remaining)
+            {
+                rec.Quantity -= remaining;
+                remaining = 0;
+            }
+            else
+            {
+                remaining -= rec.Quantity;
+                _context.StoreExchanges.Remove(rec);
+            }
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        // 🟥 If no debt rows existed → repayment is meaningless → remove it
+        if (originalDebtCount == 0)
+        {
+            _context.StoreExchanges.Remove(exchange);
+            await _context.SaveChangesAsync(ct);
+            return;
+        }
+    }
+
+
+    private async Task RemoveFullyRepaidDebtAsync(string store, string article, CancellationToken ct)
+    {
+        int outgoing = await _context.StoreExchanges
+            .Where(x => x.StoreCode == store &&
+                        x.ArticleNumber == article &&
+                        x.ExchangeType == "передача_товара")
+            .SumAsync(x => x.Quantity, ct);
+
+        int incoming = await _context.StoreExchanges
+            .Where(x => x.StoreCode == store &&
+                        x.ArticleNumber == article &&
+                        x.ExchangeType == "получение_возврата")
+            .SumAsync(x => x.Quantity, ct);
+
+        int loan = await _context.StoreExchanges
+            .Where(x => x.StoreCode == store &&
+                        x.ArticleNumber == article &&
+                        x.ExchangeType == "получение_товара")
+            .SumAsync(x => x.Quantity, ct);
+
+        int repayment = await _context.StoreExchanges
+            .Where(x => x.StoreCode == store &&
+                        x.ArticleNumber == article &&
+                        x.ExchangeType == "погащение_долга")
+            .SumAsync(x => x.Quantity, ct);
+
+        bool loanBalanced = outgoing == incoming;
+        bool repaymentBalanced = loan == repayment;
+
+        if (loanBalanced && repaymentBalanced)
+        {
+            var all = _context.StoreExchanges
+                .Where(x => x.StoreCode == store &&
+                            x.ArticleNumber == article)
+                .ToList();
+
+            _context.StoreExchanges.RemoveRange(all);
+            await _context.SaveChangesAsync(ct);
+        }
+    }
+
+
 
     public async Task<IEnumerable<ExchangeProductDto>> GetExchangeProductsAsync(string storeCode, string exchangeType)
     {

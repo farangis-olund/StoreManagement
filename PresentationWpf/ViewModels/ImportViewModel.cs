@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Data;
+using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,6 +9,7 @@ using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PresentationWpf.Views;
+using QuestPDF.Fluent;
 
 namespace PresentationWpf.ViewModels
 {
@@ -28,7 +30,7 @@ namespace PresentationWpf.ViewModels
         private readonly ProductService _productService;
         private readonly ExportHelper _export;
         private readonly IServiceProvider _sp;
-
+        private readonly OrganizationInfoService _orgService;
         public event Action? RequestClose;
 
         [ObservableProperty] private ObservableCollection<DateTime> availableDates = [];
@@ -41,7 +43,7 @@ namespace PresentationWpf.ViewModels
             StockUpdateLogRepository logRepo,
             ProductService productService,
             ExportHelper export,
-            IServiceProvider sp
+            IServiceProvider sp, OrganizationInfoService orgService
             )
         {
             _orderService = orderService;
@@ -49,6 +51,7 @@ namespace PresentationWpf.ViewModels
             _productService = productService;
             _export = export;
             _sp = sp;
+            _orgService = orgService;
          
 
             _ = LoadDatesAsync();
@@ -155,10 +158,48 @@ namespace PresentationWpf.ViewModels
         }
 
 
+        [RelayCommand(CanExecute = nameof(CanRunActions))]
+        public async Task ExportAsync()
+        {
+            if (SelectedDate is null || Rows.Count == 0)
+            {
+                MessageBox.Show("Нет данных для экспорта!", "Экспорт",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Convert rows to minimal table (ONLY 2 columns)
+            var dt = ToMinimalDataTable(Rows);
+
+            IsBusy = true;
+            try
+            {
+                var ok = await _export.ExportExcel(dt, SelectedDate.Value);
+
+                if (!ok)
+                {
+                    MessageBox.Show("Не удалось выполнить экспорт.\n"
+                                    + "Проверьте путь для экспорта в настройках.",
+                                    "Ошибка экспорта", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                MessageBox.Show("Экспорт успешно завершён!",
+                                "Готово", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            finally
+            {
+                IsBusy = false;
+                RaiseCanExecutes();
+            }
+        }
+
+
+
         public event Action<DataTable, DateTime?, string>? RequestOpenReport;
 
         [RelayCommand(CanExecute = nameof(CanRunActions))]
-        private void OpenReport()
+        private async Task OpenReport()
         {
             if (Rows.Count == 0)
             {
@@ -166,35 +207,37 @@ namespace PresentationWpf.ViewModels
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+            string storeInfo = await _orgService.GetShopDisplayAsync();
 
             var dt = ToDataTable(Rows); // your helper with RU headers
 
-            // 1) Build Report VM
+            // 1️⃣ Build Report ViewModel
             var reportVm = _sp.GetRequiredService<ReportViewModel>();
-            reportVm.Initialize(dt, SelectedDate, "Обновление товаров");
+            reportVm.Initialize(dt, SelectedDate, "Обновление товаров", storeInfo);
 
-            // 2) Build the view
-            var reportView = new ReportView
-            {
-                DataContext = reportVm
-            };
+            // 2️⃣ Generate PDF report document
+            var document = new Documents.ReportDocument(reportVm);
 
-            // 3) Show in a centered modal window (same pattern as Retail)
+            string folder = Path.Combine(Path.GetTempPath(), "Reports");
+            Directory.CreateDirectory(folder);
+
+            string filePath = Path.Combine(folder, $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+            document.GeneratePdf(filePath);
+
+            // 3️⃣ Show in PDF preview window
+            var preview = new DocumentPreviewView(filePath);
             var window = new Window
             {
                 Title = reportVm.Title,
-                Content = reportView,
-                Owner = Application.Current.MainWindow,            // important!
+                Content = preview,
+                
+                Owner = Application.Current.MainWindow,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Width = 1000,
-                Height = 700,
+                Width = 900,
+                Height = 900,
                 ResizeMode = ResizeMode.CanResize,
                 ShowInTaskbar = false
             };
-
-            // close when VM asks to close
-            void OnClose() { reportVm.RequestClose -= OnClose; window.Close(); }
-            reportVm.RequestClose += OnClose;
 
             window.ShowDialog();
         }
@@ -208,7 +251,7 @@ namespace PresentationWpf.ViewModels
         {
             UpdateCommand.NotifyCanExecuteChanged();
             OpenReportCommand.NotifyCanExecuteChanged();
-           
+            ExportCommand.NotifyCanExecuteChanged();
         }
 
         private static DataTable ToDataTable(ObservableCollection<ImportRow> rows)
@@ -226,5 +269,18 @@ namespace PresentationWpf.ViewModels
 
             return dt;
         }
+
+        private static DataTable ToMinimalDataTable(ObservableCollection<ImportRow> rows)
+        {
+            var dt = new DataTable();
+            dt.Columns.Add("Артикул", typeof(string));
+            dt.Columns.Add("Количество", typeof(int));
+
+            foreach (var r in rows)
+                dt.Rows.Add(r.ArticleNumber, r.Quantity);
+
+            return dt;
+        }
+
     }
 }

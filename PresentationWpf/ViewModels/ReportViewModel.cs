@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Security.Cryptography.X509Certificates;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -34,20 +35,15 @@ public partial class ReportViewModel : ObservableObject
     {
         _export = export;
         _organization = organization;
-
-        _ = LoadOrgAsync();
+       
     }
 
-    private async Task LoadOrgAsync()
-    {
-        var org = await _organization.GetAsync();
-        OrganizationName = org?.Name ?? "Организация";
-    }
 
-    public void Initialize(DataTable table, DateTime? date, string? title = null)
+    public void Initialize(DataTable table, DateTime? date, string? title = null, string? storeInfo = null)
     {
         Table = table;
         SelectedDate = date;
+        OrganizationName = storeInfo;
         if (!string.IsNullOrWhiteSpace(title)) Title = title!;
         OnPropertyChanged(nameof(DisplayDate));
     }

@@ -3,6 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:local="clr-namespace:PresentationWpf.Views"
+             xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
+            d:DataContext="{d:DesignInstance Type=viewmodels:UserViewModel}"
+          
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="900">
 
@@ -18,25 +22,35 @@
 
         <!-- 🔵 Кнопки управления (сверху) -->
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-            <Button Content="Добавить"  Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding AddUserAsyncCommand}"/>
-            <Button Content="Изменить" Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding UpdateUserAsyncCommand}"/>
-            <Button Content="Удалить" Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding DeleteUserAsyncCommand}"/>
+            <Button Content="+ Новый"  Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding AddNewUserCommand}"/>
+            <Button Content="Добавить"  Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding AddUserCommand}"/>
+            <Button Content="Изменить" Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding UpdateUserCommand}"/>
+            <Button Content="Удалить" Style="{StaticResource GrayButton}" Width="100" Margin="2" Command="{Binding DeleteUserCommand}"/>
         </StackPanel>
 
         <!-- 🟣 Форма добавления / редактирования -->
         <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,10">
             <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Имя пользователя"/>
+                <TextBlock >
+                     <Run Text="Логин" Foreground="Black"/>
+                     <Run Text="*" Foreground="Red"/>
+                </TextBlock>
                 <TextBox Width="120" Height="30" VerticalContentAlignment="Center" FontSize="15" Text="{Binding CurrentUser.UserName, Mode=TwoWay}"/>
             </StackPanel>
 
             <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Имя"/>
+                <TextBlock >
+                     <Run Text="Имя" Foreground="Black"/>
+                     <Run Text="*" Foreground="Red"/>
+                </TextBlock>
                 <TextBox Width="120" Height="30" VerticalContentAlignment="Center"  FontSize="15" Text="{Binding CurrentUser.FirstName, Mode=TwoWay}"/>
             </StackPanel>
 
             <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Фамилия"/>
+                <TextBlock >
+                     <Run Text="Фамилия" Foreground="Black"/>
+                     <Run Text="*" Foreground="Red"/>
+                </TextBlock>
                 <TextBox Width="120" Height="30" VerticalContentAlignment="Center"  FontSize="15" Text="{Binding CurrentUser.LastName, Mode=TwoWay}"/>
             </StackPanel>
 
@@ -51,12 +65,18 @@
             </StackPanel>
 
             <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Пароль"/>
+                <TextBlock >
+                     <Run Text="Пароль" Foreground="Black"/>
+                     <Run Text="*" Foreground="Red"/>
+                </TextBlock>
                 <TextBox Width="120" Height="30" FontSize="15" Text="{Binding CurrentUser.Password, Mode=TwoWay}" />
             </StackPanel>
 
             <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Роль"/>
+                <TextBlock >
+                    <Run Text="Роль" Foreground="Black"/>
+                    <Run Text="*" Foreground="Red"/>
+                </TextBlock>
                 <ComboBox Width="260" Height="30" VerticalContentAlignment="Center"  FontSize="15"
                           ItemsSource="{Binding Roles}"
                           DisplayMemberPath="RoleName"
@@ -71,7 +91,7 @@
                   SelectedItem="{Binding CurrentUser, Mode=TwoWay}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
-                  IsReadOnly="False">
+                  IsReadOnly="True">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Имя пользователя" Binding="{Binding UserName}" Width="150"/>
                 <DataGridTextColumn Header="Имя" Binding="{Binding FirstName}" Width="150"/>
@@ -86,14 +106,7 @@
                             <TextBlock Text="{Binding UserRoles[0].Role.RoleName}"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
-                    <DataGridTemplateColumn.CellEditingTemplate>
-                        <DataTemplate>
-                            <ComboBox ItemsSource="{Binding DataContext.Roles, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      DisplayMemberPath="RoleName"
-                                      SelectedValuePath="Id"
-                                      SelectedValue="{Binding UserRoles[0].RoleId, Mode=TwoWay}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellEditingTemplate>
+                  
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>

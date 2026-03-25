@@ -1,5 +1,6 @@
 ﻿
 using Infrastructure.Contexts;
+using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -119,25 +120,25 @@ public class CoefficientService
 
 	}
 
-	public async Task CalculateEzhPogashForCustomerAsync(string customerId)
+	public async Task CalculateEzhPogashForCustomerAsync(Customer customer)
 	{
 		var coef = await _db.RaschetKoefficenta.FirstOrDefaultAsync();
 		if (coef == null) return;
 
-		var customer = await _db.Customers
+		var customerEntity = await _db.Customers
 			.Include(c => c.Orders).ThenInclude(o => o.OrderDetails)
 			.Include(c => c.Payments)
 			.Include(c => c.Returns)
-			.FirstOrDefaultAsync(c => c.Id == customerId);
+			.FirstOrDefaultAsync(c => c.Id == customer.Id);
 
-		if (customer == null) return;
+		if (customerEntity == null) return;
 
-		decimal ordersTotal = customer.Orders
+		decimal ordersTotal = customerEntity.Orders
 			.SelectMany(o => o.OrderDetails)
 			.Sum(od => od.Price * od.Quentity);
 
-		decimal returnsTotal = customer.Returns.Sum(r => r.TotalAmount);
-		decimal paymentsTotal = customer.Payments.Sum(p => p.Amount);
+		decimal returnsTotal = customerEntity.Returns.Sum(r => r.TotalAmount);
+		decimal paymentsTotal = customerEntity.Payments.Sum(p => p.Amount);
 		decimal debt = (decimal?)customer.Debt ?? 0;
 
 		decimal balance = ordersTotal - returnsTotal + debt - paymentsTotal;
@@ -155,7 +156,7 @@ public class CoefficientService
 		else if (balance >= coef.KoefEzhPogashOstatokNach5 && balance <= coef.KoefEzhPogashOstatokKon5)
 			koefEzhPogash = balance / coef.KoefEzhPogashDin5;
 
-		customer.DailyRepaymentCoefficient = (double)Math.Round(koefEzhPogash, 2);
+		customerEntity.DailyRepaymentCoefficient = (double)Math.Round(koefEzhPogash, 2);
 
 		await _db.SaveChangesAsync();
 	}

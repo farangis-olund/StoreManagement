@@ -11,11 +11,13 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <TextBlock Grid.Row="0" Text="СБОРЩИКИ" FontSize="18" Margin="0,0,0,10"/>
         <!-- ===== HEADER BUTTONS ===== -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,10">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,10">
             <Button Content="Добавить"
                     Command="{Binding AddCommand}"
                     Style="{StaticResource GrayButton}"
@@ -38,7 +40,7 @@
         </StackPanel>
 
         <!-- ===== INPUT FIELDS ===== -->
-        <Grid Grid.Row="1" Margin="0,0,0,10">
+        <Grid Grid.Row="2" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200"/>
                 <ColumnDefinition Width="300"/>
@@ -71,7 +73,7 @@
         </Grid>
 
         <!-- ===== DATAGRID ===== -->
-        <DataGrid Grid.Row="2"
+        <DataGrid Grid.Row="3"
                   ItemsSource="{Binding Storekeepers}"
                   Style="{StaticResource SummaryGrid}"
                   SelectedItem="{Binding SelectedStorekeeper, Mode=TwoWay}"

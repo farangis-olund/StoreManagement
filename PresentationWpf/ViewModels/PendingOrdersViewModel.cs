@@ -26,7 +26,7 @@ public partial class PendingOrdersViewModel : ObservableObject
     private PendingOrderModel? selectedOrder;
 
     [RelayCommand]
-    private async Task RefreshAsync()
+    public async Task RefreshAsync()
     {
         PendingOrders.Clear();
         var orders = await _orderService.GetUnsentOrdersAsync();

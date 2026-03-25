@@ -1,8 +1,6 @@
 ﻿using Infrastructure.Contexts;
 using Infrastructure.Dtos;
-using Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
-using System;
 using System.Diagnostics;
 using static Infrastructure.Helpers.DateHelper;
 
@@ -46,7 +44,7 @@ public class CustomerFinanceService
 		try
 		{
 			currentPayment = db.Payments
-				.Where(p => p.OrderId == orderId)
+				.Where(p => p.OrderId == orderId && p.CustomerId == customerId)
 				.AsEnumerable() 
 				.Sum(p => (decimal)(p.Amount));
 		}
@@ -218,52 +216,71 @@ public class CustomerFinanceService
         };
     }
 
-
     public async Task<decimal> EzhigodPogashenieAsync(string customerId, string orderId)
-	{
-		// 1. Get full finance info
-		var info = await GetFinanceInfoAsync(customerId, orderId);
-		if (info == null) return 0;
+    {
+        if (string.IsNullOrEmpty(customerId))
+            return 0;
 
-		await using var db = await _contextFactory.CreateDbContextAsync();
+        await using var db = await _contextFactory.CreateDbContextAsync();
 
-		// 2. Load coefficients
-		var coef = await db.RaschetKoefficenta.FirstOrDefaultAsync();
-		if (coef == null) return 0;
+        // 1️⃣ Load coefficients
+        var coef = await db.RaschetKoefficenta.FirstOrDefaultAsync();
+        if (coef == null) return 0;
 
-		var bands = new List<RepaymentBand>
-	{
-		new(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
-		new(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
-		new(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
-		new(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
-		new(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5),
-	};
+        var bands = new List<RepaymentBand>
+    {
+        new(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
+        new(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
+        new(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
+        new(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
+        new(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5)
+    };
 
-		// 3. Determine contract date and balance
-		var today = DateTime.Today;
-		var contractDate = info.ContractDate ?? today;
-		var balance = info.Balance;
+        // 2️⃣ Get finance info
+        var info = await GetFinanceInfoAsync(customerId, orderId);
+        if (info == null) return 0;
 
-		// If balance is below minimum → no repayment
-		var band = bands.FirstOrDefault(b => balance >= b.OstatokNach && balance <= b.OstatokKon);
-		if (band == null)
-			return 0;
+        var today = DateTime.Today;
+        var contractDay = info.ContractDate ?? today;
+        var balance = info.Balance;
+        var currentSale = info.CurrentSale;
 
-		// 4. Calculate number of working days
-		var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
+        // 3️⃣ Get total payments made today
+        var todayPayments = await db.Payments
+            .Where(p => p.CustomerId == customerId && p.Date.Date == today)
+            .SumAsync(p => (decimal?)p.Amount) ?? 0m;
 
-		// 5. Repayment calculation (use balance, not balance - CurrentSale)
-		var repayment = (balance / band.Days) * numberOfDays;
+        var adjustedBalance = balance + todayPayments; // VBA: ostatokDlyaPogash + summaPlatezha
 
-		// 6. Safety checks
-		if (repayment > balance || balance < 10)
-			repayment = balance;
+        // 4️⃣ Determine coefficient band
+        var band = bands.FirstOrDefault(b => adjustedBalance >= b.OstatokNach && adjustedBalance <= b.OstatokKon);
+        if (band == null) return 0;
 
-		return Math.Max(0, Math.Round(repayment, 2));
-	}
+        // 5️⃣ Days calculation (excluding weekends)
+        var numberOfDays = DatesBetweenExcludingWeekends(contractDay, today);
 
-	public async Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
+        // 6️⃣ Base formula
+        decimal repayment;
+        if (numberOfDays <= 0 || band.Days <= 0)
+        {
+            repayment = 0;
+        }
+        else
+        {
+            repayment = ((adjustedBalance - currentSale) / band.Days) * numberOfDays;
+        }
+
+        // 7️⃣ Safety checks (same as VBA)
+        var limit = adjustedBalance - currentSale;
+        if (repayment > limit || limit < 10)
+            repayment = limit;
+
+        if (repayment < 0) repayment = 0;
+
+        return Math.Round(repayment, 2);
+    }
+
+    public async Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
 	string managerId, string? territory = null)
 	{
 		await using var db = await _contextFactory.CreateDbContextAsync();
@@ -385,7 +402,287 @@ public class CustomerFinanceService
 		return result;
 	}
 
+    public async Task<DateTime?> GetLastOrderDateAsync(string customerId)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
 
+        return await db.Orders
+            .Where(o => o.CustomerId == customerId)
+            .OrderByDescending(o => o.Date)
+            .Select(o => (DateTime?)o.Date)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<List<ReconciliationRow>> GetReconciliationAsync(string customerId)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
+
+        var sales = await db.Orders
+            .Where(o => o.CustomerId == customerId)
+            .GroupBy(o => o.Date.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Sum = g.SelectMany(o => o.OrderDetails)
+                       .Sum(d => d.Price * d.Quentity)
+            })
+            .ToListAsync();
+
+        var payments = await db.Payments
+            .Where(p => p.CustomerId == customerId)
+            .GroupBy(p => p.Date.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Sum = g.Sum(p => p.Amount)
+            })
+            .ToListAsync();
+
+        var returns = await db.Returns
+            .Where(r => r.CustomerId == customerId)
+            .GroupBy(r => r.Date.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Sum = g.Sum(r => r.TotalAmount)
+            })
+            .ToListAsync();
+
+        var dates = sales.Select(x => x.Date)
+            .Union(payments.Select(x => x.Date))
+            .Union(returns.Select(x => x.Date))
+            .OrderBy(d => d);
+
+        var result = new List<ReconciliationRow>();
+
+        foreach (var date in dates)
+        {
+            result.Add(new ReconciliationRow
+            {
+                Date = date,
+                Sales = sales.FirstOrDefault(x => x.Date == date)?.Sum ?? 0,
+                Payments = payments.FirstOrDefault(x => x.Date == date)?.Sum ?? 0,
+                Returns = returns.FirstOrDefault(x => x.Date == date)?.Sum ?? 0
+            });
+        }
+
+        return result;
+    }
+
+    public async Task<List<InactivesSummaryRowDto>>
+    GetClientsByManagerAndPeriodAsync(
+    string managerId,
+    DateTime fromDate,
+    DateTime toDate)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
+
+        // 1️⃣ Get customers of manager
+        var customers = await db.Customers
+            .Where(c => c.SalesManagerId == managerId)
+            .ToListAsync();
+
+        var customerIds = customers.Select(c => c.Id).ToList();
+
+        // 2️⃣ Get sales (orders) in period
+        var sales = await db.Orders
+            .Where(o => customerIds.Contains(o.CustomerId)
+                     && o.Date >= fromDate
+                     && o.Date <= toDate)
+            .SelectMany(o => o.OrderDetails)
+            .GroupBy(d => d.Order.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Sum = g.Sum(x => x.Price * x.Quentity)
+            })
+            .ToListAsync();
+
+        // 3️⃣ Get payments in period
+        var payments = await db.Payments
+            .Where(p => customerIds.Contains(p.CustomerId)
+                     && p.Date >= fromDate
+                     && p.Date <= toDate)
+            .GroupBy(p => p.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Sum = g.Sum(x => x.Amount)
+            })
+            .ToListAsync();
+
+        // 4️⃣ Get returns in period
+        var returns = await db.Returns
+            .Where(r => customerIds.Contains(r.CustomerId)
+                     && r.Date >= fromDate
+                     && r.Date <= toDate)
+            .GroupBy(r => r.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Sum = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync();
+
+        // 5️⃣ Build result in memory (SAFE)
+        var result = new List<InactivesSummaryRowDto>();
+
+        foreach (var customer in customers)
+        {
+            var lastOrderDate = await GetLastOrderDateAsync(customer.Id);
+            var salesSum =
+                sales.FirstOrDefault(x => x.CustomerId == customer.Id)?.Sum ?? 0m;
+
+            var paymentSum =
+                payments.FirstOrDefault(x => x.CustomerId == customer.Id)?.Sum ?? 0m;
+
+            var returnSum =
+                returns.FirstOrDefault(x => x.CustomerId == customer.Id)?.Sum ?? 0m;
+
+            // SAFE nullable handling
+            decimal debt = customer.Debt.HasValue
+                ? Convert.ToDecimal(customer.Debt.Value)
+                : 0m;
+
+            var balance = Math.Round(
+                salesSum
+                - returnSum
+                + debt
+                - paymentSum,
+                2);
+             if (balance > (decimal)(customer.Restriction ?? 0))
+            {
+                result.Add(new InactivesSummaryRowDto
+                {
+                    ClientCode = customer.Id,
+                    ClientName = customer.FullName ?? string.Empty,
+                    Phone = customer.MobilePhone ?? string.Empty,
+                    Address = customer.Address ?? string.Empty,
+                    Balance = balance,
+                    MaxDate = lastOrderDate,
+                    Restriction = (double)customer.Restriction,
+                });
+            }
+        }
+
+        return result;
+    }
+
+  
+   public async Task<List<InactivesSummaryRowDto>>
+    GetClientsByManagerAsync(string managerId)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
+
+        // 1️⃣ Get customers of manager
+        var customers = await db.Customers
+            .Where(c => c.SalesManagerId == managerId)
+            .ToListAsync();
+
+        var customerIds = customers.Select(c => c.Id).ToList();
+
+        // 2️⃣ Get ALL sales (no date filter)
+        var sales = await db.Orders
+            .Where(o => customerIds.Contains(o.CustomerId))
+            .SelectMany(o => o.OrderDetails)
+            .GroupBy(d => d.Order.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Sum = g.Sum(x => x.Price * x.Quentity)
+            })
+            .ToListAsync();
+
+        // 3️⃣ Get ALL payments
+        var payments = await db.Payments
+            .Where(p => customerIds.Contains(p.CustomerId))
+            .GroupBy(p => p.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Sum = g.Sum(x => x.Amount)
+            })
+            .ToListAsync();
+
+        // 4️⃣ Get ALL returns
+        var returns = await db.Returns
+            .Where(r => customerIds.Contains(r.CustomerId))
+            .GroupBy(r => r.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Sum = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync();
+
+        // 5️⃣ Build result in memory (SAFE)
+        var result = new List<InactivesSummaryRowDto>();
+
+        foreach (var customer in customers)
+        {
+            var lastOrderDate = await GetLastOrderDateAsync(customer.Id);
+
+            var salesSum =
+                sales.FirstOrDefault(x => x.CustomerId == customer.Id)?.Sum ?? 0m;
+
+            var paymentSum =
+                payments.FirstOrDefault(x => x.CustomerId == customer.Id)?.Sum ?? 0m;
+
+            var returnSum =
+                returns.FirstOrDefault(x => x.CustomerId == customer.Id)?.Sum ?? 0m;
+
+            // SAFE nullable debt
+            decimal debt = customer.Debt.HasValue
+                ? Convert.ToDecimal(customer.Debt.Value)
+                : 0m;
+
+            var balance = Math.Round(
+                salesSum
+                - returnSum
+                + debt
+                - paymentSum,
+                2);
+
+            // SAFE restriction handling
+            decimal restriction =
+                customer.Restriction.HasValue
+                ? Convert.ToDecimal(customer.Restriction.Value)
+                : 0m;
+
+            if (balance > restriction)
+            {
+                result.Add(new InactivesSummaryRowDto
+                {
+                    ClientCode = customer.Id,
+                    ClientName = customer.FullName ?? string.Empty,
+                    Phone = customer.MobilePhone ?? string.Empty,
+                    Address = customer.Address ?? string.Empty,
+                    Balance = balance,
+                    MaxDate = lastOrderDate,
+                    Restriction = (double)restriction
+                });
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<DateTime?> GetLastOrderDateInPeriodAsync(
+    string customerId,
+    DateTime from,
+    DateTime to)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
+
+        return await db.Orders
+            .Where(o =>
+                o.CustomerId == customerId &&
+                o.Date >= from &&
+                o.Date <= to)
+            .OrderByDescending(o => o.Date)
+            .Select(o => (DateTime?)o.Date)
+            .FirstOrDefaultAsync();
+    }
 
 }
 
@@ -397,4 +694,13 @@ public record InactiveCustomerDto(
 	decimal Shortfall
 );
 
+public sealed class ReconciliationRow
+{
+    public DateTime Date { get; set; }
+    public decimal Sales { get; set; }
+    public decimal Payments { get; set; }
+    public decimal Returns { get; set; }
+
+    public decimal Delta => Sales - Payments - Returns;
+}
 

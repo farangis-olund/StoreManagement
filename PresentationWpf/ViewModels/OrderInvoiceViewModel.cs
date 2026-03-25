@@ -9,6 +9,8 @@ using PresentationWpf.Services;
 using Infrastructure.Dtos;              
 
 using Infrastructure.Services;
+using System.IO;
+using QuestPDF.Fluent;
 
 namespace PresentationWpf.ViewModels;
 
@@ -38,7 +40,9 @@ public partial class OrderInvoiceViewModel : ObservableObject
 	// ===== Customer =====
 	[ObservableProperty] private string _customerName = string.Empty;
 	[ObservableProperty] private string _customerAddress = string.Empty;
-	[ObservableProperty] private string _customerPhoneNumber = string.Empty;
+	[ObservableProperty] private string _customerRegion = string.Empty;
+
+    [ObservableProperty] private string _customerPhoneNumber = string.Empty;
 	[ObservableProperty] private string _customerLevel = string.Empty;
 
 	// Extra fields commonly shown on the invoice header
@@ -60,9 +64,13 @@ public partial class OrderInvoiceViewModel : ObservableObject
 	[ObservableProperty] private decimal _debtPayment;         // пог_долг
 	[ObservableProperty] private decimal _balance;             // итоги
 
+    public string? CustomerTerritory { get; set; }
+    public string? CourierId { get; set; }
+    public string? StorekeeperId { get; set; }
 
-	// The rendered visual to print
-	public UserControl? OrderInvoiceViewReference { get; private set; }
+
+    // The rendered visual to print
+    public UserControl? OrderInvoiceViewReference { get; private set; }
 
 	[ObservableProperty] public int _rowCount;
 	public async Task LoadInvoiceData()
@@ -80,7 +88,8 @@ public partial class OrderInvoiceViewModel : ObservableObject
 			SellerName = string.Empty;
 			CustomerName = string.Empty;
 			CustomerAddress = string.Empty;
-			CustomerPhoneNumber = string.Empty;
+            CustomerRegion = string.Empty;
+            CustomerPhoneNumber = string.Empty;
 			CustomerLevel = string.Empty;
 			Rate = 0;
 			CustomerCity = string.Empty;
@@ -109,7 +118,11 @@ public partial class OrderInvoiceViewModel : ObservableObject
 								 ?? _dataTransferService.SelectedOrder?.CustomerAddress
 								 ?? string.Empty;
 
-			CustomerPhoneNumber = order.CustomerPhoneNumber
+            CustomerRegion = order.CustomerRegion
+                                 ?? _dataTransferService.SelectedOrder?.CustomerRegion
+                                 ?? string.Empty;
+
+            CustomerPhoneNumber = order.CustomerPhoneNumber
 								  ?? _dataTransferService.SelectedOrder?.CustomerPhoneNumber
 								  ?? string.Empty;
 
@@ -117,8 +130,8 @@ public partial class OrderInvoiceViewModel : ObservableObject
 								  ?? _dataTransferService.SelectedOrder?.CustomerLevel?.ToString()
 								  ?? string.Empty;
 
-			CustomerCity = order.Customer!.City
-								  ?? _dataTransferService.SelectedOrder!.Customer!.City
+			CustomerCity = order.CustomerCity
+								  ?? _dataTransferService.SelectedOrder?.Customer!.City
 								  ?? string.Empty;
 
             ShopName = shopDisplay ?? "";
@@ -182,62 +195,25 @@ public partial class OrderInvoiceViewModel : ObservableObject
     [RelayCommand]
     private void Print()
     {
-        if (OrderInvoiceViewReference == null)
-        {
-            MessageBox.Show("Печать чека недоступна: визуал не создан.",
-                            "Печать", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+        var document = new Documents.InvoiceDocument(this);
+        string folder = Path.Combine(Path.GetTempPath(), "Invoices");
+        Directory.CreateDirectory(folder);
+        string file = Path.Combine(folder, $"Invoice_{InvoiceNumber}.pdf");
+        document.GeneratePdf(file);
 
-        PrintHelper.Print(OrderInvoiceViewReference, "Чек заказа");
+        // Show the PDF inside the preview view
+        var preview = new DocumentPreviewView(file);
+        var window = new Window
+        {
+            Title = "Invoice Preview",
+            Content = preview,
+            Width = 900,
+            Height = 1000,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen
+        };
+        window.ShowDialog();
     }
 
-
- //   [RelayCommand]
-	//private void Print()
-	//{
-	//	if (OrderInvoiceViewReference is null)
-	//	{
-	//		MessageBox.Show("Печать чека недоступна: визуал не создан.", "Печать",
-	//						MessageBoxButton.OK, MessageBoxImage.Warning);
-	//		return;
-	//	}
-
-	//	// Find the top bar in the view we are going to print
-	//	var topBar = OrderInvoiceViewReference.FindName("TopBar") as FrameworkElement;
-	//	var oldVis = topBar?.Visibility ?? Visibility.Visible;
-
-	//	try
-	//	{
-	//		// Hide the button/top bar ONLY for printing
-	//		if (topBar != null)
-	//		{
-	//			topBar.Visibility = Visibility.Collapsed;
-	//			OrderInvoiceViewReference.UpdateLayout();
-	//		}
-
-	//		var dlg = new PrintDialog();
-			
-	//		double pageW = dlg.PrintableAreaWidth;
-	//		double pageH = dlg.PrintableAreaHeight;
-
-	//		OrderInvoiceViewReference.Measure(new Size(pageW, pageH));
-	//		OrderInvoiceViewReference.Arrange(new Rect(new Point(0, 0), new Size(pageW, pageH)));
-	//		OrderInvoiceViewReference.UpdateLayout();
-
-	//		// Print the WHOLE control (button is hidden)
-	//		dlg.PrintVisual(OrderInvoiceViewReference, "Чек заказа");
-	//	}
-	//	finally
-	//	{
-	//		// Restore UI
-	//		if (topBar != null)
-	//		{
-	//			topBar.Visibility = oldVis;
-	//			OrderInvoiceViewReference.UpdateLayout();
-	//		}
-	//	}
-	//}
 
 	
 

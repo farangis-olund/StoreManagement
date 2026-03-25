@@ -18,12 +18,12 @@ public class FullProductModel : INotifyPropertyChanged
     public int MinRemainingQuantity { get; set; }
 
     // 💶 Все цены (обязательные для каталога)
-    public decimal RetailPriceEuro { get; set; }
-    public decimal WholesalePriceEuro { get; set; }
-    public decimal ServicePriceEuro { get; set; }
-    public decimal WholesalePrice1Euro { get; set; }
-    public decimal NetPrice { get; set; }
-    public decimal SmallWholesalePrice { get; set; }
+    public decimal PriceLevel1 { get; set; }
+    public decimal PriceLevel2 { get; set; }
+    public decimal PriceLevel3 { get; set; }
+    public decimal PriceLevel4 { get; set; }
+    public decimal PriceLevel5 { get; set; }
+    
 
     // INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -44,11 +44,11 @@ public class FullProductModel : INotifyPropertyChanged
             Quentity = dto.Quentity,
             WarehousePlace = dto.WarehousePlace,
             MinRemainingQuantity = dto.MinRemainingQuantity,
-            RetailPriceEuro = dto.RetailPriceEuro,
-            WholesalePriceEuro = dto.WholesalePriceEuro,
-            ServicePriceEuro = dto.ServicePriceEuro,
-            WholesalePrice1Euro = dto.WholesalePrice1Euro,
-            NetPrice = dto.NetPrice,
-            SmallWholesalePrice = dto.SmallWholesalePrice
+            PriceLevel1 = dto.PriceLevel1,
+            PriceLevel2 = dto.PriceLevel2,
+            PriceLevel3 = dto.PriceLevel3,
+            PriceLevel4 = dto.PriceLevel4,
+            PriceLevel5 = dto.PriceLevel5
+           
         };
 }

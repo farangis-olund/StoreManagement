@@ -11,6 +11,10 @@ using Infrastructure.Utilities;
 using PresentationWpf.Views;
 using Infrastructure.Contexts;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using System.IO;
+using Infrastructure.Constants;
+using PresentationWpf.Services;
 
 namespace PresentationWpf.ViewModels
 {
@@ -28,11 +32,11 @@ namespace PresentationWpf.ViewModels
 
 
         // All price levels from ProductEntity
-        public decimal RetailPrice { get; init; }
-		public decimal ServicePrice { get; init; }
-		public decimal SmallWholesalePrice { get; init; }
-		public decimal WholesalePrice { get; init; }
-		public decimal WholesalePrice1 { get; init; }
+        public decimal PriceLevel1 { get; init; }
+		public decimal PriceLevel2 { get; init; }
+		public decimal PriceLevel3 { get; init; }
+		public decimal PriceLevel4 { get; init; }
+		public decimal PriceLevel5 { get; init; }
 
 		public int Quantity { get; init; }
 
@@ -43,13 +47,13 @@ namespace PresentationWpf.ViewModels
 		{
 			LevelPrice = levelCode switch
 			{
-				1 => RetailPrice,
-				2 => ServicePrice,
-				3 => SmallWholesalePrice,
-				4 => WholesalePrice,
-				5 => WholesalePrice1,
-				_ => RetailPrice // fallback
-			};
+				1 => PriceLevel1,
+				2 => PriceLevel2,
+				3 => PriceLevel3,
+				4 => PriceLevel4,
+				5 => PriceLevel5,
+				_ => PriceLevel1 // fallback
+            };
 		}
 
 		public override string ToString() => Display;
@@ -65,12 +69,13 @@ namespace PresentationWpf.ViewModels
 		private readonly ReturnReasonService _returnReasonService;
 		private readonly CustomerFinanceService _customerFinanceService;
         private readonly OrganizationInfoService _orgService;
+        private readonly UserSessionService _userSessionService;
         public ReturnViewModel(ProductService productService, 
 			CustomerService customerService, 
 			OrderService orderService, 
 			ReturnService returnService, 
 			ReturnReasonService returnReasonService, 
-			CustomerFinanceService customerFinanceService, OrganizationInfoService orgService)
+			CustomerFinanceService customerFinanceService, OrganizationInfoService orgService, UserSessionService userSessionService)
 		{
 			_productService = productService;
 			_customerService = customerService;
@@ -79,6 +84,7 @@ namespace PresentationWpf.ViewModels
 			_returnReasonService = returnReasonService;
 			_customerFinanceService = customerFinanceService;
 			_orgService = orgService;
+			_userSessionService = userSessionService;
 			
 			Lines.CollectionChanged += (_, __) => RecalcTotals();
 
@@ -97,8 +103,8 @@ namespace PresentationWpf.ViewModels
 
 		[ObservableProperty] private string _searchText = string.Empty; // <--- добавил
 		[ObservableProperty] private bool _searchExpanded;              // <--- добавил
-
-		public ObservableCollection<SearchHitRow> SearchResults { get; } = [];
+        [ObservableProperty] private double _exchangeRate = 1;
+        public ObservableCollection<SearchHitRow> SearchResults { get; } = [];
 		public ICollectionView SearchResultsView { get; private set; } = null!;
 
 		private bool FilterOrders(object item)
@@ -131,9 +137,11 @@ namespace PresentationWpf.ViewModels
 		// ===== INIT =============================================================
 		public async Task InitializeAsync()
 		{
+            var rate = _userSessionService.ExchangeRate;
+            ExchangeRate = rate > 0 ? rate : 1;
             // Customers
             // Clear both
-             CustomersFiltered.Clear();
+            CustomersFiltered.Clear();
 
             var customers = await _customerService.GetAllCustomersAsync();
             foreach (var c in customers)
@@ -159,11 +167,11 @@ namespace PresentationWpf.ViewModels
                     BrandName = p.BrandName, 
 					ProductMarka = p.Marka,
 					ProductModel =p.Model,
-                    RetailPrice = p.RetailPriceEuro,
-					ServicePrice = p.ServicePriceEuro,
-					SmallWholesalePrice = p.SmallWholesalePrice,
-					WholesalePrice = p.WholesalePriceEuro,
-					WholesalePrice1 = p.WholesalePrice1Euro, 
+                    PriceLevel1 = p.PriceLevel1,
+					PriceLevel2 = p.PriceLevel2,
+					PriceLevel3 = p.PriceLevel3,
+					PriceLevel4 = p.PriceLevel4,
+                    PriceLevel5 = p.PriceLevel5, 
 					Quantity = p.Quentity
 				};
 
@@ -294,7 +302,9 @@ namespace PresentationWpf.ViewModels
 				Model = hit.Model,
 				PurchasedQty = hit.Quantity,
 				ReturnQty = 1,
-				Price = hit.Price
+				Price = hit.Price,
+				CustomerId = hit.CustomerId,
+				OrderId = hit.OrderId
 			};
 			TrackLine(line);
 			Lines.Add(line);
@@ -397,7 +407,7 @@ namespace PresentationWpf.ViewModels
                 return;
             }
 
-            if (ManualMode==true && SelectedCustomer == null)
+            if (ManualMode == true && SelectedCustomer == null)
             {
                 MessageBox.Show("Выберите клиента.");
                 return;
@@ -410,17 +420,26 @@ namespace PresentationWpf.ViewModels
             }
 
             var total = Lines.Sum(l => l.Total);
+            
+			var firstLine = Lines.FirstOrDefault();
 
-            var entity = new ReturnEntity
-            {
-                Date = DateTime.Now,
-                CustomerId = SelectedCustomer?.Id ?? SelectedSearchHit?.CustomerId,
-                InvoiceNumber = ManualMode ? null : SelectedSearchHit?.OrderId,
+			var entity = new ReturnEntity
+			{
+				Date = DateTime.Now,
+				CustomerId = SelectedCustomer?.Id
+				 ?? firstLine?.CustomerId
+				 ?? string.Empty,
+
+				InvoiceNumber = ManualMode
+					? null
+					: firstLine?.OrderId,
+				Rate = (decimal)ExchangeRate,
+               
                 IsManual = ManualMode,
                 TotalAmount = total,
                 AmountInWords = NumberToWordsConverter.ConvertToRussianWords(total),
                 RefundMethod = RefundMethod,
-                ReturnReasonId = SelectedReturnReason.Id,  
+                ReturnReasonId = SelectedReturnReason.Id,
                 Comment = string.IsNullOrWhiteSpace(Comment) ? string.Empty : Comment,
                 ReturnDetails = Lines.Select(l => new ReturnDetailEntity
                 {
@@ -431,7 +450,6 @@ namespace PresentationWpf.ViewModels
                 }).ToList()
             };
 
-
             try
             {
                 var saved = await _returnService.AddReturnAsync(entity);
@@ -439,32 +457,30 @@ namespace PresentationWpf.ViewModels
                 if (saved != null)
                 {
                     await LoadOrdersAsync();
-                    MessageBox.Show($"Возврат успешно Оформлен!");
-                    Lines.Clear();
-                    RecalcTotals();
-
+                    MessageBox.Show("Возврат успешно оформлен!", "Успех",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                                     
                     var financeInfo = await _customerFinanceService.GetFinanceInfoAsync(saved.CustomerId);
-
                     var shopDisplay = await _orgService.GetShopDisplayAsync();
-                    
-					// 🔹 Build invoice VM
-                    var invoiceVm = new ReturnInvoiceViewModel
-                    {
-                        CustomerName = saved.Customer.FullName,
-						TotalAmount = saved.TotalAmount,
-                        TotalAmountWords = saved.AmountInWords,
-						Date = saved.Date,
-                        OldDebt = financeInfo.Balance- saved.TotalAmount,
-                        ReturnedAmount = saved.TotalAmount,
-                        RemainingDebt = financeInfo.Balance, 
-						InvoiceNumber = saved.Id,
-						RefundMethod = saved.RefundMethod,
-                        ShopName = shopDisplay ?? ""
-                    };
-
 
                    
 
+                    // 🔹 Build the view model for the return invoice
+                    var invoiceVm = new ReturnInvoiceViewModel
+                    {
+                        CustomerName = saved.Customer.FullName,
+                        CustomerId = saved.CustomerId,
+                        TotalAmount = saved.TotalAmount,
+                        TotalAmountWords = saved.AmountInWords,
+                        Date = saved.Date,
+                        OldDebt = financeInfo.Balance ,
+                        ReturnedAmount = saved.TotalAmount,
+                        RemainingDebt = financeInfo.Balance - saved.TotalAmount,
+                        InvoiceNumber = saved.Id,
+                        OrderNumber = saved.InvoiceNumber,
+                        RefundMethod = saved.RefundMethod,
+                        ShopName = shopDisplay ?? ""
+                    };
 
                     foreach (var d in saved.ReturnDetails)
                     {
@@ -478,39 +494,54 @@ namespace PresentationWpf.ViewModels
                             Quantity = d.Quantity,
                             Price = d.Price,
                             Total = d.Total
-                           
                         });
                     }
 
-                    // 🔹 Show invoice
-                    var invoiceView = new ReturnInvoiceView
-                    {
-                        DataContext = invoiceVm
-                    };
+                    // 🔹 Generate Return Invoice PDF
+                    var document = new Documents.ReturnInvoiceDocument(invoiceVm);
+                    string folder = Path.Combine(Path.GetTempPath(), "ReturnInvoices");
+                    Directory.CreateDirectory(folder);
+                    string file = Path.Combine(folder, $"ReturnInvoice_{invoiceVm.InvoiceNumber}.pdf");
+                    document.GeneratePdf(file);
+
+                    // 🔹 Show PDF in preview window
+                    var preview = new DocumentPreviewView(file);
                     var window = new Window
                     {
-                        Title = "Печать чека",
-                        Content = invoiceView,
+                        Title = "Возвратный чек",
+                        Content = preview,
                         Width = 900,
-                        Height = 700,
+                        Height = 1000,
                         WindowStartupLocation = WindowStartupLocation.CenterScreen
                     };
+
                     window.ShowDialog();
 
-                   
+                    // ✅ 1. Clear and reinitialize form
+                    Lines.Clear();
+                    SelectedCustomer = null;
+                    SelectedSearchHit = null;
+                    SelectedReturnReason = null;
+                    RefundMethod = null!;
+                    Comment = null!;
+                    RecalcTotals();
+
+                    // reinitialize new empty view model
+                    await InitializeAsync();
                 }
                 else
                 {
-                    MessageBox.Show("Ошибка: возврат не был сохранён ❌");
+                    MessageBox.Show("Ошибка: возврат не был сохранён ❌",
+                        "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка при сохранении: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка при сохранении: {ex.Message}",
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-      
 
         [RelayCommand]
 		private void RemoveLine(ReturnLineRow? line)
@@ -556,8 +587,11 @@ namespace PresentationWpf.ViewModels
 			[ObservableProperty] private string marka = "";
 			[ObservableProperty] private string model = "";
 			[ObservableProperty] private string place = "";
-			[ObservableProperty] private decimal purchasedQty;
-			
+            [ObservableProperty] private string customerId = "";
+            [ObservableProperty] private string orderId = "";
+            [ObservableProperty] private decimal purchasedQty;
+        
+
 
             private decimal _returnQty;
             public decimal ReturnQty
@@ -650,12 +684,11 @@ namespace PresentationWpf.ViewModels
 		}
 
         public ObservableCollection<string> RefundMethods { get; } = new()
-		{
-			"Наличные",        // cash
-			"Карта",           // card
-			"Зачесть в баланс" // add to balance
-		};
-
+			{
+				RefundMethodConstants.Cash,
+				RefundMethodConstants.Card,
+				RefundMethodConstants.Balance
+			};
 
     }
 }

@@ -1,5 +1,6 @@
 ﻿
 using Infrastructure.Contexts;
+using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -68,54 +69,64 @@ namespace Infrastructure.Services
 			await _context.SaveChangesAsync();
 		}
 
-		// Save manager-customer relationships
-		public async Task SaveManagerCustomersAsync(string managerId, IEnumerable<ManagerCustomerEntity> customers)
-		{
-			// Remove old links
-			var existing = _context.ManagerCustomers
-				.Where(x => x.ManagerId == managerId);
-			_context.ManagerCustomers.RemoveRange(existing);
+        // Save manager-customer relationships
+        public async Task SaveManagerCustomersAsync(string managerId, IEnumerable<ManagerCustomerEntity> customers)
+        {
+            if (string.IsNullOrWhiteSpace(managerId))
+                return;
 
-			// Add new links
-			await _context.ManagerCustomers.AddRangeAsync(customers);
+            var customerIds = customers.Select(c => c.CustomerId).ToList();
 
-			// Save changes
-			await _context.SaveChangesAsync();
-		}
+            // 🔹 1. Remove old manager links for these specific customers (so they won't be assigned to two managers)
+            var oldLinks = _context.ManagerCustomers
+                .Where(x => customerIds.Contains(x.CustomerId));
+            _context.ManagerCustomers.RemoveRange(oldLinks);
 
-		// (optional sync version if you don't want async)
-		public void SaveManagerCustomers(string managerId, IEnumerable<ManagerCustomerEntity> customers)
-		{
-			var existing = _context.ManagerCustomers
-				.Where(x => x.ManagerId == managerId);
-			_context.ManagerCustomers.RemoveRange(existing);
-			_context.ManagerCustomers.AddRange(customers);
-			_context.SaveChanges();
-		}
+            // 🔹 2. Add new manager-customer links
+            await _context.ManagerCustomers.AddRangeAsync(customers);
 
-		public async Task SaveManagerBrandsAsync(string managerId, IEnumerable<ManagerBrandEntity> brands)
-		{
-			var existing = _context.ManagerBrands.Where(x => x.ManagerId == managerId);
-			_context.ManagerBrands.RemoveRange(existing);
+            // 🔹 3. Update Customers table (set SaleManagerId)
+            var affectedCustomers = await _context.Customers
+                .Where(c => customerIds.Contains(c.Id))
+                .ToListAsync();
 
-			// Detach tracked ManagerBrandEntity objects
-			var tracked = _context.ChangeTracker.Entries<ManagerBrandEntity>().ToList();
-			foreach (var entry in tracked)
-				entry.State = EntityState.Detached;
+            foreach (var customer in affectedCustomers)
+            {
+                customer.SalesManagerId = managerId;
+                _context.Entry(customer).State = EntityState.Modified;
+            }
 
-			// Add new fresh copies
-			var newEntities = brands.Select(b => new ManagerBrandEntity
-			{
-				ManagerId = b.ManagerId,
-				BrandId = b.BrandId,
-				SalesPercentage = b.SalesPercentage
-			});
+            // 🔹 4. Save everything
+            await _context.SaveChangesAsync();
+        }
 
-			await _context.ManagerBrands.AddRangeAsync(newEntities);
-			await _context.SaveChangesAsync();
-		}
 
-		public async Task<List<CustomerEntity>> GetUnassignedCustomersAsync()
+
+        public async Task SaveManagerBrandsAsync(string managerId, IEnumerable<ManagerBrandEntity> brands)
+        {
+            // 1️⃣ Remove existing
+            var existing = await _context.ManagerBrands
+                .Where(x => x.ManagerId == managerId)
+                .ToListAsync();
+
+            _context.ManagerBrands.RemoveRange(existing);
+
+            // 🔥 IMPORTANT: Save removal first
+            await _context.SaveChangesAsync();
+
+            // 2️⃣ Remove duplicates in input
+            var distinctBrands = brands
+                .GroupBy(x => new { x.ManagerId, x.BrandId })
+                .Select(g => g.First())
+                .ToList();
+
+            // 3️⃣ Add new ones
+            await _context.ManagerBrands.AddRangeAsync(distinctBrands);
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<CustomerEntity>> GetUnassignedCustomersAsync()
 		{
 			// Get all customers
 			var allCustomers = await _context.Customers.ToListAsync();
@@ -146,8 +157,96 @@ namespace Infrastructure.Services
 			await _context.SaveChangesAsync();
 		}
 
+        public async Task<bool> DeleteManagerAsync(string managerId)
+        {
+            try
+            {
+                // 🔹 Load the manager (including related data)
+                var manager = await _context.SalesManagers
+                    .Include(m => m.ManagerCustomers)
+                    .Include(m => m.ManagerBrands)
+                    .FirstOrDefaultAsync(m => m.Id == managerId);
 
-	}
+                if (manager == null)
+                    return false;
+
+                // 🔹 Remove related entities first (if any)
+                if (manager.ManagerCustomers?.Any() == true)
+                    _context.ManagerCustomers.RemoveRange(manager.ManagerCustomers);
+
+                if (manager.ManagerBrands?.Any() == true)
+                    _context.ManagerBrands.RemoveRange(manager.ManagerBrands);
+
+                // 🔹 Remove the manager itself
+                _context.SalesManagers.Remove(manager);
+
+                // 🔹 Save changes
+                await _context.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting manager {managerId}: {ex.Message}");
+                return false;
+            }
+        }
+
+        // 🔹 Delete ONE customer from the selected manager
+        public async Task DeleteCustomerAsync(string managerId, string customerId)
+        {
+            if (string.IsNullOrWhiteSpace(managerId) || string.IsNullOrWhiteSpace(customerId))
+                return;
+
+            // 1️⃣ Remove link from ManagerCustomers table
+            var link = await _context.ManagerCustomers
+                .FirstOrDefaultAsync(mc => mc.ManagerId == managerId && mc.CustomerId == customerId);
+
+            if (link != null)
+                _context.ManagerCustomers.Remove(link);
+
+            // 2️⃣ Update Customer table
+            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
+            if (customer != null && customer.SalesManagerId == managerId)
+            {
+                customer.SalesManagerId = null; // unassign manager
+                _context.Entry(customer).State = EntityState.Modified;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+
+
+        // 🔹 Delete ALL customers assigned to this manager
+        public async Task DeleteAllCustomersAsync(string managerId)
+        {
+            if (string.IsNullOrWhiteSpace(managerId))
+                return;
+
+            // 1️⃣ Get all manager-customer links
+            var links = await _context.ManagerCustomers
+                .Where(mc => mc.ManagerId == managerId)
+                .ToListAsync();
+
+            if (links.Any())
+                _context.ManagerCustomers.RemoveRange(links);
+
+            // 2️⃣ Clear manager from customers table
+            var customers = await _context.Customers
+                .Where(c => c.SalesManagerId == managerId)
+                .ToListAsync();
+
+            foreach (var c in customers)
+            {
+                c.SalesManagerId = null;
+                _context.Entry(c).State = EntityState.Modified;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+    }
 
 
 }

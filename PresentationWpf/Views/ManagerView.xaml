@@ -152,18 +152,36 @@
 
                         <!-- BUTTONS ROW -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                                        <Button Content="Сохранить"
+                             <Button Content="Сохранить"
                                 Width="100"
                                 Height="30"
                                 Command="{Binding SaveCustomersCommand}"
                                 IsEnabled="{Binding IsManagerSelected}" 
                                 Style="{StaticResource GrayButton}"
                                 Margin="0,0,10,0"/>
+
+                            <Button Content="Удалить"
+                                Width="100"
+                                Height="30"
+                                Command="{Binding DeleteCustomerCommand}"
+                                IsEnabled="{Binding IsManagerSelected}" 
+                                Style="{StaticResource GrayButton}"
+                                Margin="0,0,10,0"/>
+
+                            <Button Content="Удалить всё"
+                                Width="100"
+                                Height="30"
+                                Command="{Binding DeleteAllCustomersCommand}"
+                                IsEnabled="{Binding IsManagerSelected}" 
+                                Style="{StaticResource GrayButton}"
+                                Margin="0,0,10,0"/>
+
                         </StackPanel>
 
                         <!-- DATA GRID -->
                         <DataGrid Grid.Row="1"
                           ItemsSource="{Binding Clients}"
+                          SelectedItem="{Binding SelectedClient, Mode=TwoWay}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="True"
                           CanUserDeleteRows="True"
@@ -237,7 +255,7 @@
                             Width="100"
                             Height="30"
                             Margin="10,0,0,0"
-                            Command="{Binding DeleteFirmCommand}"
+                            Command="{Binding DeleteAllFirmsCommand}"
                             IsEnabled="{Binding IsManagerSelected}"
                             Style="{StaticResource GrayButton}" />
 

@@ -9,12 +9,10 @@
              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels" 
              d:DataContext="{d:DesignInstance Type=viewmodels:SummaryViewModel}"
              mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="1000">
 
     <UserControl.Resources>
 
-        
-      
         <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
             <!-- Remove cell border -->
             <Setter Property="BorderThickness" Value="0"/>
@@ -81,6 +79,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="14"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Orders -->
@@ -112,7 +112,7 @@
                               HeadersVisibility="Column"
                               Style="{StaticResource SummaryGrid}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Width="120"
+                            <DataGridTextColumn Width="90"
                                   Header="Дата"
                                   Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy}}">
                                 <DataGridTextColumn.ElementStyle>
@@ -130,7 +130,7 @@
                             </DataGridTextColumn>
 
                             <!-- Сумма -->
-                            <DataGridTextColumn Width="120"
+                            <DataGridTextColumn Width="100"
                                   Header="Сумма"
                                   Binding="{Binding Amount, StringFormat={}{0:N2}}">
                                 <DataGridTextColumn.ElementStyle>
@@ -148,11 +148,12 @@
                 <GroupBox Header="Новый платеж" Margin="0,0,0,8">
                     <StackPanel Orientation="Horizontal" Margin="8" VerticalAlignment="Center">
                         <TextBlock Text="Сумма" VerticalAlignment="Center"/>
-                        <TextBox Width="120" Margin="6,0,12,0" VerticalContentAlignment="Center" Padding="5"
+                        <TextBox Width="100" Margin="6,0,12,0" VerticalContentAlignment="Center" Padding="5"
                                  Text="{Binding PaymentAmount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <Button Content="Оформить платеж" Style="{StaticResource GreenButton}"
                                 Padding="10,6"
-                                Command="{Binding AddPaymentCommand}"/>
+                                Width="140"
+                                Command="{Binding AddPaymentCommand}" />
                     </StackPanel>
                 </GroupBox>
 
@@ -161,7 +162,7 @@
                     <DockPanel Margin="0,4,0,0">
                         <!-- Buttons -->
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
-                            <Button Content="Просмотр квитанции" Padding="8,6"
+                            <Button Content="Просмотр квитанции" Padding="8,6" Width="140"
                             Command="{Binding ViewPaymentCommand}">
                                 <Button.Style>
                                     <Style TargetType="Button">
@@ -186,7 +187,7 @@
                                   HeadersVisibility="Column"
                                   Style="{StaticResource SummaryGrid}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Width="120"
+                                <DataGridTextColumn Width="100"
                                 Header="Дата"
                                 Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy}}">
                                     <DataGridTextColumn.ElementStyle>
@@ -204,7 +205,7 @@
                                 </DataGridTextColumn>
                                 
                                 <!-- Сумма -->
-                                <DataGridTextColumn Width="120"
+                                <DataGridTextColumn Width="*"
                                 Header="Сумма"
                                 Binding="{Binding Amount, StringFormat={}{0:N2}}">
                                     <DataGridTextColumn.ElementStyle>
@@ -217,6 +218,50 @@
                     </DockPanel>
                 </GroupBox>
             </StackPanel>
+
+            <!-- Orders -->
+            <GroupBox Header="Неоплаченные платежи" Grid.Column="4">
+                <DockPanel Margin="0,4,0,0">
+                  
+                    <!-- Orders grid -->
+                    <DataGrid ItemsSource="{Binding UnpaidOrders}"
+                   SelectedItem="{Binding UnpaidOrder, Mode=TwoWay}"
+                   AutoGenerateColumns="False"
+                   CanUserAddRows="False"
+                   IsReadOnly="True"
+                   HeadersVisibility="Column"
+                   Style="{StaticResource SummaryGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="90"
+                       Header="Дата"
+                       Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy}}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextCenter}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- № Платежа -->
+                            <DataGridTextColumn Width="115"
+                           Header="№ Квитанции"
+                           Binding="{Binding PaymentId}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextCenter}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Сумма -->
+                            <DataGridTextColumn Width="*"
+                       Header="Сумма платежа"
+                       Binding="{Binding Paid, StringFormat={}{0:N2}}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextCenter}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </GroupBox>
+
         </Grid>
     </Grid>
 </UserControl>

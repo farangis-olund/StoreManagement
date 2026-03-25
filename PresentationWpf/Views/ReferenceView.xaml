@@ -65,17 +65,24 @@
                     Content="Управление ролями"
                     Command="{Binding OpenRoleCommand}"/>
             
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                 Content="Доставщики"
+                 Command="{Binding OpenCourierCommand}"/>
 
             <Button Style="{StaticResource LinkButtonStyle}" 
-                 Content="Комплектовщики"
+                 Content="Сборщики"
                  Command="{Binding OpenAssignPickerCommand}"/>
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                  Content="Менеджеры"
                  Command="{Binding OpenManagerCommand}"/>
-                     
+
             <Button Style="{StaticResource LinkButtonStyle}" 
-                    Content="Валюты"
+                 Content="Уровни цен клиента"
+                 Command="{Binding OpenLevelCommand}"/>
+
+            <Button Style="{StaticResource LinkButtonStyle}" 
+                    Content="Назначение валюты"
                     Command="{Binding OpenCurrencyCommand}"/>
         </StackPanel>
 

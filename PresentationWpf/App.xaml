@@ -1,7 +1,7 @@
 ﻿<Application x:Class="PresentationWpf.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:PresentationWpf">
+             xmlns:local="clr-namespace:PresentationWpf" xmlns:local1="clr-namespace:PresentationWpf.Converters">
 
     <Application.Resources>
    
@@ -391,6 +391,10 @@
         
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
+        <local1:BoolToColorConverter x:Key="BoolToColorConverter"/>
+        <local1:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter2" />
+        <local1:PermissionToVisibilityConverter x:Key="PermissionToVisibilityConverter" />
+
         <Style x:Key="TabButton" TargetType="ToggleButton">
             <Setter Property="Background" Value="#d9dbd7"/>
             <Setter Property="BorderBrush" Value="Gray"/>
@@ -427,6 +431,67 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+
+        <!-- All TextBoxes: select-all on focus and first click -->
+        <Style TargetType="TextBox">
+            <EventSetter Event="GotKeyboardFocus" Handler="TextBox_GotKeyboardFocus"/>
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="TextBox_PreviewMouseLeftButtonDown"/>
+        </Style>
+
+        <!-- All ComboBoxes: if IsEditable=True, select-all inside the inner textbox -->
+        <Style TargetType="ComboBox">
+            <EventSetter Event="GotKeyboardFocus" Handler="ComboBox_GotKeyboardFocus"/>
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ComboBox_PreviewMouseLeftButtonDown"/>
+        </Style>
+
+        <SolidColorBrush x:Key="AdminTopBackground" Color="#3E3B4E"/>
+        <SolidColorBrush x:Key="AdminTopHover" Color="#4E4B60"/>
+        <SolidColorBrush x:Key="AdminTopPressed" Color="#2D2C34"/>
+        <SolidColorBrush x:Key="AdminTopSelected" Color="#FFB347"/>
+        <!-- акцент -->
+        
+        <Style x:Key="AdminTopButtonStyle" TargetType="RadioButton">
+            <Setter Property="Height" Value="45"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{StaticResource AdminTopBackground}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Border x:Name="BottomLine"
+                         Height="3"
+                         Background="Transparent"
+                         VerticalAlignment="Bottom"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0,10,0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopHover}"/>
+                            </Trigger>
+                            <!-- Pressed -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource AdminTopPressed}"/>
+                            </Trigger>
+                            <!-- Selected -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="BottomLine" Property="Background" Value="{StaticResource AdminTopSelected}"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Application.Resources>
 
    

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PresentationWpf.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,5 +25,16 @@ namespace PresentationWpf.Views
         {
             InitializeComponent();
         }
+
+        private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
+            {
+                if (DataContext is BrandViewModel vm)
+                    vm.PasteFromClipboardCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+
     }
 }

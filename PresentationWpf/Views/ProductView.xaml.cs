@@ -53,14 +53,13 @@ namespace PresentationWpf.Views
 						existing.Model = values.ElementAtOrDefault(6) ?? existing.Model;                          // Модель
 						existing.Alternative = values.ElementAtOrDefault(7) ?? existing.Alternative;              // Альтернатива
 						existing.Quentity = int.TryParse(values.ElementAtOrDefault(8), out var q) ? q : existing.Quentity;  // Количество
-						existing.RetailPriceEuro = decimal.TryParse(values.ElementAtOrDefault(9), out var r) ? r : existing.RetailPriceEuro;  // Розн
-						existing.WholesalePriceEuro = decimal.TryParse(values.ElementAtOrDefault(10), out var w2) ? w2 : existing.WholesalePriceEuro;  // Опт2
-						existing.ServicePriceEuro = decimal.TryParse(values.ElementAtOrDefault(11), out var s) ? s : existing.ServicePriceEuro;        // Серв
-						existing.WholesalePrice1Euro = decimal.TryParse(values.ElementAtOrDefault(12), out var w1) ? w1 : existing.WholesalePrice1Euro; // Опт1
-						existing.NetPrice = decimal.TryParse(values.ElementAtOrDefault(13), out var n) ? n : existing.NetPrice;                         // Цена Нето
-						existing.SmallWholesalePrice = decimal.TryParse(values.ElementAtOrDefault(14), out var sw) ? sw : existing.SmallWholesalePrice; // Мелкооптовая Цена
-						existing.MinRemainingQuantity = int.TryParse(values.ElementAtOrDefault(15), out var m) ? m : existing.MinRemainingQuantity;     // Мин_допустимое кол-во
-						existing.WarehousePlace = values.ElementAtOrDefault(16) ?? existing.WarehousePlace;                                            // Место на складе
+						existing.PriceLevel5 = decimal.TryParse(values.ElementAtOrDefault(9), out var r) ? r : existing.PriceLevel5;  // Розн
+						existing.PriceLevel4 = decimal.TryParse(values.ElementAtOrDefault(10), out var w2) ? w2 : existing.PriceLevel4;  // Опт2
+						existing.PriceLevel3 = decimal.TryParse(values.ElementAtOrDefault(11), out var s) ? s : existing.PriceLevel3;        // Серв
+						existing.PriceLevel2 = decimal.TryParse(values.ElementAtOrDefault(12), out var w1) ? w1 : existing.PriceLevel2; // Опт1
+						existing.PriceLevel1 = decimal.TryParse(values.ElementAtOrDefault(13), out var n) ? n : existing.PriceLevel1;                         // Цена Нето
+						existing.MinRemainingQuantity = int.TryParse(values.ElementAtOrDefault(14), out var m) ? m : existing.MinRemainingQuantity;     // Мин_допустимое кол-во
+						existing.WarehousePlace = values.ElementAtOrDefault(15) ?? existing.WarehousePlace;                                            // Место на складе
 					}
 					else
 					{
@@ -76,14 +75,14 @@ namespace PresentationWpf.Views
 							Model = values.ElementAtOrDefault(6) ?? "",                                            // Модель
 							Alternative = values.ElementAtOrDefault(7) ?? "",                                      // Альтернатива
 							Quentity = int.TryParse(values.ElementAtOrDefault(8), out var q) ? q : 0,              // Количество
-							RetailPriceEuro = decimal.TryParse(values.ElementAtOrDefault(9), out var r) ? r : 0,   // Розн
-							WholesalePriceEuro = decimal.TryParse(values.ElementAtOrDefault(10), out var w2) ? w2 : 0, // Опт2
-							ServicePriceEuro = decimal.TryParse(values.ElementAtOrDefault(11), out var s) ? s : 0, // Серв
-							WholesalePrice1Euro = decimal.TryParse(values.ElementAtOrDefault(12), out var w1) ? w1 : 0, // Опт1
-							NetPrice = decimal.TryParse(values.ElementAtOrDefault(13), out var n) ? n : 0,         // Цена Нето
-							SmallWholesalePrice = decimal.TryParse(values.ElementAtOrDefault(14), out var sw) ? sw : 0, // Мелкооптовая Цена
-							MinRemainingQuantity = int.TryParse(values.ElementAtOrDefault(15), out var m) ? m : 0, // Мин_допустимое кол-во
-							WarehousePlace = values.ElementAtOrDefault(16) ?? ""                                   // Место на складе
+							PriceLevel5 = decimal.TryParse(values.ElementAtOrDefault(9), out var r) ? r : 0,   // Розн
+							PriceLevel4 = decimal.TryParse(values.ElementAtOrDefault(10), out var w2) ? w2 : 0, // Опт2
+							PriceLevel3 = decimal.TryParse(values.ElementAtOrDefault(11), out var s) ? s : 0, // Серв
+							PriceLevel2 = decimal.TryParse(values.ElementAtOrDefault(12), out var w1) ? w1 : 0, // Опт1
+							PriceLevel1 = decimal.TryParse(values.ElementAtOrDefault(13), out var n) ? n : 0,         // Цена Нето
+							
+							MinRemainingQuantity = int.TryParse(values.ElementAtOrDefault(14), out var m) ? m : 0, // Мин_допустимое кол-во
+							WarehousePlace = values.ElementAtOrDefault(15) ?? ""                                   // Место на складе
 						};
 
 						vm.Products.Add(product);

@@ -5,18 +5,20 @@ using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using System.Windows.Controls;
 using System.Windows;
+using Infrastructure.Services;
 
 namespace PresentationWpf.ViewModels;
 
 public partial class PaymentReceiptViewModel : ObservableObject
 {
-	public PaymentReceiptViewModel()
+    private readonly OrganizationInfoService _orgService;
+    public PaymentReceiptViewModel(OrganizationInfoService orgService)
 	{
+        _orgService = orgService;
+        _ = LoadShopInfoAsync();
+    }
 
-
-	}
-
-	[ObservableProperty] private string companyName = "АВТО-ЗАПЧАСТИ";
+	[ObservableProperty] private string companyName = "";
 
 	// customer
 	[ObservableProperty] private string customerFullName = "";
@@ -31,7 +33,7 @@ public partial class PaymentReceiptViewModel : ObservableObject
 	[ObservableProperty] private decimal paid;
 	[ObservableProperty] private decimal balance;
 	[ObservableProperty] private string amountInWords = "";
-
+    [ObservableProperty] private string orderNumber = "";
 	public UserControl? ViewRef { get; private set; }
 	public void BindView(UserControl view) => ViewRef = view;
 
@@ -83,4 +85,8 @@ public partial class PaymentReceiptViewModel : ObservableObject
 		Balance = balanceAfter;
 		AmountInWords = words;
 	}
+    public async Task LoadShopInfoAsync()
+    {
+        CompanyName = await _orgService.GetShopDisplayAsync() ?? "Организация";
+    }
 }

@@ -8,12 +8,9 @@
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <!-- Header with close button -->
-            <RowDefinition Height="*"/>
-            <!-- Content (left + right panel) -->
-            <RowDefinition Height="2*"/>
-            <!-- Bottom inventory list -->
+            <RowDefinition Height="Auto"/>     <!-- Header with close button -->
+            <RowDefinition Height="*"/>         <!-- Content (left + right panel) -->
+            <RowDefinition Height="2*"/>        <!-- Bottom inventory list -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="250"/>
@@ -50,14 +47,14 @@
             <!-- Артикул + Кол-во -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="Артикул:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <ComboBox ItemsSource="{Binding Articles}" Height="30"
+                <ComboBox x:Name="ArticleComboBox" ItemsSource="{Binding Articles}" Height="30"
                           SelectedItem="{Binding SelectedArticle, Mode=TwoWay}" VerticalContentAlignment="Center" FontSize="14"
-                          Width="180" IsEditable="True"/>
+                          Width="180" IsEditable="True"  KeyDown="ArticleComboBox_KeyDown"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="Кол-во:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                <TextBox Text="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox x:Name="QuantityTextBox" Text="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Width="80"
                          KeyDown="QuantityTextBox_KeyDown"/>
 
@@ -66,7 +63,7 @@
             </StackPanel>
 
             <!-- Date -->
-            <DatePicker SelectedDate="{Binding MovementDate}" Height="30" VerticalContentAlignment="Center" FontSize="14" Margin="0,20,0,10"/>
+            <DatePicker SelectedDate="{Binding MovementDate}" Height="30" VerticalContentAlignment="Center" FontSize="14" Margin="0,0,0,10"/>
 
             <!-- Buttons -->
             <StackPanel Orientation="Vertical">
@@ -86,10 +83,8 @@
         <!-- Right Panel: Список изменений -->
         <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,5">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <!-- Header & Buttons -->
-                <RowDefinition Height="*"/>
-                <!-- DataGrid -->
+                <RowDefinition Height="Auto"/>     <!-- Header & Buttons -->
+                <RowDefinition Height="*"/>        <!-- DataGrid -->
             </Grid.RowDefinitions>
 
             <!-- Header + Buttons -->
@@ -111,7 +106,7 @@
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       Style="{StaticResource SummaryGrid}"
-                      Margin="0,0,0,10">
+                      Margin="0,0,0,0">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="артикул" Binding="{Binding Article}" Width="200"/>
                     <DataGridTextColumn Header="кол" Binding="{Binding QuantityDb}" Width="60" ElementStyle="{StaticResource NumberCellStyle}"/>
@@ -142,14 +137,12 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="артикул" Binding="{Binding ArticleNumber}" Width="140"/>
                     <DataGridTextColumn Header="наименование" Binding="{Binding ProductName}" Width="150"/>
-                    <DataGridTextColumn Header="группа" Binding="{Binding GroupName}" Width="80"/>
-                    <DataGridTextColumn Header="бренд" Binding="{Binding BrandName}" Width="80"/>
-                    <DataGridTextColumn Header="марка" Binding="{Binding Marka}" Width="100"/>
+                    <DataGridTextColumn Header="группа" Binding="{Binding GroupName}" Width="100"/>
+                    <DataGridTextColumn Header="бренд" Binding="{Binding BrandName}" Width="100"/>
+                    <DataGridTextColumn Header="марка" Binding="{Binding Marka}" Width="120"/>
                     <DataGridTextColumn Header="модель" Binding="{Binding Model}" Width="*"/>
                     <DataGridTextColumn Header="кол" Binding="{Binding Quentity}" Width="80" ElementStyle="{StaticResource NumberCellStyle}"/>
-                    <DataGridTextColumn Header="розн" Binding="{Binding RetailPriceEuro}" ElementStyle="{StaticResource NumberCellStyle}" Width="80"/>
-                    <DataGridTextColumn Header="опт" Binding="{Binding WholesalePriceEuro}" ElementStyle="{StaticResource NumberCellStyle}" Width="80"/>
-                    <DataGridTextColumn Header="место" Binding="{Binding WarehousePlace}" Width="80" ElementStyle="{StaticResource CenterCellStyle}"/>
+                      <DataGridTextColumn Header="место" Binding="{Binding WarehousePlace}" Width="80" ElementStyle="{StaticResource CenterCellStyle}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>

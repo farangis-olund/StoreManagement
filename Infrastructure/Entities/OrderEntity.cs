@@ -6,7 +6,7 @@ public class OrderEntity
 	public DateTime Date { get; set; } = DateTime.Now;
 	public double Rate { get; set; }
 	public string? CustomerId { get; set; }
-	public string UserId { get; set; } = null!;
+	public int UserId { get; set; }
 	public bool WithoutInvoice { get; set; } = false;
 	public bool Wholesale { get; set; }
 	public bool Stock {  get; set; }
@@ -23,6 +23,7 @@ public class OrderEntity
 	public virtual UserEntity? User { get; set; }
 	public virtual CustomerEntity? Customer { get; set; }
 	public virtual ICollection<OrderDetailEntity> OrderDetails { get; set; } = [];
+    public virtual ICollection<CustomerPaymentEntity> Payments { get; set; } = [];
 
 }
 

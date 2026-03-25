@@ -1,0 +1,207 @@
+﻿<UserControl x:Class="PresentationWpf.Views.CourierStorekeeperReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+
+        <Grid Margin="10">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+
+            <!-- FILTER BAR -->
+            <Border Grid.Row="0"
+                Padding="10"
+                Margin="0,0,0,10"
+                BorderBrush="#DDD"
+                BorderThickness="1"
+                CornerRadius="6">
+
+                <StackPanel Orientation="Horizontal">
+
+                    <TextBlock Text="Период:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
+
+                    <DatePicker Width="130"
+                            Height="30"
+                            FontSize="14"
+                            SelectedDate="{Binding FromDate}"
+                            Margin="0,0,10,0"/>
+
+                    <TextBlock Text="по:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
+
+                    <DatePicker Width="130"
+                            Height="30"
+                            FontSize="14"
+                            SelectedDate="{Binding ToDate}"
+                            Margin="0,0,20,0"/>
+
+                    <TextBlock Text="%"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
+
+                    <TextBox Width="60"
+                         Height="30"
+                         FontSize="14"
+                         Text="{Binding Percent}"
+                         VerticalContentAlignment="Center"/>
+
+                </StackPanel>
+
+            </Border>
+
+
+
+            <!-- REPORTS AREA -->
+            <Grid Grid.Row="1">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="30"/>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+
+
+                <!-- COURIER REPORT -->
+                <Border Grid.Column="0"
+                    Padding="10"
+                    BorderBrush="#DDD"
+                    BorderThickness="1"
+                    CornerRadius="6">
+
+                    <StackPanel>
+
+                        <StackPanel Orientation="Horizontal"
+                                Margin="0,0,0,8">
+
+                            <TextBlock Text="Отчет доставщиков"
+                                   FontWeight="Bold"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"/>
+
+                            <Button Content="Печать"
+                                Style="{StaticResource GrayButton}"
+                                Margin="10,0,0,0"
+                                Padding="10,3"
+                                Command="{Binding PrintCourierCommand}"/>
+
+                        </StackPanel>
+
+                        <DataGrid ItemsSource="{Binding Couriers}"
+                              Style="{StaticResource SummaryGrid}" 
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              Margin="0,4,0,0">
+
+                            <DataGrid.Columns>
+
+                            <DataGridTextColumn Header="Доставщик"
+                                Binding="{Binding Name}"
+                                Width="*" />
+
+                            <DataGridTextColumn Header="Сумма"
+                                Binding="{Binding OrdersSum, StringFormat=N2}"
+                                Width="100"/>
+
+                            <DataGridTextColumn Header="Возвраты"
+                                Binding="{Binding ReturnSum, StringFormat=N2}"
+                                Width="100"/>
+
+                            <DataGridTextColumn Header="Итого"
+                                Binding="{Binding NetSum, StringFormat=N2}"
+                                Width="100"/>
+
+                            <DataGridTextColumn Header="%"
+                                Binding="{Binding PercentAmount, StringFormat=N2}"
+                                Width="80"/>
+
+                        </DataGrid.Columns>
+
+                        </DataGrid>
+
+                    </StackPanel>
+
+                </Border>
+
+
+
+                <!-- STOREKEEPER REPORT -->
+                <Border Grid.Column="2"
+                    Padding="10"
+                    BorderBrush="#DDD"
+                    BorderThickness="1"
+                    CornerRadius="6">
+
+                    <StackPanel>
+
+                        <StackPanel Orientation="Horizontal"
+                                Margin="0,0,0,8">
+
+                            <TextBlock Text="Отчет складчиков"
+                                   FontWeight="Bold"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"/>
+
+                            <Button Content="Печать"
+                                Style="{StaticResource GrayButton}"
+                                Margin="10,0,0,0"
+                                Padding="10,3"
+                                Command="{Binding PrintStorekeeperCommand}"/>
+
+                        </StackPanel>
+
+                        <DataGrid ItemsSource="{Binding Storekeepers}"
+                              Style="{StaticResource SummaryGrid}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              Margin="0,4,0,0">
+
+                            <DataGrid.Columns>
+
+                            <DataGridTextColumn Header="Складчик"
+                                Binding="{Binding Name}"
+                                Width="*" />
+
+                            <DataGridTextColumn Header="Сумма"
+                                Binding="{Binding OrdersSum, StringFormat=N2}"
+                                Width="100"/>
+
+                            <DataGridTextColumn Header="Возвраты"
+                                Binding="{Binding ReturnSum, StringFormat=N2}"
+                                Width="100"/>
+
+                            <DataGridTextColumn Header="Итого"
+                                Binding="{Binding NetSum, StringFormat=N2}"
+                                Width="100"/>
+
+                            <DataGridTextColumn Header="%"
+                                Binding="{Binding PercentAmount, StringFormat=N2}"
+                                Width="80"/>
+
+                        </DataGrid.Columns>
+
+                        </DataGrid>
+
+                    </StackPanel>
+
+                </Border>
+
+
+            </Grid>
+
+        </Grid>
+
+    
+</UserControl>

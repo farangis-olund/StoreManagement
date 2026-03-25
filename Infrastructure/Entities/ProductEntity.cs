@@ -24,24 +24,21 @@ public class ProductEntity
 	public int MinRemainingQuantity { get; set; }
 	
 	[Column(TypeName = "decimal(18,2)")]
-	public decimal RetailPriceEuro { get; set; }   // Розн Цена (Euro)
+	public decimal PriceLevel1 { get; set; }   // Уровень 1 
 
+    [Column(TypeName = "decimal(18,2)")]
+	public decimal PriceLevel2 { get; set; }   // Уровень 2
+
+    [Column(TypeName = "decimal(18,2)")]
+	public decimal PriceLevel3 { get; set; }   // Уровень 3
+
+    [Column(TypeName = "decimal(18,2)")]
+	public decimal PriceLevel4 { get; set; }   //Уровень 4
+       
 	[Column(TypeName = "decimal(18,2)")]
-	public decimal WholesalePriceEuro { get; set; }   // Опт Цена (Euro)
+	public decimal PriceLevel5 { get; set; }   // Уровень 5
 
-	[Column(TypeName = "decimal(18,2)")]
-	public decimal ServicePriceEuro { get; set; }   // Серв Цена (Euro)
-
-	[Column(TypeName = "decimal(18,2)")]
-	public decimal WholesalePrice1Euro { get; set; }   // Опт Цена 1(Euro)
-
-	[Column(TypeName = "decimal(18,2)")]
-	public decimal NetPrice { get; set; }   // Цена Нетто
-
-	[Column(TypeName = "decimal(18,2)")]
-	public decimal SmallWholesalePrice { get; set; }   // Мелкооптовая Цена
-
-	[ForeignKey("BrandId")]
+    [ForeignKey("BrandId")]
     public virtual BrandEntity Brand { get; set; } = null!;
 
     [ForeignKey("GroupId")]

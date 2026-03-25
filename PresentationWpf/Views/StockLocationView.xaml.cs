@@ -13,6 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace PresentationWpf.Views
 {
@@ -34,7 +35,22 @@ namespace PresentationWpf.Views
                 {
                     await vm.UpdateWarehousePlaceAsync();
                 }
+                ArticleComboBox.Focus();
+                e.Handled = true;
             }
         }
-    }
+        private void ArticleComboBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                // Move focus to the Quantity (NewPlaceTextBox)
+                NewPlaceTextBox.Focus();
+                e.Handled = true; 
+            }
+        }
+
+     }
+
+   
+
 }

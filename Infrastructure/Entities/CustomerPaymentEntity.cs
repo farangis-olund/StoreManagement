@@ -10,8 +10,10 @@ public class CustomerPaymentEntity
 	public string? OrderId { get; set; }        // № Накладной (FK -> OrderEntity.Id), optional
 	public string? Note { get; set; }           // (optional) примечание
 
-	// Navs (optional but useful)
-	public CustomerEntity? Customer { get; set; }
+    public decimal Rate { get; set; }
+  
+    // Navs (optional but useful)
+    public CustomerEntity? Customer { get; set; }
 	public OrderEntity? Order { get; set; }
 }
 

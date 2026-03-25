@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PresentationWpf", "Presenta
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrastructure", "Infrastructure\Infrastructure.csproj", "{7FBB5F13-3F2A-4941-8E49-083A3DB85D76}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "StoreManagementInstaller", "StoreManagementInstaller\StoreManagementInstaller.vdproj", "{C8FD94B4-CB39-4F23-9A29-46DB00DA09C8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,8 @@ Global
 		{7FBB5F13-3F2A-4941-8E49-083A3DB85D76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7FBB5F13-3F2A-4941-8E49-083A3DB85D76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7FBB5F13-3F2A-4941-8E49-083A3DB85D76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8FD94B4-CB39-4F23-9A29-46DB00DA09C8}.Debug|Any CPU.ActiveCfg = Debug
+		{C8FD94B4-CB39-4F23-9A29-46DB00DA09C8}.Release|Any CPU.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

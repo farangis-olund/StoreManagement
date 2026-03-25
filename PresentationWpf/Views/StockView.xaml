@@ -133,6 +133,9 @@
             Height="45">
 
             <RadioButton Content="Каталог"
+                 Visibility="{Binding DataContext.CanViewCatalog,
+                 RelativeSource={RelativeSource AncestorType=UserControl},
+                 Converter={StaticResource BoolToVisibilityConverter}}"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsCatalogSelected}"
                  Command="{Binding OpenCatalogCommand}"/>

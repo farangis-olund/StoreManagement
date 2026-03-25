@@ -127,6 +127,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Services;
+using PresentationWpf.Services;
 
 namespace PresentationWpf.ViewModels;
 
@@ -139,6 +140,7 @@ public partial class StockViewModel : ObservableObject
     private readonly StockLocationViewModel _stockLocationViewModel;
     private readonly ReturnDebtRepaymentViewModel _returnDebtRepaymentViewModel;
     private readonly TransferReceiveViewModel _transferReceiveViewModel;
+    public PermissionService PermissionService { get; }
 
     [ObservableProperty]
     private ObservableObject currentViewModel = null!;
@@ -156,7 +158,7 @@ public partial class StockViewModel : ObservableObject
         TransferViewModel transferViewModel,
         StockLocationViewModel stockLocationViewModel,
         ReturnDebtRepaymentViewModel returnDebtRepaymentViewModel,
-        TransferReceiveViewModel transferReceiveViewModel)
+        TransferReceiveViewModel transferReceiveViewModel, PermissionService permissionService)
     {
         _productViewModel = productViewModel;
         _importViewModel = importViewModel;
@@ -165,6 +167,7 @@ public partial class StockViewModel : ObservableObject
         _stockLocationViewModel = stockLocationViewModel;
         _returnDebtRepaymentViewModel = returnDebtRepaymentViewModel;
         _transferReceiveViewModel = transferReceiveViewModel;
+        PermissionService = permissionService;
 
         // listen for close requests to reset tab state
         _productViewModel.RequestClose += () => ResetTab(ref isCatalogSelected);
@@ -177,6 +180,13 @@ public partial class StockViewModel : ObservableObject
         _transferReceiveViewModel.RequestClose += () => ResetTab(ref isTransferSelected);
     }
 
+    public bool CanViewCatalog => PermissionService.Has("Inventory.Catalog");
+
+    public void RefreshPermissions()
+    {
+        OnPropertyChanged(nameof(CanViewCatalog));
+       
+    }
     // === Catalog ===
     [RelayCommand]
     private void OpenCatalog()

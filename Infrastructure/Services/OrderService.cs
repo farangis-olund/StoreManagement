@@ -1,4 +1,6 @@
 ﻿
+using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.InkML;
 using Infrastructure.Contexts;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
@@ -34,115 +36,132 @@ public class OrderService
 
 	}
 
-	/// <summary>
-	/// Generates a unique order/invoice id (e.g. "СЧ-ABC123") using EF-backed existence checks.
-	/// </summary>
-	public async Task<string> GenerateUniqueInvoiceNumberAsync(
-		int length = 6,
-		string prefix = "СЧ-",
-		CancellationToken ct = default)
-	{
-		if (length <= 0)
-			throw new ArgumentOutOfRangeException(nameof(length), "Length must be greater than 0.");
+    /// <summary>
+    /// Generates a unique order/invoice id (e.g. "СЧ-ABC123") using EF-backed existence checks.
+    /// </summary>
+    public async Task<string> GenerateUniqueInvoiceNumberAsync(
+    bool isBarter = false,
+    int length = 6,
+    string? prefix = null,
+    CancellationToken ct = default)
+    {
+        if (length <= 0)
+            throw new ArgumentOutOfRangeException(nameof(length), "Length must be greater than 0.");
 
-		string number;
-		do
-		{
-			// cryptographically-strong random selection of characters
-			var buf = new char[length];
-			for (int i = 0; i < length; i++)
-			{
-				int idx = RandomNumberGenerator.GetInt32(_chars.Length);
-				buf[i] = _chars[idx];
-			}
+        // ✅ Automatically select correct prefix
+        prefix ??= isBarter ? "БТ-" : "СЧ-";
 
-			number = prefix + new string(buf);
-		}
-		while (await ExistOrderAsync(number, ct)); // ensure uniqueness via repo
+        string number;
+        do
+        {
+            var buf = new char[length];
+            for (int i = 0; i < length; i++)
+            {
+                int idx = RandomNumberGenerator.GetInt32(_chars.Length);
+                buf[i] = _chars[idx];
+            }
 
-		return number;
-	}
+            number = prefix + new string(buf);
+        }
+        while (await ExistOrderAsync(number, ct));
 
-	public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
-	{
-		await using var db = await _dbFactory.CreateDbContextAsync();
-		try
-		{
-			// 1) Ensure Id (string key) up front
-			if (string.IsNullOrWhiteSpace(orderEntity.Id))
-				orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
+        return number;
+    }
 
-			// Optional pre-check (race-prone, final guard is catch below)
-			var exists = await db.Orders.AnyAsync(o => o.Id == orderEntity.Id);
-			if (exists) return null;
+    public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        try
+        {
+            // 1️⃣ Ensure Id (invoice number) with correct prefix
+            if (string.IsNullOrWhiteSpace(orderEntity.Id))
+            {
+                string prefix = orderEntity.IsBarter ? "БТ-" : "СЧ-";
+                orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(
+                    isBarter: orderEntity.IsBarter,
+                    length: 6,
+                    prefix: prefix
+                );
+            }
 
-			// Keep child FKs consistent
-			foreach (var d in orderEntity.OrderDetails)
-				d.OrderId = orderEntity.Id;
+            // Optional pre-check
+            var exists = await db.Orders.AnyAsync(o => o.Id == orderEntity.Id);
+            if (exists)
+                return null;
 
-			// 2) One transaction for: stock deduction + order insert
-			await using var tx = await db.Database.BeginTransactionAsync();
+            // 2️⃣ Keep child FKs consistent
+            foreach (var d in orderEntity.OrderDetails)
+                d.OrderId = orderEntity.Id;
 
-			// 2a) Deduct stock (inside the SAME db context!)
-			var items = orderEntity.OrderDetails
-								   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-								   .ToList();
+            // 3️⃣ Start transaction
+            await using var tx = await db.Database.BeginTransactionAsync();
 
-			var stock = await _productService.DeductStockAsync(items, db); // overload that accepts db
-			if (!stock.Success)
-			{
-				await tx.RollbackAsync();
-				_logger.LogWarning("Недостаточно на складе: {Articles}",
-					string.Join(", ", stock.NotEnoughArticles));
-				return null;
-			}
+            // 3a) Deduct stock
+            var items = orderEntity.OrderDetails
+                                   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
+                                   .ToList();
 
-			// 2b) Insert order + details
-			db.Orders.Add(orderEntity);
-			await db.SaveChangesAsync();
+            var stock = await _productService.DeductStockAsync(items, db); // overload using same context
+            if (!stock.Success)
+            {
+                await tx.RollbackAsync();
+                _logger.LogWarning("Недостаточно на складе: {Articles}",
+                    string.Join(", ", stock.NotEnoughArticles));
+                return null;
+            }
 
-			// 2c) Commit the lot
-			await tx.CommitAsync();
-			return orderEntity;
-		}
-		catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
-		{
-			// Retry once with a new number
-			await using var retryDb = await _dbFactory.CreateDbContextAsync();
+            // 3b) Insert order + details
+            db.Orders.Add(orderEntity);
+            await db.SaveChangesAsync();
 
-			orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(length: 6, prefix: "СЧ-");
-			foreach (var d in orderEntity.OrderDetails)
-				d.OrderId = orderEntity.Id;
+            // 3c) Commit the lot
+            await tx.CommitAsync();
+            return orderEntity;
+        }
+        catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
+        {
+            // 4️⃣ Retry once with new number
+            await using var retryDb = await _dbFactory.CreateDbContextAsync();
 
-			await using var tx = await retryDb.Database.BeginTransactionAsync();
+            string retryPrefix = orderEntity.IsBarter ? "БТ-" : "СЧ-";
+            orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(
+                isBarter: orderEntity.IsBarter,
+                length: 6,
+                prefix: retryPrefix
+            );
 
-			var items = orderEntity.OrderDetails
-								   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-								   .ToList();
+            foreach (var d in orderEntity.OrderDetails)
+                d.OrderId = orderEntity.Id;
 
-			var stock = await _productService.DeductStockAsync(items, retryDb);
-			if (!stock.Success)
-			{
-				await tx.RollbackAsync();
-				_logger.LogWarning("Недостаточно на складе (артикул): {Articles}",
-					string.Join(", ", stock.NotEnoughArticles));
-				return null;
-			}
+            await using var tx = await retryDb.Database.BeginTransactionAsync();
 
-			retryDb.Orders.Add(orderEntity);
-			await retryDb.SaveChangesAsync();
+            var items = orderEntity.OrderDetails
+                                   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
+                                   .ToList();
 
-			await tx.CommitAsync();
-			return orderEntity;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error in AddOrderAsync");
-			return null;
-		}
-	}
+            var stock = await _productService.DeductStockAsync(items, retryDb);
+            if (!stock.Success)
+            {
+                await tx.RollbackAsync();
+                _logger.LogWarning("Недостаточно на складе (артикул): {Articles}",
+                    string.Join(", ", stock.NotEnoughArticles));
+                return null;
+            }
 
-	private static bool IsUniqueKeyViolation(Exception ex)
+            retryDb.Orders.Add(orderEntity);
+            await retryDb.SaveChangesAsync();
+
+            await tx.CommitAsync();
+            return orderEntity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in AddOrderAsync");
+            return null;
+        }
+    }
+
+    private static bool IsUniqueKeyViolation(Exception ex)
 	{
 		// SQL Server: 2601/2627; SQLite: "UNIQUE constraint failed"; PostgreSQL: 23505
 		var msg = ex.GetBaseException().Message;
@@ -319,9 +338,11 @@ public class OrderService
 	public async Task<CustomerPaymentEntity?> AddPaymentAsync(
 	string customerId,
 	decimal amount,
-	DateTime? date = null,
+    double rate,
+    DateTime? date = null,
 	string? orderId = null,
 	string? amountInWords = null,
+    
 	CancellationToken ct = default)
 	{
 		await using var db = await _dbFactory.CreateDbContextAsync();
@@ -335,7 +356,8 @@ public class OrderService
 				Date = (date ?? DateTime.Today),
 				Amount = amount,
 				OrderId = orderId,
-				AmountInWords = amountInWords
+				AmountInWords = amountInWords,
+                Rate = (decimal)rate
 			};
 
 			db.Set<CustomerPaymentEntity>().Add(p);
@@ -349,19 +371,26 @@ public class OrderService
 		}
 	}
 
-	public async Task<string?> GetLastOrderIdForCustomerAsync(string customerId, CancellationToken ct = default)
-	{
-		await using var db = await _dbFactory.CreateDbContextAsync();
-		return await db.Set<OrderEntity>()
-						.AsNoTracking()
-						.Where(o => o.CustomerId == customerId && !o.IsBarter)
-						.OrderByDescending(o => o.Date)
-						.Select(o => o.Id)
-						.FirstOrDefaultAsync(ct);
-	}
+    
+    public async Task<string?> GetTodayOrderIdForCustomerAsync(string customerId, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
 
-	
-public async Task<IReadOnlyList<OrderRowDto>> GetOrdersAsync(CancellationToken ct = default)
+        var today = DateTime.Today;
+
+        return await db.Set<OrderEntity>()
+            .AsNoTracking()
+            .Where(o =>
+                o.CustomerId == customerId &&
+                !o.IsBarter &&
+                o.Date.Date == today)                 // 🔹 limit to today
+            .OrderByDescending(o => o.Date)
+            .Select(o => o.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+
+    public async Task<IReadOnlyList<OrderRowDto>> GetOrdersAsync(CancellationToken ct = default)
 {
 		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
@@ -530,8 +559,9 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                     CustomerId = o.CustomerId,
                     FullName = o.Customer.FullName,
                     Address = o.Customer.Address,
+					City = o.Customer.City,
                     IsPaid = o.IsPaid,
-
+					Phone = o.Customer.MobilePhone,
                     // ✅ Total order sum (like "Продажа" in Access)
                     SaleAmount = o.OrderDetails.Sum(d => d.Price * d.Quentity),
 
@@ -584,7 +614,8 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         await using var db = await _dbFactory.CreateDbContextAsync();
 
         return await db.Orders
-            .Where(o => !o.IsSent) // only unsent
+            .Where(o => !o.IsSent && !o.IsBarter)
+          
             .OrderByDescending(o => o.Date) // ✅ latest first
             .Select(o => new PendingOrderDto
             {
@@ -620,7 +651,7 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 .AsNoTracking()
                 .Include(o => o.Customer)
                 .Include(o => o.Storekeeper) // ✅ join storekeeper
-                .Where(o => o.Date >= from && o.Date < to);
+                .Where(o => o.Date >= from && o.Date < to && !o.IsBarter);
 
             var data = await query
                 .Select(o => new AssignPickerDto
@@ -663,7 +694,146 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         }
     }
 
+    /// <summary>
+    /// Checks if the specified customer already has a payment recorded on the given date.
+    /// </summary>
+    public async Task<bool> HasPaymentForCustomerOnDateAsync(string customerId, DateTime date, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+            return false;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        // normalize date to just the day (no time)
+        var targetDate = date.Date;
+
+        return await db.Set<CustomerPaymentEntity>()
+            .AsNoTracking()
+            .AnyAsync(p =>
+                p.CustomerId == customerId &&
+                p.Date.Date == targetDate, ct);
+    }
+
+    public async Task<decimal> GetCustomerPaymentsSumAsync(string customerId, DateTime date, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.Set<CustomerPaymentEntity>()
+            .Where(p => p.CustomerId == customerId && p.Date.Date == date.Date)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+    }
+
+    public async Task<decimal> GetOrderPaymentsSumAsync(string orderId, DateTime date, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await db.Set<CustomerPaymentEntity>()
+            .Where(p => p.OrderId == orderId && p.Date.Date == date.Date)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+    }
 
 
+    /// <summary>
+    /// Gets the exchange rate from the Orders table
+    /// for a specific order ID and date.
+    /// Returns 1m if not found.
+    /// </summary>
+    public async Task<decimal> GetExchangeRateByDateAsync(string orderId, DateTime date, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        try
+        {
+            var targetDate = date.Date;
+
+            // ✅ Query the Orders table for matching orderId and date
+            var rate = await db.Orders
+                .AsNoTracking()
+                .Where(o => o.Id == orderId && o.Date.Date == targetDate)
+                .Select(o => (decimal?)o.Rate)
+                .FirstOrDefaultAsync(ct);
+
+            // ✅ If not found, return 1 as safe default
+            return rate ?? 1m;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetExchangeRateByDateAsync for Order {OrderId} on {Date}", orderId, date);
+            return 1m;
+        }
+    }
+
+
+    public async Task<List<UnpaidOrderDto>> GetUnpaidOrdersAsync(string customerId, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var query =
+            from o in db.Set<OrderEntity>().AsNoTracking()
+            where !o.IsPaid
+                  && o.CustomerId == customerId
+                  && !o.IsBarter
+            let totalAmount = db.Set<OrderDetailEntity>()
+                .Where(d => d.OrderId == o.Id)
+                .Sum(d => (decimal?)(d.Price * d.Quentity)) ?? 0m
+            let paid = db.Set<CustomerPaymentEntity>()
+                .Where(p => p.OrderId == o.Id)
+                .Sum(p => (decimal?)p.Amount) ?? 0m
+            where paid > 0m // ✅ Only include if the customer has paid something
+            select new UnpaidOrderDto
+            {
+                Id = o.Id,
+                Date = o.Date,
+                CustomerId = o.CustomerId,
+                TotalAmount = totalAmount,
+                Paid = paid,
+                PaymentId = db.Set<CustomerPaymentEntity>()
+                    .Where(p => p.OrderId == o.Id)
+                    .OrderByDescending(p => p.Date)
+                    .Select(p => p.Id)
+                    .FirstOrDefault()
+            };
+
+        return await query
+            .OrderBy(x => x.Date)
+            .ToListAsync(ct);
+    }
+
+    public async Task<bool> HasUnpaidOrdersAsync(string customerId)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+
+        return await db.Orders
+            .AnyAsync(o => o.CustomerId == customerId && !o.IsPaid && !o.IsBarter);
+    }
+
+    public async Task AddCourierPaymentAsync(
+     string courierId,
+     string orderId,
+     decimal amountEuro,
+     decimal amountTjs,
+     DateTime date,
+     CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        var exists = await db.Set<CourierPaymentEntity>()
+            .AnyAsync(x => x.OrderId == orderId && x.CourierId == courierId, ct);
+
+        if (exists)
+            return;
+
+        var entity = new CourierPaymentEntity
+        {
+            CourierId = courierId,
+            OrderId = orderId,
+            Date = date,
+            AmountInEuro = amountEuro,
+            AmountInTJS = amountTjs
+        };
+
+        db.Set<CourierPaymentEntity>().Add(entity);
+        await db.SaveChangesAsync(ct);
+    }
 }
 

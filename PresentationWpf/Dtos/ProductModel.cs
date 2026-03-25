@@ -6,12 +6,12 @@ namespace PresentationWpf.Dtos;
 public class ProductModel : INotifyPropertyChanged
 {
 	// ── backing data from DB (Euro) ────────────────────────────────────────────
-	private decimal _retailPriceEuro;
-	private decimal _wholesalePriceEuro;
-	private decimal _servicePriceEuro;
-	private decimal _wholesalePrice1Euro;
-	private decimal _netPriceEuro;
-	private decimal _smallWholesalePriceEuro;
+	private decimal _priceLevel1;
+	private decimal _priceLevel2;
+	private decimal _priceLevel3;
+	private decimal _priceLevel4;
+	private decimal _priceLevel5;
+	
 
 	// ── basic info ────────────────────────────────────────────────────────────
 	public string ArticleNumber { get; set; } = null!;
@@ -25,7 +25,9 @@ public class ProductModel : INotifyPropertyChanged
 	public string WarehousePlace { get; set; } = null!;
 	public int MinRemainingQuantity { get; set; }
 
-	private int _orderQuentity;
+    public bool IsInvalid { get; set; }
+
+    private int _orderQuentity;
 	private decimal _total;
 	private double _exchangeRate = 1;
 	private decimal? _barterPriceSom;
@@ -71,7 +73,7 @@ public class ProductModel : INotifyPropertyChanged
 
 	// ── ONLY TWO PUBLIC PRICES ────────────────────────────────────────────────
 	// 1) Retail (converted)
-	public decimal RetailPrice => _retailPriceEuro * (decimal)ExchangeRate;
+	public decimal RetailPrice => _priceLevel1 * (decimal)ExchangeRate;
 
 	// Level: 1=Retail, 2=Wholesale, 3=Service, 4=Wholesale1, 5=Net, 6=SmallWholesale
 	private int? _customerPriceLevel = null;
@@ -99,13 +101,13 @@ public class ProductModel : INotifyPropertyChanged
 			if (_customerPriceLevel is null) return null;
 			decimal baseEuro = _customerPriceLevel.Value switch
 			{
-				1 => _retailPriceEuro,
-				2 => _wholesalePriceEuro,
-				3 => _servicePriceEuro,
-				4 => _wholesalePrice1Euro,
-				5 => _netPriceEuro,
-				6 => _smallWholesalePriceEuro,
-				_ => _retailPriceEuro
+				1 => _priceLevel1,
+				2 => _priceLevel2,
+				3 => _priceLevel3,
+				4 => _priceLevel4,
+				5 => _priceLevel5,
+				
+				_ => _priceLevel1
 			};
 			return baseEuro; // no exchange conversion
 		}
@@ -198,12 +200,11 @@ public class ProductModel : INotifyPropertyChanged
 			WarehousePlace = dto.WarehousePlace,
 			MinRemainingQuantity = dto.MinRemainingQuantity,
 
-			_retailPriceEuro = dto.RetailPriceEuro,
-			_wholesalePriceEuro = dto.WholesalePriceEuro,
-			_servicePriceEuro = dto.ServicePriceEuro,
-			_wholesalePrice1Euro = dto.WholesalePrice1Euro,
-			_netPriceEuro = dto.NetPrice,
-			_smallWholesalePriceEuro = dto.SmallWholesalePrice,
+			_priceLevel1 = dto.PriceLevel1,
+			_priceLevel2 = dto.PriceLevel2,
+			_priceLevel3 = dto.PriceLevel3,
+			_priceLevel4 = dto.PriceLevel4,
+			_priceLevel5 = dto.PriceLevel5,
 
 			// If dto.ExchangeRate is decimal? use 1m and convert once:
 			ExchangeRate = dto.ExchangeRate is double d ? (d > 0 ? d : 1.0) : 1.0,

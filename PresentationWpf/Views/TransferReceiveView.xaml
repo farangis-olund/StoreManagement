@@ -145,6 +145,7 @@
                 <!-- === DataGrid === -->
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding Products}"
+                           CanUserDeleteRows="True"
                           Style="{StaticResource SummaryGrid}"  RowHeight="28"    IsReadOnly="False">
                     <DataGrid.CellStyle>
                         <Style TargetType="DataGridCell">

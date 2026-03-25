@@ -40,8 +40,10 @@
                 <!-- Button -->
                 <ColumnDefinition Width="120"/>
                 <!-- Button -->
-                <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="120"/>
                 <!-- Button -->
+                <ColumnDefinition Width="120"/>
+
             </Grid.ColumnDefinitions>
 
             <!-- Label "ПЕРЕЙТИ ПО ФИРМАМ" -->
@@ -65,6 +67,10 @@
                     Command="{Binding NewBrandCommand}"  Style="{StaticResource GrayButton}"/>
             <Button Grid.Column="5" Content="Сохранить" Width="100" Height="30" 
                     Style="{StaticResource GrayButton}" Command="{Binding SaveChangesCommand}"/>
+            <Button Grid.Column="6" Content="Удалить" Width="100" Height="30" 
+                    Style="{StaticResource GrayButton}" Command="{Binding DeleteCommand}"/>
+            <Button Grid.Column="7" Content="Удалить всё" Width="100" Height="30" 
+                    Style="{StaticResource GrayButton}" Command="{Binding DeleteAllCommand}"/>
         </Grid>
 
         <!-- Data Grid -->
@@ -77,59 +83,23 @@
                   IsReadOnly="False"
                   ItemsSource="{Binding Brands}"
                   SelectedItem="{Binding SelectedBrand}"
-                  Style="{StaticResource SummaryGrid}">
-
+                  Style="{StaticResource SummaryGrid}"
+                  PreviewKeyDown="DataGrid_PreviewKeyDown">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}" Width="*" />
 
-                <!-- Category ComboBox -->
-                <DataGridComboBoxColumn Header="Категория"
-    SelectedValueBinding="{Binding CategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-    SelectedValuePath="Id"
-    DisplayMemberPath="CategoryName"
-    Width="*">
-
-                    <!-- Display mode -->
-                    <DataGridComboBoxColumn.ElementStyle>
-                        <Style TargetType="ComboBox">
-                            <Setter Property="ItemsSource"
-                Value="{Binding DataContext.Categories,
-                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                            <Setter Property="DisplayMemberPath" Value="CategoryName"/>
-                            <Setter Property="SelectedValuePath" Value="Id"/>
-                            <Setter Property="IsHitTestVisible" Value="False"/>
-                            <Setter Property="Focusable" Value="False"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                        </Style>
-                    </DataGridComboBoxColumn.ElementStyle>
-
-                    <!-- Edit mode -->
-                    <DataGridComboBoxColumn.EditingElementStyle>
-                        <Style TargetType="ComboBox">
-                            <Setter Property="ItemsSource"
-                Value="{Binding DataContext.Categories,
-                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                            <Setter Property="DisplayMemberPath" Value="CategoryName"/>
-                            <Setter Property="SelectedValuePath" Value="Id"/>
-                            <Setter Property="IsEditable" Value="False"/>
-                            <Setter Property="IsReadOnly" Value="False"/>
-                        </Style>
-                    </DataGridComboBoxColumn.EditingElementStyle>
-                </DataGridComboBoxColumn>
-
-
                 <!-- Firm ComboBox -->
                 <DataGridComboBoxColumn Header="Фирма"
-    SelectedValueBinding="{Binding CompanyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-    Width="*">
+                     SelectedValueBinding="{Binding CompanyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Width="*">
 
                     <!-- Display mode -->
                     <DataGridComboBoxColumn.ElementStyle>
                         <Style TargetType="ComboBox">
                             <Setter Property="ItemsSource"
-                Value="{Binding DataContext.Firms,
-                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                            <Setter Property="DisplayMemberPath" Value="."/>
+                                 Value="{Binding DataContext.Firms,
+                                    RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                <Setter Property="DisplayMemberPath" Value="."/>
                             <Setter Property="SelectedValuePath" Value="."/>
                             <Setter Property="IsHitTestVisible" Value="False"/>
                             <Setter Property="Focusable" Value="False"/>
@@ -141,8 +111,8 @@
                     <DataGridComboBoxColumn.EditingElementStyle>
                         <Style TargetType="ComboBox">
                             <Setter Property="ItemsSource"
-                Value="{Binding DataContext.Firms,
-                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                         Value="{Binding DataContext.Firms,
+                                 RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
                             <Setter Property="DisplayMemberPath" Value="."/>
                             <Setter Property="SelectedValuePath" Value="."/>
                             <Setter Property="IsEditable" Value="False"/>
@@ -151,6 +121,43 @@
                     </DataGridComboBoxColumn.EditingElementStyle>
                 </DataGridComboBoxColumn>
 
+                <!-- Category ComboBox -->
+                <DataGridComboBoxColumn Header="Категория"
+                    SelectedValueBinding="{Binding CategoryId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    SelectedValuePath="Id"
+                    DisplayMemberPath="CategoryName"
+                    Width="*">
+
+                    <!-- Display mode -->
+                    <DataGridComboBoxColumn.ElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                Value="{Binding DataContext.Categories,
+                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="CategoryName"/>
+                            <Setter Property="SelectedValuePath" Value="Id"/>
+                            <Setter Property="IsHitTestVisible" Value="False"/>
+                            <Setter Property="Focusable" Value="False"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </DataGridComboBoxColumn.ElementStyle>
+
+                    <!-- Edit mode -->
+                    <DataGridComboBoxColumn.EditingElementStyle>
+                        <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource"
+                Value="{Binding DataContext.Categories,
+                        RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                            <Setter Property="DisplayMemberPath" Value="CategoryName"/>
+                            <Setter Property="SelectedValuePath" Value="Id"/>
+                            <Setter Property="IsEditable" Value="False"/>
+                            <Setter Property="IsReadOnly" Value="False"/>
+                        </Style>
+                    </DataGridComboBoxColumn.EditingElementStyle>
+                </DataGridComboBoxColumn>
+
+
+               
 
             </DataGrid.Columns>
         </DataGrid>

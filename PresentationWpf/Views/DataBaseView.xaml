@@ -1,0 +1,218 @@
+﻿<UserControl x:Class="PresentationWpf.Views.DataBaseView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:PresentationWpf.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+
+      
+        <!-- ==== SIDEBAR ITEM STYLE ==== -->
+        <Style x:Key="SidebarItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="10 6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#D9D9E2"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter Margin="14 0 0 0"
+                                      VerticalAlignment="Center"/>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+
+                            <!-- HOVER (fix text visibility) -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#E0D8FF"/>
+                                <Setter Property="Foreground" Value="#1A132B"/>
+                                <!-- DARK PURPLE TEXT -->
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <!-- optional -->
+                            </Trigger>
+
+                            <!-- SELECTED -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#5A4C99"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Trigger>
+
+                        </ControlTemplate.Triggers>
+
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+        <!-- Header style -->
+        <Style x:Key="GroupHeaderStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#BFB8D7"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="8 15 0 5"/>
+        </Style>
+
+        <DataTemplate x:Key="TableNameTemplate">
+            <TextBlock Text="{Binding Display}"
+               Margin="8"
+               FontSize="15"
+               Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
+        </DataTemplate>
+
+
+        <!-- Стиль CRUD-кнопок -->
+        <Style x:Key="CrudButton" TargetType="Button">
+            <Setter Property="Background" Value="#5A4C99"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10 5"/>
+            <Setter Property="Margin" Value="10 0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="115"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+    </UserControl.Resources>
+
+
+    <!-- ==================================== MAIN LAYOUT ==================================== -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <!-- Левое меню -->
+            <ColumnDefinition Width="*"/>
+            <!-- Основная область -->
+        </Grid.ColumnDefinitions>
+
+        <!-- ======================= ЛЕВАЯ БОКОВАЯ ПАНЕЛЬ ======================= -->
+        <Border Background="#1F1A2E" Grid.Column="0">
+
+            <Grid Margin="10 20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30"/>      <!-- UP BUTTON -->
+                    <RowDefinition Height="*"/>       <!-- CONTENT -->
+                    <RowDefinition Height="30"/>      <!-- DOWN BUTTON -->
+                </Grid.RowDefinitions>
+
+                <!-- ================= UP BUTTON ================= -->
+                <Button Grid.Row="0"
+                Content="▲"
+                FontSize="14"
+                Foreground="#D9D9E2"
+                Background="#2A2340"
+                BorderThickness="0"
+                Cursor="Hand"
+                Click="ScrollUp_Click"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"/>
+
+                <!-- ================= SCROLLABLE CONTENT ================= -->
+                <ScrollViewer x:Name="SidebarScroll"
+                      Grid.Row="1"
+                      VerticalScrollBarVisibility="Hidden"
+                      HorizontalScrollBarVisibility="Disabled">
+
+                    <StackPanel>
+
+                        <!-- ==== GROUP: А–Г ==== -->
+                        <TextBlock Text="А–Г" Style="{StaticResource GroupHeaderStyle}"/>
+                        <ListBox ItemsSource="{Binding TablesA_G}"
+                             SelectedValuePath="TableName"
+                             SelectedValue="{Binding SelectedTableName, Mode=TwoWay}"
+                             ItemTemplate="{StaticResource TableNameTemplate}"
+                             ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                             Background="Transparent"
+                             BorderThickness="0"/>
+
+                        <!-- ==== GROUP: Д–К ==== -->
+                        <TextBlock Text="Д–К" Style="{StaticResource GroupHeaderStyle}"/>
+                        <ListBox ItemsSource="{Binding TablesD_K}"
+                          SelectedValuePath="TableName"
+                            SelectedValue="{Binding SelectedTableName, Mode=TwoWay}"
+                         ItemTemplate="{StaticResource TableNameTemplate}"
+                         ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                         Background="Transparent"
+                         BorderThickness="0"/>
+
+                        <!-- ==== GROUP: Л–П ==== -->
+                        <TextBlock Text="Л–П" Style="{StaticResource GroupHeaderStyle}"/>
+                        <ListBox ItemsSource="{Binding TablesL_P}"
+                         SelectedValuePath="TableName"
+                            SelectedValue="{Binding SelectedTableName, Mode=TwoWay}"
+                         ItemTemplate="{StaticResource TableNameTemplate}"
+                         ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                         Background="Transparent"
+                         BorderThickness="0"/>
+
+                        <!-- ==== GROUP: Р–Я ==== -->
+                        <TextBlock Text="Р–Я" Style="{StaticResource GroupHeaderStyle}"/>
+                        <ListBox ItemsSource="{Binding TablesR_Ya}"
+                         SelectedValuePath="TableName"
+                         SelectedValue="{Binding SelectedTableName, Mode=TwoWay}"
+                         ItemTemplate="{StaticResource TableNameTemplate}"
+                         ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                         Background="Transparent"
+                         BorderThickness="0"/>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ================= DOWN BUTTON ================= -->
+                <Button Grid.Row="2"
+                Content="▼"
+                FontSize="14"
+                Foreground="#D9D9E2"
+                Background="#2A2340"
+                BorderThickness="0"
+                Cursor="Hand"
+                Click="ScrollDown_Click"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"/>
+
+            </Grid>
+        </Border>
+
+
+        <!-- ======================= ПРАВАЯ ОБЛАСТЬ (CRUD + Таблица) ======================= -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="60"/>
+                <!-- CRUD-панель -->
+                <RowDefinition Height="*"/>
+                <!-- Таблица -->
+            </Grid.RowDefinitions>
+
+            <!-- CRUD панель -->
+            <Border Background="White" BorderThickness="0 0 0 1" BorderBrush="#CCCCCC" Grid.Row="0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20 0">
+                    <Button Style="{StaticResource CrudButton}" Content="Добавить" Command="{Binding AddCommand}"/>
+                    <Button Style="{StaticResource CrudButton}" Content="Сохранить" Command="{Binding UpdateCommand}"/>
+                    <Button Style="{StaticResource CrudButton}" Content="Удалить" Command="{Binding DeleteCommand}"/>
+                    
+                </StackPanel>
+            </Border>
+
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding TableData}"
+                      SelectedItem="{Binding SelectedRow}"
+                      Style="{StaticResource SummaryGrid}"
+                      AutoGenerateColumns="True"
+                      AutoGeneratedColumns="Grid_AutoGeneratedColumns"
+                      LoadingRow="Grid_LoadingRow"
+                      Margin="20"
+                      IsReadOnly="False"
+                      PreviewKeyDown="DataGrid_PreviewKeyDown"
+                      />
+
+        </Grid>
+
+    </Grid>
+</UserControl>

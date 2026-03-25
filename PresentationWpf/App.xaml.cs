@@ -9,7 +9,15 @@ using Microsoft.Extensions.Hosting;
 using PresentationWpf.Services;
 using PresentationWpf.ViewModels;
 using PresentationWpf.Views;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using System;
+using System.IO;
+using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Threading;
 
 
 namespace PresentationWpf;
@@ -17,6 +25,86 @@ namespace PresentationWpf;
 public partial class App : Application
 {
     private static IHost? builder;
+
+    // --- TextBox ---
+    private void TextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        var tb = (TextBox)sender;
+        tb.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(tb.SelectAll));
+    }
+
+    private void TextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var tb = (TextBox)sender;
+        if (!tb.IsKeyboardFocusWithin)
+        {
+            e.Handled = true;   // avoid placing caret before focus
+            tb.Focus();         // GotKeyboardFocus handler will SelectAll
+        }
+    }
+
+    // --- ComboBox (editable) ---
+    private void ComboBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        var cb = (ComboBox)sender;
+        if (!cb.IsEditable) return;
+
+        cb.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            var inner = cb.Template?.FindName("PART_EditableTextBox", cb) as TextBox;
+            inner?.Focus();
+            inner?.SelectAll();
+        }));
+    }
+
+    private void ComboBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var cb = (ComboBox)sender;
+        if (!cb.IsKeyboardFocusWithin)
+        {
+            e.Handled = true;
+            cb.Focus(); // then GotKeyboardFocus -> selects all if editable
+        }
+    }
+
+    static string GetCompany()
+    {
+        var asm = Application.ResourceAssembly ?? Assembly.GetExecutingAssembly();
+        return asm.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? "MyCompany";
+    }
+    static string GetProduct()
+    {
+        var asm = Application.ResourceAssembly ?? Assembly.GetExecutingAssembly();
+        return asm.GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? "MyApp";
+    }
+
+    static string EnsureLocalDbCopy()
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var dataDir = Path.Combine(local, GetCompany(), GetProduct(), "Data");
+        Directory.CreateDirectory(dataDir);
+
+        AppDomain.CurrentDomain.SetData("DataDirectory", dataDir);
+
+        var shipDir = AppContext.BaseDirectory;
+        var shipMdf = Path.Combine(shipDir, "Data", "DataBase.mdf");
+
+        var targetMdf = Path.Combine(dataDir, "DataBase.mdf");
+
+        if (File.Exists(shipMdf) && !File.Exists(targetMdf))
+            File.Copy(shipMdf, targetMdf);
+
+        // make sure it’s writable
+        if (File.Exists(targetMdf))
+        {
+            var a = File.GetAttributes(targetMdf);
+            if ((a & FileAttributes.ReadOnly) != 0)
+                File.SetAttributes(targetMdf, a & ~FileAttributes.ReadOnly);
+        }
+
+        return dataDir;
+    }
+
 
     public App()
     {
@@ -55,13 +143,16 @@ public partial class App : Application
 				services.AddTransient<AdminView>();
                 services.AddTransient<ReturnInvoiceView>();
 				services.AddTransient<BrandViewModel>();
-
-
-				services.AddTransient<ReferenceViewModel>();
+                services.AddTransient<RoleManagementViewModel>();
+                services.AddTransient<PermissionsViewModel>();
+                services.AddTransient<PermissionsView>();
+               
+                services.AddTransient<ReferenceViewModel>();
 
                 services.AddTransient<ReturnInvoiceViewModel>();
-                
-				
+
+                services.AddTransient<CourierInfoViewModel>();
+
                 services.AddTransient<StockViewModel>();
 
                
@@ -85,9 +176,48 @@ public partial class App : Application
 				services.AddTransient<BonusesViewModel>();
 				services.AddTransient<ManagerInfoViewModel>();
 				services.AddTransient<AssignPickerInfoViewModel>();
+                services.AddTransient<CreateAdminViewModel>();
+                services.AddTransient<DataBaseViewModel>();
+                services.AddTransient<OrganizationInfoView>();
+                services.AddTransient<OrganizationInfoViewModel>();
+                services.AddTransient<ReportsViewModel>();
+                services.AddTransient<ReportsView>();
+
+                services.AddTransient<SalesSummaryView>();
+                services.AddTransient<SalesSummaryViewModel>();
+
+                services.AddTransient<RoleManagementView>();
+                services.AddTransient<ManagerInfoView>();
+
+                services.AddTransient<CourierInfoView>();
+                services.AddTransient<AssignPickerInfoView>();
+                services.AddTransient<PriceLevelView>();
+                services.AddTransient<PriceLevelViewModel>();
+                services.AddTransient<SaleTotalByGroupReportViewModel>();
+                services.AddTransient<SaleTotalByGroupReportView>();
+                services.AddTransient<SalesByGroupCustomerReportViewModel>();
+                services.AddTransient<SalesByGroupCustomerReportView>();
+                services.AddTransient<SalesManagerReportViewModel>();
+                services.AddTransient<SalesManagerReportView>();
+                services.AddTransient<StatisticsViewModel>();
+                services.AddTransient<StatisticsView>();
+                services.AddTransient<SalesDynamicsStatisticsView>();
+                services.AddTransient<SalesDynamicsStatisticsViewModel>();
+                services.AddTransient<InactiveWarehouseProductsReportView>();
+                services.AddTransient<InactiveWarehouseProductsReportViewModel>();
+                services.AddTransient<CourierStorekeeperReportView>();
+                services.AddTransient<CourierStorekeeperReportViewModel>();
+                services.AddTransient<WarehousePlaceReportViewModel>();
+                services.AddTransient<WarehousePlaceReportView>();
+                services.AddTransient<CustomerSalesPaymentsReportView>();
+                services.AddTransient<CustomerSalesPaymentsReportViewModel>();
+                services.AddTransient<TotalSalesReportViewModel>();
+                services.AddTransient<TotalSalesReportView>();
+                services.AddTransient<ExpenseCrudView>();
+                services.AddTransient<ExpenseCrudViewModel>();
 
 
-				services.AddSingleton<UserSessionService>();
+                services.AddSingleton<UserSessionService>();
 				services.AddSingleton<DataTransferService>();
 
                 services.AddScoped<ProductService>();
@@ -108,8 +238,16 @@ public partial class App : Application
                 services.AddScoped<UserService>();
 				services.AddScoped<ManagerService>();
 				services.AddScoped<StorekeeperService>();
+                services.AddScoped<CourierService>();
+                services.AddTransient<PdfService>();
+                services.AddTransient<CleanService>();
+                services.AddTransient<NavigationService>();
+                services.AddSingleton<PermissionService>();
+                services.AddSingleton<SalesTotalService>();
+                services.AddSingleton<ReportService>();
+                services.AddSingleton<ExpenseService>();
 
-				services.AddScoped<ExportHelper>();
+                services.AddScoped<ExportHelper>();
 
                 services.AddScoped<ProductRepository>();
 				services.AddScoped<BrandRepository>();
@@ -129,26 +267,74 @@ public partial class App : Application
                 services.AddScoped<StockUpdateLogRepository>();
                 services.AddScoped<StoreRepository>();
 				services.AddScoped<CategoryRepository>();
+                services.AddScoped<RoleRepository>();
+                services.AddScoped<PermissionRepository>();
+                services.AddScoped<RolePermissionRepository>();
+
+                //string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True";
+
+                var connectionString =
+                  @"Data Source=(LocalDB)\MSSQLLocalDB;
+                  AttachDbFilename=|DataDirectory|\DataBase.mdf;
+                  Integrated Security=True;
+                  MultipleActiveResultSets=True;
+                  Connect Timeout=30";
 
 
-				// ObservableColection
-				//services.AddTransient<List<Product>>();
-				string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True";
-				// datacontext
-				// services.AddDbContext<DatabaseContext>(x => x.UseSqlServer(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True", x => x.MigrationsAssembly(nameof(Infrastructure))));
 
-				services.AddDbContextFactory<DatabaseContext>(options =>
+
+                services.AddDbContextFactory<DatabaseContext>(options =>
 		  options.UseSqlServer(connectionString));
 
 
 			}).Build();
-    }
+	}
+
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        builder!.Start();
-        var mainWindow = builder!.Services.GetRequiredService<MainWindow>();
-        mainWindow.Show();
+        base.OnStartup(e);
+
+        try
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+            QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = false;
+
+            EnsureLocalDbCopy();
+
+            builder!.Start();
+
+            // ✅ APPLY MIGRATIONS TO LOCAL USER DB
+            using (var scope = builder.Services.CreateScope())
+            {
+                var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DatabaseContext>>();
+                using var db = dbFactory.CreateDbContext();
+
+                db.Database.Migrate();
+            }
+
+            var mainWindow = builder!.Services.GetRequiredService<MainWindow>();
+            Current.MainWindow = mainWindow;
+
+            mainWindow.Loaded += async (_, __) =>
+            {
+                try
+                {
+                    if (mainWindow.DataContext is MainViewModel vm)
+                        await vm.InitializeAsync();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.ToString(), "Startup Error");
+                }
+            };
+
+            mainWindow.Show();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.ToString(), "Critical Startup Error");
+        }
     }
 
 }

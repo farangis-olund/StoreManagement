@@ -65,8 +65,9 @@ public partial class ManagerViewModel : ObservableObject
 	[ObservableProperty] private string? address;
 	[ObservableProperty] private string? contacts;
 	[ObservableProperty] private double salePercentValue;
+    [ObservableProperty] private ManagerCustomerDto? selectedClient;
 
-	[ObservableProperty]
+    [ObservableProperty]
 	private bool isManagerSelected;
 	// === Load ===
 	private async Task LoadManagersAsync()
@@ -157,7 +158,7 @@ public partial class ManagerViewModel : ObservableObject
 
 	// === Save ===
 	[RelayCommand]
-	private void SaveCustomers()
+	private async Task SaveCustomers()
 	{
 		UpdateCustomerReferences();
 
@@ -175,7 +176,7 @@ public partial class ManagerViewModel : ObservableObject
 			.ToList();
 
 		// 🟢 Save only valid ones
-		_managerService.SaveManagerCustomers(SelectedManagerId, validCustomers);
+		await _managerService.SaveManagerCustomersAsync(SelectedManagerId, validCustomers);
 
 		MessageBox.Show("Клиенты успешно сохранены!", "Сохранено",
 			MessageBoxButton.OK, MessageBoxImage.Information);
@@ -205,7 +206,9 @@ public partial class ManagerViewModel : ObservableObject
 	[RelayCommand]
 	private async Task AddAllFirmsAsync()
 	{
-		if (string.IsNullOrEmpty(SelectedManagerId)) return;
+		await DeleteAllFirmsAsync();
+
+        if (string.IsNullOrEmpty(SelectedManagerId)) return;
 		if (AllFirms == null || !AllFirms.Any()) return;
 
 		var percent = SalePercentValue > 0 ? SalePercentValue : 0;
@@ -232,7 +235,84 @@ public partial class ManagerViewModel : ObservableObject
 
 		await _managerService.DeleteAllBrandsAsync(SelectedManagerId);
 		Firms.Clear();
-	}
+        
+    }
+
+    [RelayCommand]
+    private async Task DeleteCustomerAsync()
+    {
+        if (string.IsNullOrEmpty(SelectedManagerId))
+        {
+            MessageBox.Show("Выберите менеджера перед удалением клиента.",
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (Clients == null || Clients.Count == 0)
+        {
+            MessageBox.Show("У данного менеджера нет клиентов для удаления.",
+                "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var selected = SelectedClient;
+        if (selected == null)
+        {
+            MessageBox.Show("Выберите клиента для удаления.",
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"Удалить клиента '{selected.CustomerName}' из менеджера?",
+            "Подтверждение удаления",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        await _managerService.DeleteCustomerAsync(SelectedManagerId, selected.CustomerId);
+        Clients.Remove(selected);
+
+        MessageBox.Show("Клиент успешно удалён из менеджера.",
+            "Удалено", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+
+    [RelayCommand]
+    private async Task DeleteAllCustomersAsync()
+    {
+        if (string.IsNullOrEmpty(SelectedManagerId))
+        {
+            MessageBox.Show("Выберите менеджера перед удалением клиентов.",
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (Clients == null || Clients.Count == 0)
+        {
+            MessageBox.Show("У данного менеджера нет клиентов для удаления.",
+                "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            "Вы действительно хотите удалить всех клиентов у выбранного менеджера?",
+            "Подтверждение удаления всех клиентов",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        await _managerService.DeleteAllCustomersAsync(SelectedManagerId);
+        Clients.Clear();
+
+        MessageBox.Show("Все клиенты успешно удалены у менеджера.",
+            "Удалено", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
 }
 
 

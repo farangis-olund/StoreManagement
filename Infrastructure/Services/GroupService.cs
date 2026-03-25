@@ -1,7 +1,7 @@
 ﻿
 using Infrastructure.Entities;
 using Infrastructure.Repositories;
-using Microsoft.Extensions.Logging;
+
 using System.Diagnostics;
 
 namespace Infrastructure.Services;
@@ -9,12 +9,12 @@ namespace Infrastructure.Services;
 public class GroupService
 {
     private readonly GroupRepository _groupRepository;
-    private readonly ILogger<GroupService> _logger;
 
-    public GroupService(GroupRepository GroupRepository, ILogger<GroupService> logger)
+
+    public GroupService(GroupRepository GroupRepository)
     {
         _groupRepository = GroupRepository;
-        _logger = logger;
+       
     }
 
     public async Task<GroupEntity?> AddGroupAsync(string groupName)
@@ -35,7 +35,7 @@ public class GroupService
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, $"Error getting/adding group '{groupName}'");
+
         Debug.WriteLine($"Error getting/adding group: {ex.Message}");
         return null;
     }
@@ -50,7 +50,7 @@ public class GroupService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error getting/adding Group: {ex.Message}");
+
             Debug.WriteLine($"Error getting/adding Group: {ex.Message}");
             return null!;
         }
@@ -65,7 +65,7 @@ public class GroupService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error getting Groups: {ex.Message}");
+
             Debug.WriteLine($"Error getting Groups: {ex.Message}");
             return Enumerable.Empty<GroupEntity>();
         }
@@ -80,7 +80,7 @@ public class GroupService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error in updating product: {ex.Message}");
+
             Debug.WriteLine($"Error in updating product: {ex.Message}");
             return null!;
         }
@@ -100,7 +100,7 @@ public class GroupService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error deleting Group: {ex.Message}");
+
             Debug.WriteLine($"Error deleting Group: {ex.Message}");
             return false;
         }

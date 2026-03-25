@@ -9,7 +9,7 @@ public abstract class Repo<TContext, TEntity>
 	where TContext : DbContext
 	where TEntity : class
 {
-	private readonly IDbContextFactory<TContext> _contextFactory;
+    protected readonly IDbContextFactory<TContext> _contextFactory;
 
 	protected Repo(IDbContextFactory<TContext> contextFactory)
 	{

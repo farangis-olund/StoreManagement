@@ -6,29 +6,40 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-  </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Helpers\**" />
-    <EmbeddedResource Remove="Helpers\**" />
-    <None Remove="Helpers\**" />
-    <Page Remove="Helpers\**" />
-  </ItemGroup>
+	  <!-- publish settings -->
+	  <SelfContained>true</SelfContained>
+	  <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+	  <PublishSingleFile>true</PublishSingleFile>
+	  <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+ 
+	  <Company>StoreManagement</Company>
+	  <Product>StoreManagementApp</Product>
+	  <AssemblyTitle>StoreManagementApp</AssemblyTitle>
+	  <StartupObject>PresentationWpf.App</StartupObject>
+	  <ApplicationIcon>Images\icons\wheel_32.ico</ApplicationIcon>
+	
+  </PropertyGroup>
 
   <ItemGroup>
     <None Remove="Images\icons\wheel.png" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
+    <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
+		  
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.122" />
+    <PackageReference Include="QuestPDF" Version="2025.7.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,5 +51,43 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
+
+	<ItemGroup>
+		<!-- Link the MDF from Infrastructure into this project and copy it out -->
+	
+		<Content Include="Images\icons\wheel_32.ico">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Documents\BarterInvoiceDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\CourierDeliveryReportDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\DeliveryNoteDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\InvoiceDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\MovementChangeReportDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\PaymentDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\ReportDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\ReturnInvoiceDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	  <Compile Update="Documents\TransferReportDocument.cs">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Compile>
+	</ItemGroup>
 
 </Project>

@@ -34,25 +34,31 @@ public partial class ManagerInfoViewModel : ObservableObject
 	[RelayCommand]
 	private void Add()
 	{
-		// Generate next manager ID (M001, M002, ...)
-		var lastManager = Managers
-			.Where(m => m.Id.StartsWith("M"))
-			.OrderByDescending(m => m.Id)
-			.FirstOrDefault();
+        // Generate next manager ID (M1, M2, ...)
+        var lastManager = Managers
+            .Where(m => m.Id.StartsWith("M"))
+            .OrderByDescending(m =>
+            {
+                var part = m.Id.Length > 1 ? m.Id.Substring(1) : "0";
+                return int.TryParse(part, out int num) ? num : 0;
+            })
+            .FirstOrDefault();
 
-		int nextNumber = 1;
+        int nextNumber = 1;
 
-		if (lastManager != null && lastManager.Id.Length > 1)
-		{
-			var numericPart = lastManager.Id.Substring(1);
-			if (int.TryParse(numericPart, out int number))
-				nextNumber = number + 1;
-		}
+        if (lastManager != null && lastManager.Id.Length > 1)
+        {
+            var numericPart = lastManager.Id.Substring(1);
+            if (int.TryParse(numericPart, out int number))
+                nextNumber = number + 1;
+        }
 
-		var newId = $"M{nextNumber:D3}";
+        // ✅ Format new ID as "M1", "M2", "M3"
+        var newId = $"M{nextNumber}";
 
-		// Create and add new manager
-		SelectedManager = new SalesManagerEntity
+
+        // Create and add new manager
+        SelectedManager = new SalesManagerEntity
 		{
 			Id = newId,
 			FullName = string.Empty,
@@ -75,15 +81,15 @@ public partial class ManagerInfoViewModel : ObservableObject
 	}
 
 	[RelayCommand]
-	private void Delete()
+    private async Task Delete()
 	{
 		if (SelectedManager == null)
 		{
 			MessageBox.Show("Выберите менеджера для удаления.");
 			return;
 		}
-
-		Managers.Remove(SelectedManager);
+        await _managerService.DeleteManagerAsync(SelectedManager.Id);
+        Managers.Remove(SelectedManager);
 		SelectedManager = null;
 	}
 

@@ -33,9 +33,31 @@ namespace Infrastructure.Services
         public async Task UpdateAsync(OrganizationInfoEntity org)
         {
             using var db = _dbFactory.CreateDbContext();
-            db.OrganizationInfo.Update(org);
+
+            // INSERT if code is missing or record does not exist
+            bool isNew = string.IsNullOrWhiteSpace(org.OrganizationCode)
+                         || !await db.OrganizationInfo.AnyAsync(o => o.OrganizationCode == org.OrganizationCode);
+
+            if (isNew)
+            {
+                await db.OrganizationInfo.AddAsync(org);
+            }
+            else
+            {
+                // UPDATE existing record
+                var existing = await db.OrganizationInfo
+                    .FirstOrDefaultAsync(o => o.OrganizationCode == org.OrganizationCode);
+
+                if (existing != null)
+                {
+                    db.Entry(existing).CurrentValues.SetValues(org);
+                }
+            }
+
             await db.SaveChangesAsync();
         }
+
+
 
         // Delete by OrganizationCode
         public async Task DeleteAsync(string id)

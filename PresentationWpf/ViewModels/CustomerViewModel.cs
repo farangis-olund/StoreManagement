@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Services;
+using PresentationWpf.Services;
 using System.Collections.ObjectModel;
 using System.Windows;
 
@@ -14,11 +15,15 @@ public partial class CustomerViewModel : ObservableObject
 {
 	private readonly CustomerService _customerService;
 	private readonly CoefficientService _coefficientService;
-	public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService)
+	private readonly ManagerService _managerService;
+    public PermissionService PermissionService { get; }
+    public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService, ManagerService managerService, PermissionService permissionService)
 	{
 		_customerService = customerService;
 		_coefficientService = coefficientService;
-		LoadData();
+		_managerService = managerService;
+        PermissionService = permissionService;
+        LoadData();
 	}
 
 	[ObservableProperty]
@@ -77,28 +82,97 @@ public partial class CustomerViewModel : ObservableObject
 	[RelayCommand]
 	private void CreateCustomer()
 	{
-		SelectedCustomer = new CustomerEntity(); 
-	}
+		SelectedCustomer = new CustomerEntity();
+        MessageBox.Show("Заполните все обязательные поля, затем нажмите на кнопу Сохранить.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+
+    }
 
 	[RelayCommand]
-	private async Task SaveCustomerAsync()
-	{
-		if (SelectedCustomer is null)
-			return;
+    private async Task SaveCustomerAsync()
+    {
+        if (SelectedCustomer is null)
+            return;
 
-		var savedCustomer = await _customerService.AddCustomerAsync(SelectedCustomer);
+        // ✅ Run validation
+        var validationErrors = ValidateCustomer();
+        if (validationErrors.Any())
+        {
+            MessageBox.Show(
+                string.Join("\n", validationErrors),
+                "Ошибка",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning
+            );
+            return; // ❗ Do NOT save if invalid
+        }
 
-		// If not already in list, add it
-		if (!Customers.Any(c => c.Id == savedCustomer.Id))
-			Customers.Add(savedCustomer);
+        // ------------------------------
+        // SAVE CUSTOMER (Your original code)
+        // ------------------------------
 
-		var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
-		if (updated != null)
-			SelectedCustomer = updated;
-		MessageBox.Show("Клиент успешно сохранён.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-	}
+        var savedCustomer = await _customerService.AddCustomerAsync(SelectedCustomer);
 
-	[RelayCommand]
+        if (!Customers.Any(c => c.Id == savedCustomer.Id))
+            Customers.Add(savedCustomer);
+
+        var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
+        if (updated != null)
+            SelectedCustomer = updated;
+
+        if (!string.IsNullOrEmpty(savedCustomer.SalesManagerId))
+        {
+            var link = new ManagerCustomerEntity
+            {
+                ManagerId = savedCustomer.SalesManagerId,
+                CustomerId = savedCustomer.Id
+            };
+
+            await _managerService.SaveManagerCustomersAsync(savedCustomer.SalesManagerId, new[] { link });
+        }
+        UpdateDistinctLists();
+        MessageBox.Show("Клиент успешно сохранён.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    public bool CanViewDebt => PermissionService.Has("Customers.Debt");
+    public bool CanViewRestriction => PermissionService.Has("Customers.Restriction");
+
+    public void RefreshPermissions()
+    {
+        OnPropertyChanged(nameof(CanViewDebt));
+        OnPropertyChanged(nameof(CanViewRestriction));
+    }
+
+
+    private List<string> ValidateCustomer()
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.FullName))
+            errors.Add("Поле 'ФИО' обязательно.");
+
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.MobilePhone))
+            errors.Add("Поле 'Мобильный телефон' обязательно.");
+
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.Address))
+            errors.Add("Поле 'Адрес' обязательно.");
+
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.City))
+            errors.Add("Поле 'Город' обязательно.");
+
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.Region))
+            errors.Add("Поле 'Область' обязательно.");
+
+        if (SelectedCustomer.PriceLevelId == null)
+            errors.Add("Поле 'Уровень' обязательно.");
+
+        if (SelectedCustomer.Territory == null)
+            errors.Add("Поле 'Территория' обязательно.");
+
+        return errors;
+    }
+
+
+    [RelayCommand]
 	private async Task DeleteCustomerAsync()
 	{
 		if (SelectedCustomer is null)
@@ -148,7 +222,7 @@ public partial class CustomerViewModel : ObservableObject
 	{
 		if (SelectedCustomer is null) return;
 
-		await _coefficientService.CalculateEzhPogashForCustomerAsync(SelectedCustomer.Id);
+		await _coefficientService.CalculateEzhPogashForCustomerAsync(SelectedCustomer);
 		await _coefficientService.CalculateZakupForCustomerAsync(SelectedCustomer.Id);
 		await _coefficientService.CalculateZaplanZakupForCustomerAsync(SelectedCustomer.Id);
 

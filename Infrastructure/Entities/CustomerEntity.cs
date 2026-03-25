@@ -23,8 +23,9 @@ public class CustomerEntity
 	public double? DailyRepaymentCoefficient { get; set; }       // КоэфЕжеднПогашение
 	public double? DailyPlannedPurchaseCoefficient { get; set; } // КоэфДневЗапланЗакупа
 
-	public DateTime? ContractDate { get; set; }              // Дата контракта
-	public string? Territory { get; set; }                   // Территория
+	public DateTime? ContractDate { get; set; } = DateTime.Now;          // Дата контракта
+
+    public string? Territory { get; set; }                   // Территория
 	public bool? ExcludeDailyRepayment { get; set; }         // ИсключитьЕжеднПогашение
 
 	public PriceLevelEntity? PriceLevel { get; set; }

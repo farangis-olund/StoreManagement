@@ -1,7 +1,9 @@
 ﻿
+using Infrastructure.Contexts;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
@@ -13,12 +15,14 @@ public class CustomerService
 	private readonly ILogger<CustomerService> _logger;
 	private readonly PriceLevelRepository _priceLevelRepository;
 	private readonly SalesManagerRepository _salesManagerRepository;
-	public CustomerService(CustomerRepository customerRepository, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger)
+    private readonly IDbContextFactory<DatabaseContext> _dbFactory;
+    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger)
 	{
 		_customerRepository = customerRepository;
 		_logger = logger;
 		_priceLevelRepository = priceLevelRepository;
 		_salesManagerRepository = salesManagerRepository;
+		_dbFactory = dbFactory;
 	}
 
 	public async Task<CustomerEntity> AddCustomerAsync(CustomerEntity customer)
@@ -52,23 +56,27 @@ public class CustomerService
 		}
 	}
 
-	private string GenerateNextCustomerId(IEnumerable<CustomerEntity> existingCustomers)
-	{
-		var maxNumber = existingCustomers
-			.Select(c => c.Id)
-			.Where(id => id.StartsWith("N "))
-			.Select(id => id.Substring(2)) // Get "001", "002", etc.
-			.Where(str => int.TryParse(str, out _)) // Filter out invalid ones
-			.Select(int.Parse)
-			.DefaultIfEmpty(0)
-			.Max();
+    private string GenerateNextCustomerId(IEnumerable<CustomerEntity> existingCustomers)
+    {
+        var numbers = existingCustomers
+            .Select(c => c.Id)
+            .Where(id => id != null && id.StartsWith("N") && id.Length > 1)
+            .Select(id => id.Substring(1))
+            .Where(str => int.TryParse(str, out _))
+            .Select(int.Parse)
+            .ToList();
 
-		int nextNumber = maxNumber + 1;
-		return $"N {nextNumber:000}"; // Formats like N 001, N 002
-	}
+        int maxNumber = numbers.Any() ? numbers.Max() : 0;
+
+        int nextNumber = Math.Max(1, maxNumber + 1);   // <-- force start from 1
+
+        return $"N{nextNumber:0000}";
+    }
 
 
-	public async Task<CustomerEntity> GetCustomerAsync(string fulName)
+
+
+    public async Task<CustomerEntity> GetCustomerAsync(string fulName)
 	{
 		try
 		{
@@ -184,5 +192,33 @@ public class CustomerService
 		}
 	}
 
+    /// <summary>
+    /// Updates the customer's current balance (debt).
+    /// </summary>
+    public async Task<bool> UpdateBalanceAsync(string customerId, decimal newBalance, CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        try
+        {
+            var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
+            if (customer == null)
+            {
+                _logger.LogWarning("Customer not found for balance update: {CustomerId}", customerId);
+                return false;
+            }
+
+            customer.Debt -= (double)newBalance;
+           
+            await db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Updated balance for customer {CustomerId}: {NewBalance}", customerId, newBalance);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating balance for customer {CustomerId}", customerId);
+            return false;
+        }
+    }
 }

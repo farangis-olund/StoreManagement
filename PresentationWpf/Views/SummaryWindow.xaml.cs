@@ -24,5 +24,7 @@ namespace PresentationWpf.Views
 		{
 			InitializeComponent();
 		}
-	}
+
+      
+    }
 }

@@ -15,6 +15,7 @@ public partial class WelcomeViewModel : ObservableObject
 		_serviceProvider = serviceProvider;
 		_userSessionService = userSessionService;
 		WelcomeMessage = $"Добро пожаловать, {_userSessionService.FirstName + " " + _userSessionService.LastName}!";
+
 	}
 
 	[ObservableProperty]
