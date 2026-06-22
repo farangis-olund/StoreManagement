@@ -31,8 +31,9 @@ public class CustomerEntity
 	public PriceLevelEntity? PriceLevel { get; set; }
 	public string? SalesManagerId { get; set; } = null!;
 	public SalesManagerEntity? SalesManager { get; set; } = null!;
+	public bool OfficialCustomer { get; set; } = false;
 
-	public ICollection<CustomerPaymentEntity> Payments { get; set; } = [];
+    public ICollection<CustomerPaymentEntity> Payments { get; set; } = [];
 	public ICollection<ReturnEntity> Returns { get; set; } = [];
 	public ICollection<OrderEntity> Orders { get; set; } = [];
 	public ICollection<ManagerCustomerEntity> ManagerCustomers { get; set; } = [];
@@ -59,7 +60,8 @@ public class CustomerEntity
 			ContractDate = entity.ContractDate,
 			Territory = entity.Territory,
 			ExcludeDailyRepayment = entity.ExcludeDailyRepayment,
-			SalesManagerId = entity.SalesManagerId
+			SalesManagerId = entity.SalesManagerId,
+			OfficialCustomer = entity.OfficialCustomer,
 		};
 	}
 }

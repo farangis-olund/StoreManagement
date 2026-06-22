@@ -143,6 +143,8 @@ public partial class App : Application
 				services.AddTransient<AdminView>();
                 services.AddTransient<ReturnInvoiceView>();
 				services.AddTransient<BrandViewModel>();
+                services.AddTransient<BonusesViewModel>();
+                services.AddTransient<BonusesView>();
                 services.AddTransient<RoleManagementViewModel>();
                 services.AddTransient<PermissionsViewModel>();
                 services.AddTransient<PermissionsView>();
@@ -213,16 +215,20 @@ public partial class App : Application
                 services.AddTransient<CustomerSalesPaymentsReportViewModel>();
                 services.AddTransient<TotalSalesReportViewModel>();
                 services.AddTransient<TotalSalesReportView>();
+                services.AddTransient<OfficialSalesSummaryReportViewModel>();
+                services.AddTransient<OfficialSalesSummaryReportView>();
                 services.AddTransient<ExpenseCrudView>();
                 services.AddTransient<ExpenseCrudViewModel>();
-
+                services.AddTransient<ReturnsDayReportViewModel>();
+                services.AddTransient<ReturnsDayReportView>();
 
                 services.AddSingleton<UserSessionService>();
 				services.AddSingleton<DataTransferService>();
 
                 services.AddScoped<ProductService>();
 				services.AddScoped<BrandService>();
-				services.AddScoped<GroupService>();
+                services.AddScoped<BonusService>();
+                services.AddScoped<GroupService>();
 				
 				services.AddScoped<CurrencyService>();
 				services.AddScoped<OrderService>();
@@ -246,6 +252,7 @@ public partial class App : Application
                 services.AddSingleton<SalesTotalService>();
                 services.AddSingleton<ReportService>();
                 services.AddSingleton<ExpenseService>();
+                services.AddTransient<ReturnsDayReportService>();
 
                 services.AddScoped<ExportHelper>();
 
@@ -271,14 +278,14 @@ public partial class App : Application
                 services.AddScoped<PermissionRepository>();
                 services.AddScoped<RolePermissionRepository>();
 
-                //string connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=D:\projects\StoreManagementSoftware-main\Infrastructure\Data\DataBase.mdf;Integrated Security=True";
+                var dataDir = EnsureLocalDbCopy();
 
-                var connectionString =
-                  @"Data Source=(LocalDB)\MSSQLLocalDB;
-                  AttachDbFilename=|DataDirectory|\DataBase.mdf;
-                  Integrated Security=True;
-                  MultipleActiveResultSets=True;
-                  Connect Timeout=30";
+                string connectionString =
+                    $@"Data Source=(LocalDB)\MSSQLLocalDB;
+                   AttachDbFilename={Path.Combine(dataDir, "DataBase.mdf")};
+                   Integrated Security=True;
+                   MultipleActiveResultSets=True;
+                   Connect Timeout=30";
 
 
 

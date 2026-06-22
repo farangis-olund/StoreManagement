@@ -127,6 +127,14 @@ public partial class SummaryViewModel : ObservableObject
             return;
         }
 
+        // Mark as sent
+        if (!orderEntity.IsSent)
+        {
+            orderEntity.IsSent = true;
+            await _orderService.UpdateOrderAsync(orderEntity);
+        }
+
+
         // 2️⃣ Map order to what Invoice VM expects
         var order = new CustomerOrder
         {

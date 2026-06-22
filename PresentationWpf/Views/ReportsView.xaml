@@ -22,12 +22,14 @@
                 <RadioButton Content="Итоги по клиентам"
                          Style="{StaticResource AdminTopButtonStyle}"
                          IsChecked="{Binding IsCustomerSalesSummarySelected}"
-                         Command="{Binding OpenCustomerSalesSummaryCommand}"/>
+                         Command="{Binding OpenCustomerSalesSummaryCommand}"
+                         Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <RadioButton Content="Итоги по группам"
                         Style="{StaticResource AdminTopButtonStyle}"
                         IsChecked="{Binding IsTotalByGroupSelected}"
-                        Command="{Binding TotalByGroupCommand}"/>
+                        Command="{Binding TotalByGroupCommand}"
+                        Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 <RadioButton Content="Неактивные товары склада"
                         Style="{StaticResource AdminTopButtonStyle}"
@@ -38,17 +40,30 @@
                        Style="{StaticResource AdminTopButtonStyle}"
                        IsChecked="{Binding IsCourierStorekeeperReportSelected}"
                        Command="{Binding CourierStorekeeperReportCommand}"
+                       Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"
                         />
 
             <RadioButton Content="Отчет по месту на складе"
                 Style="{StaticResource AdminTopButtonStyle}"
                 IsChecked="{Binding IsWarehousePlaceReportSelected}"
-                Command="{Binding WarehousePlaceReportCommand}"
-         />
+                Command="{Binding WarehousePlaceReportCommand}"/>
+
+            <RadioButton Content="Отчет о возвратах за день"
+              Style="{StaticResource AdminTopButtonStyle}"
+              IsChecked="{Binding IsReturnsDayReportSelected}"
+              Command="{Binding ReturnsDayReportCommand}"
+              Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
             <RadioButton Content="Итоговый отчёт"
-         Style="{StaticResource AdminTopButtonStyle}"
-         IsChecked="{Binding IsSalesSummarySelected}"
-         Command="{Binding OpenSalesSummaryCommand}"/>
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsSalesSummarySelected}"
+                 Command="{Binding OpenSalesSummaryCommand}"
+                 Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <RadioButton Content="Итоги по продажам"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsOfficialSalesSummarySelected}"
+                 Command="{Binding OpenOfficialSalesSummaryCommand}"/>
 
         </StackPanel>
         

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Services;
+using PresentationWpf.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
@@ -17,6 +18,30 @@ public partial class ProductViewModel : ObservableObject
     public event Action? RequestClose;
     private readonly BrandService _brandService;
     private readonly GroupService _groupService;
+    public PermissionService PermissionService { get; }
+
+    public ProductViewModel(ProductService productService, BrandService brandService, GroupService groupService, PermissionService permissionService)
+    {
+        _productService = productService;
+        _brandService = brandService;
+        _groupService = groupService;
+        PermissionService = permissionService;
+        ProductsView = CollectionViewSource.GetDefaultView(Products);
+        ProductsView.Filter = FilterProducts;
+
+        _ = RefreshAsync();
+    }
+
+    public bool CanViewRemove => PermissionService.Has("Inventory.Catalog.Remove");
+    public bool CanViewRemoveAll => PermissionService.Has("Inventory.Catalog.RemoveAll");
+    public void RefreshPermissions()
+    {
+        OnPropertyChanged(nameof(CanViewRemove));
+        OnPropertyChanged(nameof(CanViewRemoveAll));
+
+    }
+
+
     [ObservableProperty]
     private ObservableCollection<Product> products = [];
 
@@ -31,17 +56,7 @@ public partial class ProductViewModel : ObservableObject
     [ObservableProperty]
     private bool searchAllWords;
 
-    public ProductViewModel(ProductService productService, BrandService brandService, GroupService groupService)
-    {
-        _productService = productService;
-        _brandService = brandService;
-        _groupService = groupService;
-        ProductsView = CollectionViewSource.GetDefaultView(Products);
-        ProductsView.Filter = FilterProducts;
-
-        _ = RefreshAsync();
-    }
-
+   
     // === NEW CLOSE COMMAND ===
     [RelayCommand]
     private void Close()
@@ -67,6 +82,15 @@ public partial class ProductViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAsync()
     {
+        var result = MessageBox.Show(
+            $"Вы действительно хотите сохранить обновление?",
+            "Подтверждение сохранения",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
         if (Products is null || Products.Count == 0) return;
 
         int addedCount = 0;
@@ -160,7 +184,10 @@ public partial class ProductViewModel : ObservableObject
 				Products.Remove(product);
 			}
 		}
-	}
+
+        await RefreshAsync();
+
+    }
 
 
 	[RelayCommand]

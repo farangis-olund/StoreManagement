@@ -96,18 +96,25 @@ public class OrderService
             // 3️⃣ Start transaction
             await using var tx = await db.Database.BeginTransactionAsync();
 
-            // 3a) Deduct stock
-            var items = orderEntity.OrderDetails
-                                   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-                                   .ToList();
-
-            var stock = await _productService.DeductStockAsync(items, db); // overload using same context
-            if (!stock.Success)
+            // 3a) Deduct stock ONLY if not DirectFromStock
+            if (!orderEntity.DirectFromStock)
             {
-                await tx.RollbackAsync();
-                _logger.LogWarning("Недостаточно на складе: {Articles}",
-                    string.Join(", ", stock.NotEnoughArticles));
-                return null;
+                var items = orderEntity.OrderDetails
+                                       .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
+                                       .ToList();
+
+                var stock = await _productService.DeductStockAsync(items, db);
+
+                if (!stock.Success)
+                {
+                    await tx.RollbackAsync();
+
+                    _logger.LogWarning(
+                        "Недостаточно на складе: {Articles}",
+                        string.Join(", ", stock.NotEnoughArticles));
+
+                    return null;
+                }
             }
 
             // 3b) Insert order + details

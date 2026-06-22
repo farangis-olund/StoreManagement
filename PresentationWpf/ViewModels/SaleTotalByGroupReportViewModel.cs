@@ -6,6 +6,8 @@ using LiveCharts;
 using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Reporting;
 using PresentationWpf.Reporting;
+using PresentationWpf.Services;
+using System.Windows.Controls;
 
 namespace PresentationWpf.ViewModels;
 
@@ -145,6 +147,28 @@ public partial class SaleTotalByGroupReportViewModel : ObservableObject
         foreach (var row in pivot.Rows)
             PivotTable.Add(row);
 
+        // Add separate percent row under ВСЕГО
+        var totalRow = pivot.Rows.FirstOrDefault(x => x.IsTotalRow);
+
+        if (totalRow != null && totalRow.Total != 0)
+        {
+            var percentRow = new PivotRow
+            {
+                RowKey = "%",
+                IsPercentRow = true
+            };
+
+            foreach (var cell in totalRow.Cells)
+            {
+                percentRow.Cells.Add(new PivotCell
+                {
+                    Value = cell.Value / totalRow.Total * 100
+                });
+            }
+
+            PivotTable.Add(percentRow);
+        }
+
 
         ChartBuilder.BuildColumnChart(
             pivot,
@@ -156,5 +180,12 @@ public partial class SaleTotalByGroupReportViewModel : ObservableObject
 
         PivotTableUpdated?.Invoke();
     }
-   
+
+    [RelayCommand]
+    private void ExportExcel(DataGrid? grid)
+    {
+        if (grid == null)
+            return;
+        ExcelExportHelper.ExportFromDataGrid(grid, "ОтчетПоРегионам.xlsx");
+    }
 }

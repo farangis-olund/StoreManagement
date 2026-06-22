@@ -129,7 +129,9 @@
             <Button Content="Удалить"
                     Command="{Binding DeleteCommand}"
                      Style="{StaticResource GrayButton}"
-                    Width="120" Margin="0,0,10,0"/>
+                    Width="120" Margin="0,0,10,0" Visibility="{Binding DataContext.CanViewRemove,
+                     RelativeSource={RelativeSource AncestorType=UserControl},
+                     Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <Button Content="Печать"
                     Command="{Binding PrintCommand}"
@@ -148,23 +150,11 @@
                 <StackPanel Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Дата" Foreground="White"/>
-                        <TextBlock Text=" *" Foreground="Red" FontWeight="Bold"/>
+                        
                     </StackPanel>
-                    <DatePicker SelectedDate="{Binding Date, Mode=TwoWay}" Height="30" Width="120"/>
+                    <TextBox IsReadOnly="True" Text="{Binding Date, Mode=TwoWay, StringFormat={}{0:dd.MM.yyyy}}" Height="30" Width="120"/>
                 </StackPanel>
-
-                <!-- USER -->
-                <StackPanel Margin="0,0,10,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Пользователь" Foreground="White"/>
-                        <TextBlock Text=" *" Foreground="Red" FontWeight="Bold"/>
-                    </StackPanel>
-                    <ComboBox Width="220" Height="30"
-              ItemsSource="{Binding Persons}"
-              SelectedItem="{Binding SelectedPerson, Mode=TwoWay}"
-              DisplayMemberPath="Display"/>
-                </StackPanel>
-
+               
                 <StackPanel Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Сумма (TJS)" Foreground="White"/>
@@ -202,7 +192,10 @@
         <Border Grid.Row="2" Style="{StaticResource FilterCardStyle}">
             <StackPanel Orientation="Horizontal"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Left">
+                HorizontalAlignment="Left"
+               Visibility="{Binding DataContext.CanShowAllExpenses,
+                RelativeSource={RelativeSource AncestorType=UserControl},
+                Converter={StaticResource BoolToVisibilityConverter}}">
 
                 <TextBlock Text="Период:"
                    FontWeight="SemiBold"
@@ -241,22 +234,67 @@
         <!-- TABLE -->
         <!-- ========================= -->
         <Border Grid.Row="3" Style="{StaticResource GridCardStyle}">
-            <DataGrid ItemsSource="{Binding Rows}"
-              Style="{StaticResource ExpenseGridStyle}"
-              SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-              Margin="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="№" Width="50" Binding="{Binding Id}"/>
-                    <DataGridTextColumn Header="Дата" Width="110" Binding="{Binding Date, StringFormat=dd.MM.yyyy}"/>
-                    <DataGridTextColumn Header="Пользователь" Width="*" Binding="{Binding UserFullName}"/>
-                    <DataGridTextColumn Header="Доставщик" Width="*" Binding="{Binding CourierFullName}"/>
-                    <DataGridTextColumn Header="СМН" Width="100" Binding="{Binding AmountTjs, StringFormat=N2}"/>
-                    <DataGridTextColumn Header="Евро" Width="90" Binding="{Binding AmountEuro, StringFormat=N2}"/>
-                    <DataGridTextColumn Header="Причина" Width="180" Binding="{Binding Reason}"/>
-                    <DataGridTextColumn Header="Примечание" Width="220" Binding="{Binding Note}"/>
-                </DataGrid.Columns>
-            </DataGrid>
+                <DataGrid Grid.Row="0"
+                  ItemsSource="{Binding Rows}"
+                  Style="{StaticResource ExpenseGridStyle}"
+                  SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                  Margin="0">
+
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="№" Width="50" Binding="{Binding Id}"/>
+                        <DataGridTextColumn Header="Дата" Width="110" Binding="{Binding Date, StringFormat=dd.MM.yyyy}"/>
+                        <DataGridTextColumn Header="Пользователь" Width="*" Binding="{Binding UserFullName}"/>
+                        <DataGridTextColumn Header="СМН" Width="100" Binding="{Binding AmountTjs, StringFormat=N2}"/>
+                        <DataGridTextColumn Header="Евро" Width="90" Binding="{Binding AmountEuro, StringFormat=N2}"/>
+                        <DataGridTextColumn Header="Причина" Width="180" Binding="{Binding Reason}"/>
+                        <DataGridTextColumn Header="Примечание" Width="220" Binding="{Binding Note}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <Border Grid.Row="1"
+                Background="#F3F4F8"
+                BorderBrush="#E1E3EA"
+                BorderThickness="0,1,0,0"
+                Padding="10,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="220"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                           Text="{Binding TotalRowsCount}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+
+                        <TextBlock Grid.Column="2"
+                           Text="Итого:"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+
+                        <TextBlock Grid.Column="3"
+                           Text="{Binding TotalAmountTjs, StringFormat=N2}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+
+                        <TextBlock Grid.Column="4"
+                           Text="{Binding TotalAmountEuro, StringFormat=N2}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+                    </Grid>
+                </Border>
+            </Grid>
         </Border>
 
     </Grid>

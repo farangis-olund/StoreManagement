@@ -41,7 +41,7 @@ namespace PresentationWpf.Documents
                             right.AlignRight().Column(col =>
                             {
                                 col.Item().AlignRight().Text($"Дата: {_vm.PaymentDate:dd.MM.yyyy}");
-                                col.Item().AlignRight().Text($"Номер квитанции: {_vm.PaymentNumber}");
+                                //col.Item().AlignRight().Text($"Номер квитанции: {_vm.PaymentNumber}");
                                 col.Item().AlignRight().Text($"Номер накладной: {_vm.OrderNumber}");
                             });
                         });
@@ -64,9 +64,9 @@ namespace PresentationWpf.Documents
                         {
                             row.RelativeItem(7)
                                 .Text($"ФИО клиента: {_vm.CustomerFullName}");
-                            row.RelativeItem(3)
-                                .AlignRight()
-                                .Text($"Код клиента: {_vm.CustomerCode}");
+                            //row.RelativeItem(3)
+                            //    .AlignRight()
+                            //    .Text($"Код клиента: {_vm.CustomerCode}");
                         });
 
                         info.Item().Row(row =>

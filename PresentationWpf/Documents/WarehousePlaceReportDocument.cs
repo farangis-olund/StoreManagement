@@ -105,6 +105,8 @@ public sealed class WarehousePlaceReportDocument : IDocument
                             c.RelativeColumn(2);  // Марка
                             c.RelativeColumn(3);  // Модель
                             c.ConstantColumn(45); // Кол-во
+                            c.ConstantColumn(30); // Исп
+
                         });
 
                         // ===== HEADER =====
@@ -118,6 +120,9 @@ public sealed class WarehousePlaceReportDocument : IDocument
                             HeaderCell(header, "Марка");
                             HeaderCell(header, "Модель");
                             HeaderCell(header, "Кол-во");
+                            HeaderCell(header, "Исп");
+
+
                         });
 
                         // ===== ROWS =====
@@ -131,6 +136,7 @@ public sealed class WarehousePlaceReportDocument : IDocument
                             BodyCell(table, rowItem.Mark);
                             BodyCell(table, rowItem.Model);
                             BodyCell(table, rowItem.Quantity.ToString(), true);
+                            BodyCell(table, "");
                         }
                     });
 

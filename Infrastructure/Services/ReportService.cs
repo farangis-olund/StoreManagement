@@ -238,7 +238,7 @@ public class ReportService
             if (place > 0)
                 query = query.Where(p => p.WarehousePlace.EndsWith($"/{place}"));
 
-            var result = await query
+            var list = await query
                 .Select(p => new WarehousePlaceDto
                 {
                     PlaceCode = p.WarehousePlace,
@@ -248,12 +248,16 @@ public class ReportService
                     Mark = p.Marka,
                     Model = p.Model,
                     Quantity = p.Quentity
-                    // If you have such property, uncomment:
-                    // IsUsed = p.IsUsed
                 })
-                .OrderBy(x => x.PlaceCode)
-                .ThenBy(x => x.Name)
                 .ToListAsync();
+
+            var result = list
+                .OrderBy(x => GetSection(x.PlaceCode))
+                .ThenBy(x => GetRow(x.PlaceCode))
+                .ThenBy(x => GetPlace(x.PlaceCode))
+                .ThenBy(x => x.Name)
+                .ThenBy(x => x.Brand)
+                .ToList();
 
             return result;
         }
@@ -324,9 +328,10 @@ public class ReportService
         }
     }
 
+
     public async Task<List<TotalSalesReportRowDto>> GetFullTotalSalesReportAsync(
-     DateTime? fromDate,
-     DateTime? toDate)
+    DateTime? fromDate,
+    DateTime? toDate)
     {
         await using var db = await _contextFactory.CreateDbContextAsync();
 
@@ -352,26 +357,71 @@ public class ReportService
                 .AsNoTracking()
                 .AsQueryable();
 
-            if (fromDate.HasValue)
+            var today = DateTime.Today;
+
+            var isTodayOnly =
+                fromDate.HasValue &&
+                toDate.HasValue &&
+                fromDate.Value.Date == today &&
+                toDate.Value.Date == today;
+
+            // default range = what user selected
+            DateTime? commonFrom = fromDate?.Date;
+            DateTime? commonToExclusive = toDate?.Date.AddDays(1);
+
+            DateTime? courierFrom = fromDate?.Date;
+            DateTime? courierToExclusive = toDate?.Date.AddDays(1);
+
+            // special rule:
+            // if user selected only today,
+            // then all queries except courier payments should use yesterday
+            if (isTodayOnly)
             {
-                var from = fromDate.Value.Date;
+                var yesterday = today.AddDays(-1);
+
+                commonFrom = yesterday;
+                commonToExclusive = today; // yesterday only: >= yesterday and < today
+
+                courierFrom = today;
+                courierToExclusive = today.AddDays(1); // today only
+            }
+
+            // =========================
+            // APPLY COMMON FILTERS
+            // =========================
+            if (commonFrom.HasValue)
+            {
+                var from = commonFrom.Value;
 
                 orderDetailsQuery = orderDetailsQuery.Where(x => x.Order.Date >= from);
                 paymentsQuery = paymentsQuery.Where(x => x.Date >= from);
                 returnsQuery = returnsQuery.Where(x => x.Date >= from);
-                courierPaymentsQuery = courierPaymentsQuery.Where(x => x.Date >= from);
                 expensesQuery = expensesQuery.Where(x => x.Date >= from);
             }
 
-            if (toDate.HasValue)
+            if (commonToExclusive.HasValue)
             {
-                var to = toDate.Value.Date.AddDays(1);
+                var to = commonToExclusive.Value;
 
                 orderDetailsQuery = orderDetailsQuery.Where(x => x.Order.Date < to);
                 paymentsQuery = paymentsQuery.Where(x => x.Date < to);
                 returnsQuery = returnsQuery.Where(x => x.Date < to);
-                courierPaymentsQuery = courierPaymentsQuery.Where(x => x.Date < to);
                 expensesQuery = expensesQuery.Where(x => x.Date < to);
+            }
+
+            // =========================
+            // APPLY COURIER FILTERS
+            // =========================
+            if (courierFrom.HasValue)
+            {
+                var from = courierFrom.Value;
+                courierPaymentsQuery = courierPaymentsQuery.Where(x => x.Date >= from);
+            }
+
+            if (courierToExclusive.HasValue)
+            {
+                var to = courierToExclusive.Value;
+                courierPaymentsQuery = courierPaymentsQuery.Where(x => x.Date < to);
             }
 
             // =========================
@@ -387,7 +437,6 @@ public class ReportService
 
             // =========================
             // RETURNS
-            // assumes ReturnEntity has Rate
             // =========================
             var totalReturnEuro = await returnsQuery
                 .Where(x => !x.IsManual)
@@ -399,7 +448,6 @@ public class ReportService
 
             // =========================
             // OLD RETURNS
-            // assumes ReturnEntity has Rate
             // =========================
             var totalOldReturnEuro = await returnsQuery
                 .Where(x => x.IsManual)
@@ -411,7 +459,6 @@ public class ReportService
 
             // =========================
             // PAYMENTS
-            // assumes PaymentEntity has Rate
             // =========================
             var totalPaymentsEuro = await paymentsQuery
                 .SumAsync(x => (decimal?)x.Amount) ?? 0m;
@@ -421,7 +468,6 @@ public class ReportService
 
             // =========================
             // COURIER PAYMENTS
-            // saved in both currencies already
             // =========================
             var totalCourierPaymentsEuro = await courierPaymentsQuery
                 .SumAsync(x => (decimal?)x.AmountInEuro) ?? 0m;
@@ -431,7 +477,6 @@ public class ReportService
 
             // =========================
             // EXPENSES
-            // saved in both currencies already
             // =========================
             var totalExpensesEuro = await expensesQuery
                 .SumAsync(x => (decimal?)x.AmountEuro) ?? 0m;
@@ -441,7 +486,6 @@ public class ReportService
 
             // =========================
             // RETURN BY CASH / CARD
-            // assumes ReturnEntity has Rate
             // =========================
             var returnCashOrCardEuro = await returnsQuery
                 .Where(x => !x.IsManual &&
@@ -469,7 +513,6 @@ public class ReportService
 
             // =========================
             // KASSA
-            // use saved euro/tjs totals separately
             // =========================
             var kasaEuro =
                 totalCourierPaymentsEuro
@@ -538,6 +581,309 @@ public class ReportService
         }
     }
 
+    //public async Task<List<TotalSalesReportRowDto>> GetFullTotalSalesReportAsync(
+    // DateTime? fromDate,
+    // DateTime? toDate)
+    //{
+    //    await using var db = await _contextFactory.CreateDbContextAsync();
+
+    //    try
+    //    {
+    //        var orderDetailsQuery = db.OrderDetails
+    //            .AsNoTracking()
+    //            .AsQueryable();
+
+    //        var paymentsQuery = db.Payments
+    //            .AsNoTracking()
+    //            .AsQueryable();
+
+    //        var returnsQuery = db.Returns
+    //            .AsNoTracking()
+    //            .AsQueryable();
+
+    //        var courierPaymentsQuery = db.CourierPayments
+    //            .AsNoTracking()
+    //            .AsQueryable();
+
+    //        var expensesQuery = db.Expenses
+    //            .AsNoTracking()
+    //            .AsQueryable();
+
+    //        if (fromDate.HasValue)
+    //        {
+    //            var from = fromDate.Value.Date;
+
+    //            orderDetailsQuery = orderDetailsQuery.Where(x => x.Order.Date >= from);
+    //            paymentsQuery = paymentsQuery.Where(x => x.Date >= from);
+    //            returnsQuery = returnsQuery.Where(x => x.Date >= from);
+    //            courierPaymentsQuery = courierPaymentsQuery.Where(x => x.Date >= from);
+    //            expensesQuery = expensesQuery.Where(x => x.Date >= from);
+    //        }
+
+    //        if (toDate.HasValue)
+    //        {
+    //            var to = toDate.Value.Date.AddDays(1);
+
+    //            orderDetailsQuery = orderDetailsQuery.Where(x => x.Order.Date < to);
+    //            paymentsQuery = paymentsQuery.Where(x => x.Date < to);
+    //            returnsQuery = returnsQuery.Where(x => x.Date < to);
+    //            courierPaymentsQuery = courierPaymentsQuery.Where(x => x.Date < to);
+    //            expensesQuery = expensesQuery.Where(x => x.Date < to);
+    //        }
+
+    //        // =========================
+    //        // SALES
+    //        // =========================
+    //        var totalSalesEuro = await orderDetailsQuery
+    //            .Where(x => !x.Order.IsBarter)
+    //            .SumAsync(x => (decimal?)x.Price * x.Quentity) ?? 0m;
+
+    //        var totalSalesSmn = await orderDetailsQuery
+    //            .Where(x => !x.Order.IsBarter)
+    //            .SumAsync(x => (decimal?)(x.Price * x.Quentity * (decimal)x.Order.Rate)) ?? 0m;
+
+    //        // =========================
+    //        // RETURNS
+    //        // assumes ReturnEntity has Rate
+    //        // =========================
+    //        var totalReturnEuro = await returnsQuery
+    //            .Where(x => !x.IsManual)
+    //            .SumAsync(x => (decimal?)x.TotalAmount) ?? 0m;
+
+    //        var totalReturnSmn = await returnsQuery
+    //            .Where(x => !x.IsManual)
+    //            .SumAsync(x => (decimal?)(x.TotalAmount * x.Rate)) ?? 0m;
+
+    //        // =========================
+    //        // OLD RETURNS
+    //        // assumes ReturnEntity has Rate
+    //        // =========================
+    //        var totalOldReturnEuro = await returnsQuery
+    //            .Where(x => x.IsManual)
+    //            .SumAsync(x => (decimal?)x.TotalAmount) ?? 0m;
+
+    //        var totalOldReturnSmn = await returnsQuery
+    //            .Where(x => x.IsManual)
+    //            .SumAsync(x => (decimal?)(x.TotalAmount * x.Rate)) ?? 0m;
+
+    //        // =========================
+    //        // PAYMENTS
+    //        // assumes PaymentEntity has Rate
+    //        // =========================
+    //        var totalPaymentsEuro = await paymentsQuery
+    //            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+
+    //        var totalPaymentsSmn = await paymentsQuery
+    //            .SumAsync(x => (decimal?)(x.Amount * x.Rate)) ?? 0m;
+
+    //        // =========================
+    //        // COURIER PAYMENTS
+    //        // saved in both currencies already
+    //        // =========================
+    //        var totalCourierPaymentsEuro = await courierPaymentsQuery
+    //            .SumAsync(x => (decimal?)x.AmountInEuro) ?? 0m;
+
+    //        var totalCourierPaymentsSmn = await courierPaymentsQuery
+    //            .SumAsync(x => (decimal?)x.AmountInTJS) ?? 0m;
+
+    //        // =========================
+    //        // EXPENSES
+    //        // saved in both currencies already
+    //        // =========================
+    //        var totalExpensesEuro = await expensesQuery
+    //            .SumAsync(x => (decimal?)x.AmountEuro) ?? 0m;
+
+    //        var totalExpensesSmn = await expensesQuery
+    //            .SumAsync(x => (decimal?)x.AmountSmn) ?? 0m;
+
+    //        // =========================
+    //        // RETURN BY CASH / CARD
+    //        // assumes ReturnEntity has Rate
+    //        // =========================
+    //        var returnCashOrCardEuro = await returnsQuery
+    //            .Where(x => !x.IsManual &&
+    //                (x.RefundMethod == RefundMethodConstants.Cash ||
+    //                 x.RefundMethod == RefundMethodConstants.Card))
+    //            .SumAsync(x => (decimal?)x.TotalAmount) ?? 0m;
+
+    //        var returnCashOrCardSmn = await returnsQuery
+    //            .Where(x => !x.IsManual &&
+    //                (x.RefundMethod == RefundMethodConstants.Cash ||
+    //                 x.RefundMethod == RefundMethodConstants.Card))
+    //            .SumAsync(x => (decimal?)(x.TotalAmount * x.Rate)) ?? 0m;
+
+    //        var oldReturnCashOrCardEuro = await returnsQuery
+    //            .Where(x => x.IsManual &&
+    //                (x.RefundMethod == RefundMethodConstants.Cash ||
+    //                 x.RefundMethod == RefundMethodConstants.Card))
+    //            .SumAsync(x => (decimal?)x.TotalAmount) ?? 0m;
+
+    //        var oldReturnCashOrCardSmn = await returnsQuery
+    //            .Where(x => x.IsManual &&
+    //                (x.RefundMethod == RefundMethodConstants.Cash ||
+    //                 x.RefundMethod == RefundMethodConstants.Card))
+    //            .SumAsync(x => (decimal?)(x.TotalAmount * x.Rate)) ?? 0m;
+
+    //        // =========================
+    //        // KASSA
+    //        // use saved euro/tjs totals separately
+    //        // =========================
+    //        var kasaEuro =
+    //            totalCourierPaymentsEuro
+    //            - returnCashOrCardEuro
+    //            - oldReturnCashOrCardEuro
+    //            - totalExpensesEuro;
+
+    //        var kasaSmn =
+    //            totalCourierPaymentsSmn
+    //            - returnCashOrCardSmn
+    //            - oldReturnCashOrCardSmn
+    //            - totalExpensesSmn;
+
+    //        var rows = new List<TotalSalesReportRowDto>
+    //    {
+    //        new()
+    //        {
+    //            Name = "ПРОДАЖА",
+    //            Euro = totalSalesEuro,
+    //            Smn = totalSalesSmn
+    //        },
+    //        new()
+    //        {
+    //            Name = "ВОЗВРАТ",
+    //            Euro = totalReturnEuro,
+    //            Smn = totalReturnSmn
+    //        },
+    //        new()
+    //        {
+    //            Name = "ПРОШЛОГОДНИЙ ВОЗВРАТ",
+    //            Euro = totalOldReturnEuro,
+    //            Smn = totalOldReturnSmn
+    //        },
+    //        new()
+    //        {
+    //            Name = "ПЛАТЕЖИ",
+    //            Euro = totalPaymentsEuro,
+    //            Smn = totalPaymentsSmn
+    //        },
+    //        new()
+    //        {
+    //            Name = "ОПЛАТА ДОСТАВЩИКУ",
+    //            Euro = totalCourierPaymentsEuro,
+    //            Smn = totalCourierPaymentsSmn
+    //        },
+    //        new()
+    //        {
+    //            Name = "РАСХОДЫ",
+    //            Euro = totalExpensesEuro,
+    //            Smn = totalExpensesSmn
+    //        },
+    //        new()
+    //        {
+    //            Name = "КАССА",
+    //            Euro = kasaEuro,
+    //            Smn = kasaSmn
+    //        }
+    //    };
+
+    //        return rows;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        Debug.WriteLine(ex);
+    //        return new List<TotalSalesReportRowDto>();
+    //    }
+    //}
+
+    public async Task<List<OfficialSalesReportRowDto>> GetOfficialSalesReportAsync(
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
+
+        try
+        {
+            var query = db.OrderDetails
+                .AsNoTracking()
+                .Where(d =>
+                    d.Order.OfficialOrder &&
+                    d.Order.Customer != null &&
+                    d.Order.Customer.OfficialCustomer);
+
+            if (fromDate.HasValue)
+            {
+                var from = fromDate.Value.Date;
+                query = query.Where(d => d.Order.Date >= from);
+            }
+
+            if (toDate.HasValue)
+            {
+                var to = toDate.Value.Date.AddDays(1);
+                query = query.Where(d => d.Order.Date < to);
+            }
+
+            return await query
+                .OrderBy(d => d.Order.Date)
+                .ThenBy(d => d.Order.Customer!.FullName)
+                .ThenBy(d => d.Order.Id)
+                .ThenBy(d => d.ArticleNumber)
+                .Select(d => new OfficialSalesReportRowDto
+                {
+                    Date = d.Order.Date,
+                    OrderId = d.Order.Id,
+                    CustomerId = d.Order.CustomerId ?? string.Empty,
+                    CustomerFullName = d.Order.Customer!.FullName,
+                    CourierName = d.Order.Courier != null ? d.Order.Courier.FullName : null,
+                    StorekeeperName = d.Order.Storekeeper != null ? d.Order.Storekeeper.FullName : null,
+                    ArticleNumber = d.ArticleNumber,
+                    ProductName = d.Product.ProductName,
+                    BrandName = d.Product.Brand.BrandName,
+                    Marka = d.Product.Marka,
+                    Model = d.Product.Model,
+                    Quantity = d.Quentity,
+                    ReturnedQuantity = d.ReturnedQty ?? 0,
+                    Price = d.Price,
+                    Total = d.Price * d.Quentity,
+                    Rate = d.Order.Rate,
+                    TotalSmn = d.Price * d.Quentity * (decimal)d.Order.Rate
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Error in GetOfficialSalesReportAsync: " + ex);
+            return new List<OfficialSalesReportRowDto>();
+        }
+    }
+
+
+
+    private static string GetSection(string code)
+    {
+        return string.IsNullOrEmpty(code) ? "" : code.Substring(0, 1);
+    }
+
+    private static int GetRow(string code)
+    {
+        if (string.IsNullOrEmpty(code)) return 0;
+
+        var slashIndex = code.IndexOf('/');
+        if (slashIndex <= 1) return 0;
+
+        var rowPart = code.Substring(1, slashIndex - 1);
+        return int.TryParse(rowPart, out var r) ? r : 0;
+    }
+
+    private static int GetPlace(string code)
+    {
+        if (string.IsNullOrEmpty(code)) return 0;
+
+        var slashIndex = code.IndexOf('/');
+        if (slashIndex < 0 || slashIndex == code.Length - 1) return 0;
+
+        var placePart = code.Substring(slashIndex + 1);
+        return int.TryParse(placePart, out var p) ? p : 0;
+    }
 }
 
 public class WarehousePlaceInfo

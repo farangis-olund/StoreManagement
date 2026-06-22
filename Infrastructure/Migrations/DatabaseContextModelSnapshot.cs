@@ -191,6 +191,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("OfficialCustomer")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PostalCode")
                         .HasColumnType("nvarchar(max)");
 
@@ -419,6 +422,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsSent")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("OfficialOrder")
                         .HasColumnType("bit");
 
                     b.Property<double>("Rate")
@@ -961,6 +967,37 @@ namespace Infrastructure.Migrations
                     b.ToTable("StoreExchanges");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.StoreTransferSummaryEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StoreCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TotalQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("StoreTransferSummaries");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.StorekeeperEntity", b =>
                 {
                     b.Property<string>("Id")
@@ -1299,6 +1336,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.StoreTransferSummaryEntity", b =>
+                {
+                    b.HasOne("Infrastructure.Entities.UserEntity", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.UserRoleEntity", b =>

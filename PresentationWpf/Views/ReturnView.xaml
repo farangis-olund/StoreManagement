@@ -166,7 +166,8 @@
                                       IsEditable="True"
                                       IsTextSearchEnabled="True"
                                       StaysOpenOnEdit="True"
-                                      DisplayMemberPath="Display"/>
+                                      DisplayMemberPath="{Binding CustomerDisplayMemberPath}"
+                                      TextSearch.TextPath="{Binding CustomerDisplayMemberPath}"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Margin="12,0,0,0">
@@ -199,7 +200,7 @@
 
                             <StackPanel Grid.Column="2" Orientation="Vertical">
                                 <TextBlock Text="Цена" Margin="0,0,0,4"/>
-                                <TextBox Width="110" Height="30" HorizontalContentAlignment="Right"
+                                <TextBox IsReadOnly="True" Width="110" Height="30" HorizontalContentAlignment="Right"
                              Text="{Binding ManualPrice, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
 

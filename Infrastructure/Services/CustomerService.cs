@@ -4,6 +4,7 @@ using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
@@ -72,9 +73,6 @@ public class CustomerService
 
         return $"N{nextNumber:0000}";
     }
-
-
-
 
     public async Task<CustomerEntity> GetCustomerAsync(string fulName)
 	{
@@ -220,5 +218,77 @@ public class CustomerService
             _logger.LogError(ex, "Error updating balance for customer {CustomerId}", customerId);
             return false;
         }
+    }
+
+    public async Task<CustomerLevelChangeInfoDto?> GetCustomerLevelChangeAsync(string customerId)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+
+        var customer = await db.Customers
+		.AsNoTracking()
+		.Include(x => x.PriceLevel)
+		.FirstOrDefaultAsync(x => x.Id == customerId);
+
+        if (customer == null)
+            return null;
+
+        var from = DateTime.Today.AddDays(-30);
+        var to = DateTime.Today.AddDays(1);
+
+        var total30Days = await db.OrderDetails
+            .AsNoTracking()
+            .Where(x =>
+                x.Order.CustomerId == customerId &&
+                x.Order.Date >= from &&
+                x.Order.Date < to &&
+                !x.Order.IsBarter)
+            .SumAsync(x => (decimal?)x.Price * x.Quentity) ?? 0m;
+
+        var levels = await db.Set<PriceLevelEntity>()
+            .AsNoTracking()
+            .Where(x => x.Code.HasValue)
+            .OrderBy(x => x.Code)
+            .ToListAsync();
+
+        var matchedLevel = FindLevelByAmount(levels, (double)total30Days);
+
+        int currentLevelCode = customer.PriceLevel.Code ?? 0;
+
+        var currentLevel = levels.FirstOrDefault(x => x.Code == currentLevelCode);
+
+        return new CustomerLevelChangeInfoDto
+        {
+            CurrentLevelCode = currentLevelCode,
+            CalculatedLevelCode = matchedLevel?.Code ?? 0,
+            CurrentPriceType = currentLevel?.PriceType ?? customer.PriceLevelId,
+            CalculatedPriceType = matchedLevel?.PriceType,
+            Last30DaysTotal = total30Days
+        };
+    }
+
+    private static PriceLevelEntity? FindLevelByAmount(List<PriceLevelEntity> levels, double amount)
+    {
+        var ordered = levels
+            .Where(x => x.Code.HasValue)
+            .OrderBy(x => x.Code)
+            .ToList();
+
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            var level = ordered[i];
+
+            bool minOk = !level.MinLimit.HasValue || amount >= level.MinLimit.Value;
+
+            bool maxOk;
+            if (i == ordered.Count - 1)
+                maxOk = !level.MaxLimit.HasValue || amount <= level.MaxLimit.Value;
+            else
+                maxOk = !level.MaxLimit.HasValue || amount < level.MaxLimit.Value;
+
+            if (minOk && maxOk)
+                return level;
+        }
+
+        return null;
     }
 }

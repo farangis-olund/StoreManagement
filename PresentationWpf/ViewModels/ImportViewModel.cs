@@ -8,6 +8,7 @@ using Infrastructure.Helpers;
 using Infrastructure.Repositories;  
 using Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
+using PresentationWpf.Services;
 using PresentationWpf.Views;
 using QuestPDF.Fluent;
 
@@ -31,6 +32,9 @@ namespace PresentationWpf.ViewModels
         private readonly ExportHelper _export;
         private readonly IServiceProvider _sp;
         private readonly OrganizationInfoService _orgService;
+
+        private readonly ReturnsDayReportService _returnsDayReportService;
+
         public event Action? RequestClose;
 
         [ObservableProperty] private ObservableCollection<DateTime> availableDates = [];
@@ -43,7 +47,7 @@ namespace PresentationWpf.ViewModels
             StockUpdateLogRepository logRepo,
             ProductService productService,
             ExportHelper export,
-            IServiceProvider sp, OrganizationInfoService orgService
+            IServiceProvider sp, OrganizationInfoService orgService, ReturnsDayReportService returnsDayReportService
             )
         {
             _orderService = orderService;
@@ -52,6 +56,7 @@ namespace PresentationWpf.ViewModels
             _export = export;
             _sp = sp;
             _orgService = orgService;
+            _returnsDayReportService = returnsDayReportService;
          
 
             _ = LoadDatesAsync();
@@ -223,7 +228,8 @@ namespace PresentationWpf.ViewModels
 
             string filePath = Path.Combine(folder, $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
             document.GeneratePdf(filePath);
-
+            PrintPdfSilent(filePath);
+            
             // 3️⃣ Show in PDF preview window
             var preview = new DocumentPreviewView(filePath);
             var window = new Window
@@ -239,9 +245,51 @@ namespace PresentationWpf.ViewModels
                 ShowInTaskbar = false
             };
 
-            window.ShowDialog();
+            window.Show();
+
+            try
+            {
+                await _returnsDayReportService.PrintReturnsDayReportAsync();
+                await _returnsDayReportService.ShowReturnsDayReportAsync();
+               
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Ошибка при формировании отчета: {ex.Message}",
+                    "Печать",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+
         }
 
+        [RelayCommand]
+        private async Task ShowReturnReport()
+        {
+
+            try
+            {
+              await _returnsDayReportService.ShowReturnsDayReportAsync();
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Ошибка при формировании отчета: {ex.Message}",
+                    "Печать",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+        private void PrintPdfSilent(string filePath)
+        {
+            using var document = PdfiumViewer.PdfDocument.Load(filePath);
+            using var printDocument = document.CreatePrintDocument();
+
+            printDocument.PrintController = new System.Drawing.Printing.StandardPrintController();
+            printDocument.Print();
+        }
 
         [RelayCommand] private void Close() => RequestClose?.Invoke();
 

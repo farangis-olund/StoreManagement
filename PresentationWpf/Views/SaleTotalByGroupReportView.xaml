@@ -68,6 +68,13 @@
               SelectedItem="{Binding SelectedBrand, Mode=TwoWay}"
               Height="30" FontSize="14"/>
 
+            <Button Content="Экпорт..."
+               Style="{StaticResource GrayButton}"
+               Command="{Binding ExportExcelCommand}"
+               CommandParameter="{Binding ElementName=PivotGrid}"
+               Margin="10,0,0,0"
+               MinWidth="70"/>
+
         </StackPanel>
 
         <!-- ===================== -->
@@ -75,14 +82,15 @@
         <!-- ===================== -->
         <Grid Grid.Row="1">
 
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
 
             <!-- LEFT SIDE : TABLE -->
             <DataGrid x:Name="PivotGrid"
-              Grid.Column="0"
+               Grid.Row="0"
               ItemsSource="{Binding PivotTable}"
               AutoGenerateColumns="False"
               IsReadOnly="True"
@@ -91,7 +99,7 @@
               Style="{StaticResource SummaryGrid}"
               Margin="0,0,10,0"/>
 
-            <lvc:CartesianChart Grid.Column="1"
+            <lvc:CartesianChart Grid.Row="1"
                     Series="{Binding SeriesCollection}"
                     LegendLocation="Right"
                     ClipToBounds="False" >

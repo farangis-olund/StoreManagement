@@ -110,5 +110,14 @@ namespace PresentationWpf.Services
                 Verb = "print"
             });
         }
+
+        private void PrintPdfSilent(string filePath)
+        {
+            using var document = PdfiumViewer.PdfDocument.Load(filePath);
+            using var printDocument = document.CreatePrintDocument();
+
+            printDocument.PrintController = new System.Drawing.Printing.StandardPrintController();
+            printDocument.Print();
+        }
     }
 }

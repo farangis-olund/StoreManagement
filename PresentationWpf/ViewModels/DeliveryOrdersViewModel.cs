@@ -231,7 +231,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
                     orderId: order.Number,
                     amountEuro: euro,
                     amountTjs: tjs,
-                    date: order.Date
+                    date: DateTime.Today.Date
                 );
             }
         }

@@ -192,33 +192,14 @@
             <Setter Property="Padding" Value="8,6"/>
         </Style>
 
-         <!--Now the grid style can reference it--><!-- 
-        <Style x:Key="SummaryGrid" TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False"/>
-            <Setter Property="CanUserAddRows" Value="False"/>
-            <Setter Property="CanUserDeleteRows" Value="False"/>
-            <Setter Property="CanUserResizeRows" Value="False"/>
-            <Setter Property="CanUserReorderColumns" Value="False"/>
-            <Setter Property="HeadersVisibility" Value="Column"/>
-            <Setter Property="IsReadOnly" Value="True"/>
-            <Setter Property="RowHeight" Value="28"/>
-            <Setter Property="ColumnHeaderHeight" Value="32"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="GridLinesVisibility" Value="None"/>
-            <Setter Property="RowBackground" Value="White"/>
-            <Setter Property="AlternatingRowBackground" Value="#FAFBFC"/>
-            <Setter Property="BorderBrush" Value="#DADDE1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
-            <Setter Property="ColumnHeaderStyle" Value="{StaticResource SummaryHeader}"/>
-            <Setter Property="SelectionUnit" Value="FullRow"/>
-            <Setter Property="SelectionMode" Value="Single"/>
-
-             --><!--Center all cell text--><!-- 
-            <Setter Property="TextBlock.TextAlignment" Value="Center"/>
-          
-        </Style>-->
-
+        <Style x:Key="SummaryRowHeader" TargetType="DataGridRowHeader">
+            <Setter Property="Background" Value="#F5F7FA"/>
+            <Setter Property="BorderBrush" Value="#E1E1E8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        
         <!-- Close Button Style -->
         <Style x:Key="CloseButton" TargetType="Button">
             <Setter Property="Width" Value="30"/>
@@ -286,9 +267,12 @@
             <Setter Property="SelectionMode" Value="Extended"/>
             <!-- Заголовки -->
             <Setter Property="ColumnHeaderStyle" Value="{StaticResource SummaryHeader}"/>
+            <Setter Property="RowHeaderStyle" Value="{StaticResource SummaryRowHeader}"/>
             <!-- Выравнивание по умолчанию -->
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
         </Style>
+        
+        
         <!-- Подстиль для текстовых ячеек -->
         <Style x:Key="TextCellStyle" TargetType="TextBlock">
             <Setter Property="Padding" Value="12,2,6,2"/>

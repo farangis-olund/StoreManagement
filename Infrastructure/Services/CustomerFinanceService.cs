@@ -1,4 +1,5 @@
-﻿using Infrastructure.Contexts;
+﻿using Infrastructure.Constants;
+using Infrastructure.Contexts;
 using Infrastructure.Dtos;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
@@ -100,7 +101,8 @@ public class CustomerFinanceService
 		try
 		{
 			totalReturns = db.Returns
-				.Where(r => r.CustomerId == customerId)
+				.Where(r => r.CustomerId == customerId &&
+                r.RefundMethod == RefundMethodConstants.Balance)
 				.AsEnumerable()
 				.Sum(r => (decimal)(r.TotalAmount));
 		}
@@ -188,7 +190,8 @@ public class CustomerFinanceService
         try
         {
             totalReturns = db.Returns
-                .Where(r => r.CustomerId == customerId)
+                .Where(r => r.CustomerId == customerId &&
+                 r.RefundMethod == RefundMethodConstants.Balance)
                 .AsEnumerable()
                 .Sum(r => (decimal)(r.TotalAmount));
         }
@@ -281,126 +284,148 @@ public class CustomerFinanceService
     }
 
     public async Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
-	string managerId, string? territory = null)
-	{
-		await using var db = await _contextFactory.CreateDbContextAsync();
+    string? managerId = null,
+    string? territory = null,
+    string? customerId = null)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
 
-		// load coefficients
-		var coef = await db.RaschetKoefficenta.FirstOrDefaultAsync();
-		if (coef == null) return new();
+        var coef = await db.RaschetKoefficenta.FirstOrDefaultAsync();
+        if (coef == null) return new();
 
-		var bands = new List<RepaymentBand>
-	{
-		new(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
-		new(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
-		new(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
-		new(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
-		new(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5)
-	};
+        var bands = new List<RepaymentBand>
+    {
+        new(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
+        new(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
+        new(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
+        new(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
+        new(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5)
+    };
 
-		// query all customers of the manager (optionally filter by territory)
-		var query = db.Customers
-			.Where(c => c.SalesManagerId == managerId);
+        var query = db.Customers.AsQueryable();
 
-		if (!string.IsNullOrWhiteSpace(territory))
-			query = query.Where(c => c.Territory == territory);
+        if (!string.IsNullOrWhiteSpace(managerId))
+            query = query.Where(c => c.SalesManagerId == managerId);
 
-		var customers = await query.ToListAsync();
-		var today = DateTime.Today;
+        if (!string.IsNullOrWhiteSpace(territory))
+            query = query.Where(c => c.Territory == territory);
 
-		var result = new List<InactiveCustomerDto>();
+        if (!string.IsNullOrWhiteSpace(customerId))
+            query = query.Where(c => c.Id == customerId);
 
-		foreach (var cust in customers)
-		{
-			// reuse finance info for this customer
-			var info = await GetFinanceInfoAsync(cust.Id, orderId: "");
-			if (info == null) continue;
+        var customers = await query.ToListAsync();
+        var today = DateTime.Today;
 
-			var balance = info.Balance;
-			var contractDate = info.ContractDate ?? today;
+        var result = new List<InactiveCustomerDto>();
 
-			var band = bands.FirstOrDefault(b => balance >= b.OstatokNach && balance <= b.OstatokKon);
-			if (band == null) continue;
+        foreach (var cust in customers)
+        {
+            var info = await GetFinanceInfoAsync(cust.Id, orderId: "");
+            if (info == null) continue;
 
-			var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
-			var repayment = balance * 4 / band.Days * numberOfDays;
+            var balance = info.Balance;
+            var contractDate = info.ContractDate ?? today;
 
-			if (repayment >= 1 && repayment > info.TotalSales)
-			{
-				var suggested = Math.Round(repayment - info.TotalSales, 0);
-				if (suggested > 0)
-					result.Add(new InactiveCustomerDto(cust.Id, cust.FullName ?? "", info.Balance, suggested));
+            var band = bands.FirstOrDefault(b =>
+                balance >= b.OstatokNach &&
+                balance <= b.OstatokKon);
 
-			}
-		}
+            if (band == null) continue;
 
-		return result;
-	}
+            var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
+            var repayment = balance * 4 / band.Days * numberOfDays;
 
-	public async Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(
-	string managerId,
-	string? territory = null)
-	{
-		await using var db = await _contextFactory.CreateDbContextAsync();
-		var today = DateTime.Today;
-		var result = new List<InactiveCustomerDto>();
+            if (repayment >= 1 && repayment > info.TotalSales)
+            {
+                var suggested = Math.Round(repayment - info.TotalSales, 0);
 
-		// 1. Select customers for this manager (optionally filter by territory)
-		var query = db.Customers
-			.Include(c => c.Orders)
-				.ThenInclude(o => o.OrderDetails)
-			.Include(c => c.Returns)
-			.Include(c => c.Payments)
-			.Where(c => c.SalesManagerId == managerId);
+                if (suggested > 0)
+                {
+                    result.Add(new InactiveCustomerDto(
+                        cust.Id,
+                        cust.FullName ?? "",
+                        info.Balance,
+                        suggested
+                    ));
+                }
+            }
+        }
 
-		if (!string.IsNullOrWhiteSpace(territory))
-			query = query.Where(c => c.Territory == territory);
+        return result;
+    }
+    public async Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(
+     string? managerId = null,
+     string? territory = null,
+     string? customerId = null)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync();
 
-		var customers = await query.ToListAsync();
+        var today = DateTime.Today;
+        var result = new List<InactiveCustomerDto>();
 
-		foreach (var cust in customers)
-		{
-			if (cust.ContractDate == null || cust.DailyPlannedPurchaseCoefficient == null)
-				continue;
+        var query = db.Customers
+            .Include(c => c.Orders)
+                .ThenInclude(o => o.OrderDetails)
+            .Include(c => c.Returns)
+            .Include(c => c.Payments)
+            .AsQueryable();
 
-			var contractDate = cust.ContractDate.Value;
-			var coef = (decimal)cust.DailyPlannedPurchaseCoefficient.Value;
+        if (!string.IsNullOrWhiteSpace(managerId))
+            query = query.Where(c => c.SalesManagerId == managerId);
 
-			// 2. Planned sum = days since contract × coefficient
-			var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
-			var sumPlan = numberOfDays * coef;
+        if (!string.IsNullOrWhiteSpace(territory))
+            query = query.Where(c => c.Territory == territory);
 
-			// 3. Actual sum = (sales - returns + debt - payments)
-			decimal sales = cust.Orders
-				.SelectMany(o => o.OrderDetails)
-				.Sum(d => (decimal)d.Price * d.Quentity);
+        if (!string.IsNullOrWhiteSpace(customerId))
+            query = query.Where(c => c.Id == customerId);
 
-			decimal returns = cust.Returns
-				.Sum(r => (decimal)r.TotalAmount);
+        var customers = await query.ToListAsync();
 
-			decimal payments = cust.Payments
-				.Sum(p => (decimal)p.Amount);
+        foreach (var cust in customers)
+        {
+            if (cust.ContractDate == null || cust.DailyPlannedPurchaseCoefficient == null)
+                continue;
 
-			decimal debt = (decimal)(cust.Debt ?? 0);
+            var contractDate = cust.ContractDate.Value;
+            var coef = (decimal)cust.DailyPlannedPurchaseCoefficient.Value;
 
-			var sumaContractov = sales - returns + debt - payments;
+            var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
+            var sumPlan = numberOfDays * coef;
 
-			// 4. Compare planned vs actual
-			if (sumPlan > sumaContractov)
-			{
-				var shortfall = Math.Round(sumPlan - sumaContractov, 0);
-				if (shortfall > 0)
-				{
-					var balance = (decimal)(cust.Debt ?? 0); // or info.Balance if you want the finance calculation
-					result.Add(new InactiveCustomerDto(cust.Id, cust.FullName ?? "", balance, shortfall));
-				}
-			}
+            decimal sales = cust.Orders
+                .SelectMany(o => o.OrderDetails)
+                .Sum(d => (decimal)d.Price * d.Quentity);
 
+            decimal returns = cust.Returns
+                .Sum(r => (decimal)r.TotalAmount);
 
-		}
+            decimal payments = cust.Payments
+                .Sum(p => (decimal)p.Amount);
 
-		return result;
-	}
+            decimal debt = (decimal)(cust.Debt ?? 0);
+
+            var sumaContractov = sales - returns + debt - payments;
+
+            if (sumPlan > sumaContractov)
+            {
+                var shortfall = Math.Round(sumPlan - sumaContractov, 0);
+
+                if (shortfall > 0)
+                {
+                    var balance = (decimal)(cust.Debt ?? 0);
+
+                    result.Add(new InactiveCustomerDto(
+                        cust.Id,
+                        cust.FullName ?? "",
+                        balance,
+                        shortfall
+                    ));
+                }
+            }
+        }
+
+        return result;
+    }
 
     public async Task<DateTime?> GetLastOrderDateAsync(string customerId)
     {
@@ -683,6 +708,8 @@ public class CustomerFinanceService
             .Select(o => (DateTime?)o.Date)
             .FirstOrDefaultAsync();
     }
+
+  
 
 }
 

@@ -24,8 +24,8 @@ namespace PresentationWpf.ViewModels
             _service = service;
             _orgService = orgService;
 
-            FromDate = null;
-            ToDate = null;
+            FromDate = DateTime.Today;
+            ToDate = DateTime.Today;
 
             _ = LoadAsync();
         }

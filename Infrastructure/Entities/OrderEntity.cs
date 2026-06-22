@@ -8,6 +8,7 @@ public class OrderEntity
 	public string? CustomerId { get; set; }
 	public int UserId { get; set; }
 	public bool WithoutInvoice { get; set; } = false;
+	public bool OfficialOrder { get; set; } = false;
 	public bool Wholesale { get; set; }
 	public bool Stock {  get; set; }
 	public bool DirectFromStock { get; set; }
@@ -26,4 +27,3 @@ public class OrderEntity
     public virtual ICollection<CustomerPaymentEntity> Payments { get; set; } = [];
 
 }
-

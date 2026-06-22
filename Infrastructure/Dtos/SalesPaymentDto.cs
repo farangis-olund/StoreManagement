@@ -5,6 +5,7 @@ namespace Infrastructure.Dtos;
 public class SalesPaymentDto
 {
     public string CustomerCode { get; set; } = "";
+    public string FullName { get; set; } = "";
     public string Region { get; set; } = "";
     public string Firma { get; set; } = "";
 

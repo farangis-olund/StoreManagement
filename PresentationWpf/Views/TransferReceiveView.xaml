@@ -90,7 +90,7 @@
                                Foreground="DarkRed" FontStyle="Italic" FontSize="16"
                                Margin="0,0,0,10"/>
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="С какого магазина:" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Магазин:" VerticalAlignment="Center"/>
                     <ComboBox Grid.Row="1" Grid.Column="1"
                               ItemsSource="{Binding StoreList}"
                               HorizontalAlignment="Left"

@@ -3,7 +3,9 @@ using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Dtos;
 using Infrastructure.Reporting;
 using Infrastructure.Services;
+using PresentationWpf.Services;
 using System.Collections.ObjectModel;
+using System.Windows.Controls;
 
 namespace PresentationWpf.ViewModels;
 
@@ -123,7 +125,7 @@ public partial class SalesByGroupCustomerReportViewModel : ObservableObject
 
         var pivot = PivotEngine<SalesByGroupCustomerDto>.Create(
             data,
-            x => x.CustomerCode ?? "",
+             x => $"{x.CustomerCode} - {x.CustomerName}",
             x => x.ProductGroup ?? "",
             x => TotalsByQuantity ? x.Quantity : x.Total
         );
@@ -156,5 +158,13 @@ public partial class SalesByGroupCustomerReportViewModel : ObservableObject
     partial void OnSelectedRegionChanged(string? value)
     {
         ApplyFiltersAndRefresh();
+    }
+
+    [RelayCommand]
+    private void ExportExcel(DataGrid? grid)
+    {
+        if (grid == null)
+            return;
+        ExcelExportHelper.ExportFromDataGrid(grid, "TotalByGroup.xlsx");
     }
 }

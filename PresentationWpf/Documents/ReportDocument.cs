@@ -30,35 +30,37 @@ namespace PresentationWpf.Documents
                 {
                     header.Item().Row(row =>
                     {
-                        // Left side: store name
-                        row.RelativeItem().Text(text =>
+                        // LEFT — organization
+                        row.RelativeItem().AlignLeft().Text(text =>
                         {
                             text.Span("Магазин: ").FontSize(10);
-                            text.Line($"{_vm.OrganizationName}");
+                            text.Span(_vm.OrganizationName).FontSize(10);
                         });
 
-                        // Right side: date
-                        row.ConstantItem(200).AlignRight().Column(col =>
+                        // CENTER — title
+                        row.RelativeItem().AlignCenter().Text(text =>
                         {
-                            col.Item().Text($"Дата отчёта: {_vm.SelectedDate:dd.MM.yyyy}");
+                            text.Span(_vm.Title.ToUpper())
+                                .FontSize(12)
+                                .Bold();
+                        });
+
+                        // RIGHT — date
+                        row.RelativeItem().AlignRight().Text(text =>
+                        {
+                            text.Span($"Дата отчёта: {_vm.SelectedDate:dd.MM.yyyy}")
+                                .FontSize(10);
                         });
                     });
 
-                    header.Item().LineHorizontal(0.01f);
+                    header.Item().PaddingTop(3).LineHorizontal(0.5f);
                 });
 
                 // ===== CONTENT =====
                 page.Content().Column(content =>
                 {
                     content.Spacing(6);
-
-                    // --- Title ---
-                    content.Item().AlignCenter().PaddingTop(6)
-                        .Text(text =>
-                        {
-                            text.Span(_vm.Title.ToUpper()).FontSize(12).Bold();
-                        });
-
+                    
                     // --- Table ---
                     var dt = _vm.Table;
                     content.Item().PaddingTop(8).Table(table =>

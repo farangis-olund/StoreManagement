@@ -44,13 +44,26 @@
         <!-- === TOP MENU === -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Height="45" >
             <Button Content="Сохранить" Style="{StaticResource GrayButton}" Command="{Binding SaveCommand}" Margin="5"/>
-            
+
+            <Button Content="Копировать колонки" Width="140" Style="{StaticResource GrayButton}" Margin="5"
+            Click="CopySelectedColumns_Click"/>
+
+            <Button Content="Вставить колонки" Width="130" Style="{StaticResource GrayButton}" Margin="5"
+            Click="PasteColumns_Click"/>
+
+
             <Button Content="Удалить" Style="{StaticResource GrayButton}" 
                     Command="{Binding DeleteCommand}" Margin="5" 
-                    CommandParameter="{Binding SelectedItems, ElementName=ProductsGrid}"/>
+                    CommandParameter="{Binding SelectedItems, ElementName=ProductsGrid}"
+                    Visibility="{Binding DataContext.CanViewRemove,
+                     RelativeSource={RelativeSource AncestorType=UserControl},
+                     Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <Button Content="Удалить всё" Style="{StaticResource GrayButton}" 
-                        Command="{Binding DeleteAllCommand}" Margin="5"/>
+                        Command="{Binding DeleteAllCommand}" Margin="5"
+                    Visibility="{Binding DataContext.CanViewRemoveAll,
+                     RelativeSource={RelativeSource AncestorType=UserControl},
+                     Converter={StaticResource BoolToVisibilityConverter}}"/>
 
         </StackPanel>
 
@@ -76,17 +89,27 @@
 
         <!-- === GRID === -->
         <DataGrid Grid.Row="3"
-                  x:Name="ProductsGrid"
-                  ItemsSource="{Binding ProductsView}"
-                  SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="True"
-                  CanUserDeleteRows="True"
-                  Margin="5"
-                  IsReadOnly="False"
-                  RowHeaderWidth="20"
-                  Style="{StaticResource SummaryGrid}"
-                  PreviewKeyDown="ProductsGrid_OnPreviewKeyDown">
+          x:Name="ProductsGrid" 
+          ItemsSource="{Binding ProductsView}"
+          SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+          AutoGenerateColumns="False"
+          CanUserAddRows="True"
+          CanUserDeleteRows="True"
+          Margin="5"
+          IsReadOnly="False"
+          RowHeaderWidth="50"
+          Style="{StaticResource SummaryGrid}"
+          PreviewKeyDown="ProductsGrid_OnPreviewKeyDown"
+          SelectionUnit="CellOrRowHeader"
+          SelectionMode="Extended"  LoadingRow="DataGrid_LoadingRow">
+
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <EventSetter Event="PreviewMouseLeftButtonDown"
+                     Handler="ColumnHeader_Click"/>
+            </Style>
+            
+            </DataGrid.ColumnHeaderStyle>
 
             <DataGrid.Columns>
                 <!-- Текстовые -->
@@ -108,7 +131,7 @@
                 <DataGridTextColumn Header="Марка" Binding="{Binding Marka}"
                      ElementStyle="{StaticResource TextCellStyle}" />
                 
-                <DataGridTextColumn Header="Модель" Width="*" Binding="{Binding Model}"
+                <DataGridTextColumn Header="Модель" Width="200" Binding="{Binding Model}"
                                     ElementStyle="{StaticResource TextCellStyle}" />
                
                 <DataGridTextColumn Header="Альтернатива" Binding="{Binding Alternative}"

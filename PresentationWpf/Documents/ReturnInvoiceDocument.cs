@@ -68,8 +68,8 @@ namespace PresentationWpf.Documents
                         // Second row: customer ID
                         info.Item().Row(row =>
                         {
-                            row.RelativeItem(7)
-                                .Text($"Код клиента: {Trim(_vm.CustomerId, 30)}");
+                            //row.RelativeItem(7)
+                            //    .Text($"Код клиента: {Trim(_vm.CustomerId, 30)}");
                             row.RelativeItem(3)
                                 .AlignRight()
                                 .Text($"Возврат №: {Trim(_vm.InvoiceNumber, 20)}");

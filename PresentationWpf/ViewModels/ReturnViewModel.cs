@@ -67,15 +67,19 @@ namespace PresentationWpf.ViewModels
 		private readonly OrderService _orderService;
 		private readonly ReturnService _returnService;
 		private readonly ReturnReasonService _returnReasonService;
-		private readonly CustomerFinanceService _customerFinanceService;
+        private readonly CustomerFinanceService _customerFinanceService;
         private readonly OrganizationInfoService _orgService;
         private readonly UserSessionService _userSessionService;
+        private readonly PermissionService _permissionService;
         public ReturnViewModel(ProductService productService, 
 			CustomerService customerService, 
 			OrderService orderService, 
 			ReturnService returnService, 
 			ReturnReasonService returnReasonService, 
-			CustomerFinanceService customerFinanceService, OrganizationInfoService orgService, UserSessionService userSessionService)
+			CustomerFinanceService customerFinanceService,
+            OrganizationInfoService orgService,
+            UserSessionService userSessionService,
+            PermissionService permissionService)
 		{
 			_productService = productService;
 			_customerService = customerService;
@@ -85,6 +89,7 @@ namespace PresentationWpf.ViewModels
 			_customerFinanceService = customerFinanceService;
 			_orgService = orgService;
 			_userSessionService = userSessionService;
+            _permissionService = permissionService;
 			
 			Lines.CollectionChanged += (_, __) => RecalcTotals();
 
@@ -144,7 +149,7 @@ namespace PresentationWpf.ViewModels
             CustomersFiltered.Clear();
 
             var customers = await _customerService.GetAllCustomersAsync();
-            foreach (var c in customers)
+            foreach (var c in customers.Where(c => !IsOnlyOfficialCustomer || c.OfficialCustomer))
             {
                 var customerLite = new CustomerLite
                 {
@@ -162,7 +167,7 @@ namespace PresentationWpf.ViewModels
 				var item = new ProductPickItem
 				{
 					Article = p.ArticleNumber,
-                    Display = $"{p.ArticleNumber} : {p.BrandName} {p.ProductName}",
+                    Display = p.ArticleNumber,
                     ProductName = p.ProductName,   
                     BrandName = p.BrandName, 
 					ProductMarka = p.Marka,
@@ -202,6 +207,12 @@ namespace PresentationWpf.ViewModels
        
 		[ObservableProperty]
         private ObservableCollection<CustomerLite> customersFiltered = new();
+
+        public bool IsOnlyOfficialCustomer =>
+            _permissionService.Has("OnlyOfficialCustomer") ||
+            _permissionService.Has("onlyOfficialCustomer");
+
+        public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "Display";
        
 		 public ObservableCollection<ProductPickItem> ProductsLookup { get; } = new();
 
@@ -462,8 +473,16 @@ namespace PresentationWpf.ViewModels
                                      
                     var financeInfo = await _customerFinanceService.GetFinanceInfoAsync(saved.CustomerId);
                     var shopDisplay = await _orgService.GetShopDisplayAsync();
+					decimal currentOldDebt = 0;
 
-                   
+                    if (saved.RefundMethod == RefundMethodConstants.Balance)
+                    {
+                        currentOldDebt = financeInfo.OldDebt + saved.TotalAmount;
+                    }
+                    else
+                    {
+                        currentOldDebt = financeInfo.OldDebt;
+                    }
 
                     // 🔹 Build the view model for the return invoice
                     var invoiceVm = new ReturnInvoiceViewModel
@@ -473,9 +492,9 @@ namespace PresentationWpf.ViewModels
                         TotalAmount = saved.TotalAmount,
                         TotalAmountWords = saved.AmountInWords,
                         Date = saved.Date,
-                        OldDebt = financeInfo.Balance ,
+                        OldDebt = currentOldDebt,
                         ReturnedAmount = saved.TotalAmount,
-                        RemainingDebt = financeInfo.Balance - saved.TotalAmount,
+                        RemainingDebt = financeInfo.Balance,
                         InvoiceNumber = saved.Id,
                         OrderNumber = saved.InvoiceNumber,
                         RefundMethod = saved.RefundMethod,
@@ -519,6 +538,7 @@ namespace PresentationWpf.ViewModels
 
                     // ✅ 1. Clear and reinitialize form
                     Lines.Clear();
+					SearchText = null;
                     SelectedCustomer = null;
                     SelectedSearchHit = null;
                     SelectedReturnReason = null;

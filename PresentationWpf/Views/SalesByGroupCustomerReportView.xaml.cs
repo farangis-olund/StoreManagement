@@ -39,7 +39,7 @@ public partial class SalesByGroupCustomerReportView : UserControl
         {
             Header = "Клиент",
             Binding = new Binding("RowKey"),
-            Width = 80
+            Width = 180
         };
 
         PivotGrid.Columns.Add(rowColumn);

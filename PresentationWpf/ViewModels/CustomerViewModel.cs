@@ -58,7 +58,7 @@ public partial class CustomerViewModel : ObservableObject
 	{
 		var customerList = await _customerService.GetAllCustomersAsync(); 
 
-		foreach (var customer in customerList)
+		foreach (var customer in customerList.Where(c => !IsOnlyOfficialCustomer || c.OfficialCustomer))
 		{
 			Customers.Add(customer);
 		}
@@ -87,13 +87,12 @@ public partial class CustomerViewModel : ObservableObject
 
     }
 
-	[RelayCommand]
+    [RelayCommand]
     private async Task SaveCustomerAsync()
     {
         if (SelectedCustomer is null)
             return;
 
-        // ✅ Run validation
         var validationErrors = ValidateCustomer();
         if (validationErrors.Any())
         {
@@ -103,21 +102,21 @@ public partial class CustomerViewModel : ObservableObject
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning
             );
-            return; // ❗ Do NOT save if invalid
+            return;
         }
-
-        // ------------------------------
-        // SAVE CUSTOMER (Your original code)
-        // ------------------------------
 
         var savedCustomer = await _customerService.AddCustomerAsync(SelectedCustomer);
 
-        if (!Customers.Any(c => c.Id == savedCustomer.Id))
-            Customers.Add(savedCustomer);
-
-        var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
-        if (updated != null)
-            SelectedCustomer = updated;
+        if (savedCustomer is null)
+        {
+            MessageBox.Show(
+                "Ошибка при сохранении клиента.",
+                "Ошибка",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
+            return;
+        }
 
         if (!string.IsNullOrEmpty(savedCustomer.SalesManagerId))
         {
@@ -127,19 +126,53 @@ public partial class CustomerViewModel : ObservableObject
                 CustomerId = savedCustomer.Id
             };
 
-            await _managerService.SaveManagerCustomersAsync(savedCustomer.SalesManagerId, new[] { link });
+            await _managerService.SaveManagerCustomersAsync(
+                savedCustomer.SalesManagerId,
+                new[] { link }
+            );
         }
-        UpdateDistinctLists();
-        MessageBox.Show("Клиент успешно сохранён.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
 
+        var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
+
+        if (updated is not null)
+            savedCustomer = updated;
+
+        var existingCustomer = Customers.FirstOrDefault(c => c.Id == savedCustomer.Id);
+
+        if (existingCustomer is null)
+        {
+            Customers.Add(savedCustomer);
+        }
+        else
+        {
+            var index = Customers.IndexOf(existingCustomer);
+            Customers[index] = savedCustomer;
+        }
+
+        SelectedCustomer = savedCustomer;
+
+        UpdateDistinctLists();
+
+        MessageBox.Show(
+            "Клиент успешно сохранён.",
+            "Успех",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information
+        );
+    }
     public bool CanViewDebt => PermissionService.Has("Customers.Debt");
     public bool CanViewRestriction => PermissionService.Has("Customers.Restriction");
+    public bool IsOnlyOfficialCustomer =>
+        PermissionService.Has("OnlyOfficialCustomer") ||
+        PermissionService.Has("onlyOfficialCustomer");
+
+    public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "DisplayText";
 
     public void RefreshPermissions()
     {
         OnPropertyChanged(nameof(CanViewDebt));
         OnPropertyChanged(nameof(CanViewRestriction));
+        OnPropertyChanged(nameof(CustomerDisplayMemberPath));
     }
 
 
@@ -224,7 +257,7 @@ public partial class CustomerViewModel : ObservableObject
 
 		await _coefficientService.CalculateEzhPogashForCustomerAsync(SelectedCustomer);
 		await _coefficientService.CalculateZakupForCustomerAsync(SelectedCustomer.Id);
-		await _coefficientService.CalculateZaplanZakupForCustomerAsync(SelectedCustomer.Id);
+		//await _coefficientService.CalculateZaplanZakupForCustomerAsync(SelectedCustomer.Id);
 
 		var updated = await _customerService.GetCustomerByIdAsync(SelectedCustomer.Id);
 		if (updated != null)

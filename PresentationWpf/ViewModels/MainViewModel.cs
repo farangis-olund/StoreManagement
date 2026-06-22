@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Contexts;
+using Infrastructure.Dtos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PresentationWpf.Services;
@@ -143,13 +144,16 @@ public partial class MainViewModel : ObservableObject
     private void NavigateToExpenses()
     {
         var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-        mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<ExpenseCrudViewModel>();
+        var expensesVM  = _serviceProvider.GetRequiredService<ExpenseCrudViewModel>();
+        expensesVM.RefreshPermissions();
+        mainViewModel.CurrentViewModel = expensesVM;
     }
 
     [RelayCommand]
     private void NavigateToReports()
     {
         var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+
         mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<ReportsViewModel>();
     }
 

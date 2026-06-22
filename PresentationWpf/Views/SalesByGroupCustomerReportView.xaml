@@ -68,6 +68,12 @@
               VerticalAlignment="Center"
               IsChecked="{Binding TotalsByQuantity}"/>
 
+            <Button Content="Экпорт..."
+            Style="{StaticResource GrayButton}"
+            Command="{Binding ExportExcelCommand}"
+            CommandParameter="{Binding ElementName=PivotGrid}"
+            Margin="10,0,0,0"
+            MinWidth="70"/>
         </StackPanel>
 
         <!-- PIVOT TABLE -->

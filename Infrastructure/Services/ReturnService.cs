@@ -102,21 +102,23 @@ public class ReturnService
             }
 
             // 3. If refund method is "Зачесть в баланс", update Customer.Dept
-            if (returnEntity.RefundMethod == "Зачесть в баланс"
-			&& !string.IsNullOrEmpty(returnEntity.CustomerId))
-            {
-                var customer = await _db.Set<CustomerEntity>()
-                    .FirstOrDefaultAsync(c => c.Id == returnEntity.CustomerId);
+   //         if (returnEntity.RefundMethod == "Зачесть в баланс"
+			//&& !string.IsNullOrEmpty(returnEntity.CustomerId))
+   //         {
+   //             var customer = await _db.Set<CustomerEntity>()
+   //                 .FirstOrDefaultAsync(c => c.Id == returnEntity.CustomerId);
 
-                if (customer != null)
-                {
-                    customer.Debt -=(double) returnEntity.TotalAmount;
-                    _db.Update(customer);
-                }
-            }
+   //             if (customer != null)
+   //             {
+   //                 customer.Debt = Math.Round(
+			//		(customer.Debt ?? 0) - (double)returnEntity.TotalAmount,
+			//		2,
+			//		 MidpointRounding.AwayFromZero);
 
 
-
+   //                 _db.Update(customer);
+   //             }
+   //         }
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -192,4 +194,51 @@ public class ReturnService
 	{
 		return await _db.Set<ReturnEntity>().AnyAsync(predicate, ct);
 	}
+
+    /// <summary>
+    /// Получить все возвраты за сегодня.
+    /// </summary>
+    public async Task<IReadOnlyList<ReturnEntity>> GetTodayReturnsAsync(CancellationToken ct = default)
+    {
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+
+        return await _db.Set<ReturnEntity>()
+            .AsNoTracking()
+            .Include(r => r.Customer)
+            .Include(r => r.ReturnDetails)
+                .ThenInclude(d => d.Product)
+                    .ThenInclude(p => p.Brand)
+            .Where(r => r.Date >= today && r.Date < tomorrow)
+            .OrderByDescending(r => r.Date)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<DateTime>> GetReturnDatesAsync(CancellationToken ct = default)
+    {
+        return await _db.Set<ReturnEntity>()
+            .AsNoTracking()
+            .Select(r => r.Date.Date)
+            .Distinct()
+            .OrderByDescending(d => d)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ReturnEntity>> GetReturnsByDateAsync(
+        DateTime date,
+        CancellationToken ct = default)
+    {
+        var from = date.Date;
+        var to = from.AddDays(1);
+
+        return await _db.Set<ReturnEntity>()
+            .AsNoTracking()
+            .Include(r => r.Customer)
+            .Include(r => r.ReturnDetails)
+                .ThenInclude(d => d.Product)
+                    .ThenInclude(p => p.Brand)
+            .Where(r => r.Date >= from && r.Date < to)
+            .OrderByDescending(r => r.Date)
+            .ToListAsync(ct);
+    }
 }

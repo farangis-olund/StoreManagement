@@ -125,19 +125,23 @@ public partial class CustomerSalesPaymentsReportViewModel : ObservableObject
         Rows.Clear();
 
         var grouped = data
-            .GroupBy(x => x.CustomerCode)
-            .OrderBy(g => g.Key);
+        .GroupBy(x => new { x.CustomerCode, x.FullName })
+        .OrderBy(g => g.Key.CustomerCode);
 
         foreach (var g in grouped)
         {
             Rows.Add(new SalesPaymentDto
             {
-                CustomerCode = g.Key,
+                CustomerCode = g.Key.CustomerCode,
+                FullName = g.Key.FullName,
                 Sales = g.Sum(x => x.Sales),
                 Payments = g.Sum(x => x.Payments)
             });
         }
     }
+
+    private readonly List<string> _chartTooltips = new();
+
     public AxesCollection AxisX { get; set; } = new();
     // =========================
     // CHART: CUSTOMER
@@ -146,10 +150,12 @@ public partial class CustomerSalesPaymentsReportViewModel : ObservableObject
     {
         SeriesCollection.Clear();
 
-        var grouped = data
-            .GroupBy(x => x.CustomerCode)
-            .OrderBy(g => g.Key)
-            .ToList();
+        
+         var grouped = data
+        .GroupBy(x => new { x.CustomerCode, x.FullName })
+        .OrderBy(g => g.Key.CustomerCode)
+        .ToList();
+
 
         var sales = new ChartValues<double>();
         var payments = new ChartValues<double>();
@@ -160,7 +166,7 @@ public partial class CustomerSalesPaymentsReportViewModel : ObservableObject
 
         foreach (var g in grouped)
         {
-            labels.Add(g.Key);
+            labels.Add($"{g.Key.CustomerCode} - {g.Key.FullName}");
 
             sales.Add((double)g.Where(x => x.Sales > 0).Sum(x => x.Sales));
             payments.Add((double)g.Where(x => x.Payments > 0).Sum(x => x.Payments));

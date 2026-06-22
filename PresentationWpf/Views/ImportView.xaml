@@ -74,7 +74,9 @@
 
             <!-- Action buttons (right) -->
             <StackPanel Orientation="Horizontal" Grid.Column="2">
-                 <Button Content="Отчёт" Width="100" Height="30" Margin="0,0,10,0" Style="{StaticResource GrayButton}"
+                <Button Content="Возвраты за день" Width="130" Height="30" Margin="0,0,10,0" Style="{StaticResource GrayButton}"
+                Command="{Binding ShowReturnReportCommand}" IsEnabled="{Binding CanPrint}"/> 
+                <Button Content="Отчёт" Width="100" Height="30" Margin="0,0,10,0" Style="{StaticResource GrayButton}"
                         Command="{Binding OpenReportCommand}" IsEnabled="{Binding CanPrint}"/>
                 <Button Content="Экспорт" Width="100" Height="30" Margin="0,0,10,0" Style="{StaticResource GrayButton}"
                         Command="{Binding ExportCommand}" IsEnabled="{Binding CanExport}"/>

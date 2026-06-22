@@ -118,12 +118,14 @@ public class SalesTotalService
                 .GroupBy(d => new
                 {
                     ProductGroup = d.Product.Group.GroupName,
-                    CustomerCode = d.Order.Customer!.Id
+                    CustomerCode = d.Order.Customer!.Id,
+                    CustomerName = d.Order.Customer.FullName
                 })
                 .Select(g => new SalesByGroupCustomerDto
                 {
                     ProductGroup = g.Key.ProductGroup ?? "",
                     CustomerCode = g.Key.CustomerCode ?? "",
+                    CustomerName = g.Key.CustomerName ?? "",
                     Firma = g.First().Product.Brand.BrandName,
                     Region = g.First().Order.Customer!.Region,
                     Total = g.Sum(x => (decimal)x.Price * x.Quentity),
@@ -142,126 +144,7 @@ public class SalesTotalService
         }
     }
 
-    //public async Task<List<SalesManagerReportRow>> GetManagerCommissionReportAsync(
-    // DateTime? fromDate = null,
-    // DateTime? toDate = null,
-    // string? firma = null,
-    // string? managerId = null)
-    //{
-    //    await using var db = await _contextFactory.CreateDbContextAsync();
-
-    //    try
-    //    {
-    //        var query = db.OrderDetails
-    //            .Include(d => d.Order)
-    //                .ThenInclude(o => o.Customer)
-    //            .Include(d => d.Product)
-    //                .ThenInclude(p => p.Brand)
-    //            .AsQueryable();
-
-    //        // DATE FILTER (FULL DAY SAFE)
-    //        if (fromDate.HasValue)
-    //        {
-    //            var from = fromDate.Value.Date;
-    //            query = query.Where(d => d.Order.Date >= from);
-    //        }
-
-    //        if (toDate.HasValue)
-    //        {
-    //            var to = toDate.Value.Date.AddDays(1);
-    //            query = query.Where(d => d.Order.Date < to);
-    //        }
-
-    //        // FIRMA FILTER (CompanyName!)
-    //        if (!string.IsNullOrWhiteSpace(firma) && firma != "Всё")
-    //            query = query.Where(d => d.Product.Brand.CompanyName == firma);
-
-    //        var rawData = await query
-    //            .Select(d => new
-    //            {
-    //                ManagerId = d.Order.Customer!.ManagerCustomers
-    //                    .Select(mc => mc.ManagerId)
-    //                    .FirstOrDefault(),
-
-    //                Company = d.Product.Brand.CompanyName,
-    //                BrandId = d.Product.Brand.Id,
-    //                Amount = (decimal)d.Price * d.Quentity
-    //            })
-    //            .ToListAsync();
-
-    //        if (!string.IsNullOrWhiteSpace(managerId))
-    //            rawData = rawData.Where(x => x.ManagerId == managerId).ToList();
-
-    //        var managers = await db.SalesManagers
-    //            .Include(m => m.ManagerBrands)
-    //                .ThenInclude(mb => mb.Brand)
-    //            .ToListAsync();
-
-    //        if (!string.IsNullOrWhiteSpace(managerId))
-    //            managers = managers.Where(m => m.Id == managerId).ToList();
-
-    //        var result = new List<SalesManagerReportRow>();
-
-    //        foreach (var manager in managers)
-    //        {
-    //            var row = new SalesManagerReportRow
-    //            {
-    //                ManagerId = manager.Id,
-    //                ManagerName = manager.FullName
-    //            };
-
-    //            var managerSales = rawData
-    //                .Where(x => x.ManagerId == manager.Id)
-    //                .GroupBy(x => x.Company);
-
-    //            foreach (var companyGroup in managerSales)
-    //            {
-    //                string company = companyGroup.Key ?? "Неизвестный";
-
-    //                decimal totalSales = 0;
-    //                decimal totalCommission = 0;
-
-    //                foreach (var sale in companyGroup)
-    //                {
-    //                    var managerBrand = manager.ManagerBrands
-    //                        .FirstOrDefault(mb => mb.BrandId == sale.BrandId);
-
-    //                    if (managerBrand == null)
-    //                        continue;
-
-    //                    decimal saleAmount = sale.Amount;
-    //                    double percent = managerBrand.SalesPercentage;
-
-    //                    decimal commission = saleAmount * (decimal)(percent / 100.0);
-
-    //                    totalSales += saleAmount;
-    //                    totalCommission += commission;
-    //                }
-
-    //                double weightedPercent = totalSales == 0
-    //                    ? 0
-    //                    : (double)(totalCommission / totalSales * 100);
-
-    //                row.CompanyData[company] = new CompanySalesInfo
-    //                {
-    //                    SalesAmount = totalSales,
-    //                    Percentage = weightedPercent,
-    //                    CommissionAmount = totalCommission
-    //                };
-    //            }
-
-    //            result.Add(row);
-    //        }
-
-    //        return result;
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        Debug.WriteLine("Error in GetManagerCommissionReportAsync: " + ex);
-    //        return new List<SalesManagerReportRow>();
-    //    }
-    //}
-
+ 
     public async Task<List<SalesManagerReportRow>> GetManagerCommissionReportAsync(
     DateTime? fromDate = null,
     DateTime? toDate = null,
@@ -631,6 +514,7 @@ public class SalesTotalService
                     return new SalesPaymentDto
                     {
                         CustomerCode = d.Order.CustomerId,
+                        FullName = d.Order.Customer.FullName,
                         Region = d.Order.Customer?.Region ?? "",
                         Firma = d.Product?.Brand?.BrandName ?? "",
 
@@ -662,6 +546,7 @@ public class SalesTotalService
                 .Select(p => new SalesPaymentDto
                 {
                     CustomerCode = p.CustomerId,
+                    FullName = p.Customer.FullName,
                     Region = p.Customer?.Region ?? "",
                     Firma = "", // payments don't have firma
 

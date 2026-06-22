@@ -72,9 +72,9 @@
               IsTextSearchEnabled="True"
               ItemsSource="{Binding Customers}"
               SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
-              DisplayMemberPath="DisplayText"
+              DisplayMemberPath="{Binding CustomerDisplayMemberPath}"
               StaysOpenOnEdit="True"
-              TextSearch.TextPath="DisplayText" />
+              TextSearch.TextPath="{Binding CustomerDisplayMemberPath}" />
 
             <Button Command="{Binding CreateCustomerCommand}" 
             Style="{StaticResource TransparentHoverButton}" 
@@ -254,12 +254,22 @@
                         <Run Text="Менеджер по продажам" Foreground="Black"/>
                         <Run Text="*" Foreground="Red"/>
                     </TextBlock>
-                   
-                    <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
-                        ItemsSource="{Binding DataContext.SalesManagers, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        DisplayMemberPath="FullName"
-                        SelectedValuePath="Id"
-                        SelectedValue="{Binding SalesManagerId, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <ComboBox Width="180"
+                          Height="32"
+                          FontSize="14"
+                          VerticalContentAlignment="Center"
+                          Padding="5"
+                          ItemsSource="{Binding DataContext.SalesManagers, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          DisplayMemberPath="FullName"
+                          SelectedValuePath="Id"
+                          SelectedValue="{Binding SalesManagerId, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <CheckBox Margin="30,0,0,0" FontSize="20" 
+                          VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                          IsChecked="{Binding OfficialCustomer, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </ScrollViewer> 

@@ -80,8 +80,10 @@ public class ProductService
         try
         {
             var productEntities = await _productRepository.GetAllAsync();
-            return productEntities.Select(productEntity => (Product)productEntity);
 
+            return productEntities
+                .OrderBy(p => p.Numbering)   
+                .Select(productEntity => (Product)productEntity);
         }
         catch (Exception ex)
         {
@@ -91,7 +93,7 @@ public class ProductService
         }
     }
 
-	public async Task<IEnumerable<Product>> GetAllProductAsync(
+    public async Task<IEnumerable<Product>> GetAllProductAsync(
 	bool onlyAvailable = false,
 	CancellationToken ct = default)
 	{

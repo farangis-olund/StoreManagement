@@ -1,13 +1,23 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Infrastructure.Dtos;
+using Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
+using PresentationWpf.Documents;
+using PresentationWpf.Services;
+using PresentationWpf.Views;
+using QuestPDF.Fluent;
+using System.IO;
+using System.Windows;
 
 namespace PresentationWpf.ViewModels;
 
 public partial class ReportsViewModel : ObservableObject
 {
     private readonly IServiceProvider _serviceProvider;
-
+    private readonly ReturnsDayReportService _returnsDayReportService;
+    private readonly PermissionService _permissionService;
     // === Current report ===
     [ObservableProperty]
     private object? currentReportView;
@@ -21,11 +31,19 @@ public partial class ReportsViewModel : ObservableObject
     [ObservableProperty] private bool isCourierStorekeeperReportSelected;
     [ObservableProperty] private bool isInactiveWarehouseProductsSelected;
     [ObservableProperty] private bool isWarehousePlaceReportSelected;
+    [ObservableProperty] private bool isReturnsDayReportSelected;
+    [ObservableProperty] private bool isOfficialSalesSummarySelected;
 
-    public ReportsViewModel(IServiceProvider serviceProvider)
+    public bool CanViewStandardReports => !_permissionService.Has("OnlyOfficialCustomer");
+
+    public ReportsViewModel(
+        IServiceProvider serviceProvider,
+        ReturnsDayReportService returnsDayReportService,
+        PermissionService permissionService)
     {
         _serviceProvider = serviceProvider;
-   
+        _returnsDayReportService = returnsDayReportService;
+        _permissionService = permissionService;
     }
 
     // ================= REPORTS =================
@@ -37,6 +55,14 @@ public partial class ReportsViewModel : ObservableObject
         ResetSelection();
         IsSalesSummarySelected = true;
         CurrentReportView = _serviceProvider.GetService<TotalSalesReportViewModel>();
+    }
+
+    [RelayCommand]
+    private void OpenOfficialSalesSummary()
+    {
+        ResetSelection();
+        IsOfficialSalesSummarySelected = true;
+        CurrentReportView = _serviceProvider.GetService<OfficialSalesSummaryReportViewModel>();
     }
 
     // === Итоги по  клиентам ===
@@ -91,6 +117,15 @@ public partial class ReportsViewModel : ObservableObject
         CurrentReportView = _serviceProvider.GetService<WarehousePlaceReportViewModel>();
     }
 
+    [RelayCommand]
+    private void ReturnsDayReport()
+    {
+        ResetSelection();
+        IsReturnsDayReportSelected = true;
+        CurrentReportView = _serviceProvider.GetService<ReturnsDayReportViewModel>();
+     
+    }
+    
     // ================= HELPERS =================
 
     private void ResetSelection()
@@ -102,5 +137,7 @@ public partial class ReportsViewModel : ObservableObject
         IsCourierStorekeeperReportSelected = false;
         IsInactiveWarehouseProductsSelected = false;
         IsWarehousePlaceReportSelected = false;
+        IsReturnsDayReportSelected = false;
+        IsOfficialSalesSummarySelected = false;
     }
 }

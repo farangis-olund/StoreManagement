@@ -7,6 +7,7 @@ public sealed class PivotRow
 
     public List<PivotCell> Cells { get; } = [];
     public bool IsTotalRow { get; init; }
+    public bool IsPercentRow { get; set; }
 
     public decimal Total => Cells.Sum(c => c.Value);
 }

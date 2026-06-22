@@ -296,12 +296,21 @@
                     <!-- ========== ROW 0 ========== -->
 
                     <!-- Код Клиента -->
-                    <TextBlock Text="Код Клиента" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Margin="2"/>
+                    <TextBlock Text="Код Клиента"
+                               Grid.Row="0"
+                               Grid.Column="0"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               Margin="2"
+                               Visibility="{Binding CanViewCustomerCode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                     <ComboBox Grid.Row="0" Grid.Column="1" Margin="2" 
-              ItemsSource="{Binding CustomersView}"
-              SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
-              DisplayMemberPath="Id"
-              IsEditable="True" TextSearch.TextPath="Id" FontSize="12"/>
+                      ItemsSource="{Binding CustomersView}"
+                      SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
+                      DisplayMemberPath="{Binding CustomerDisplayMemberPath}"
+                      IsEditable="True"
+                      TextSearch.TextPath="{Binding CustomerDisplayMemberPath}"
+                      FontSize="12"
+                      Visibility="{Binding CanViewCustomerCode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                     <!-- Доставщик -->
                     <TextBlock Text="Доставщик" Grid.Row="0" Grid.Column="3" VerticalAlignment="Center"  FontSize="12" Margin="2"/>
@@ -316,9 +325,41 @@
               FontSize="12"/>
 
                     <!-- Уровень -->
-                    <TextBlock Text="Уровень" Grid.Row="0" Grid.Column="6" VerticalAlignment="Center"  FontSize="12" Margin="2"/>
-                    <TextBox Grid.Row="0" IsReadOnly="True" Grid.Column="7" Text="{Binding SelectedCustomer.PriceType}" FontSize="12" Margin="2"/>
+                    <TextBlock Text="Уровень"
+           Grid.Row="0"
+           Grid.Column="6"
+           VerticalAlignment="Center"
+           FontSize="12"
+           Margin="2"/>
 
+                    <StackPanel Grid.Row="0"
+            Grid.Column="7"
+            Orientation="Horizontal"
+            VerticalAlignment="Center"
+            Margin="2">
+
+             <TextBox IsReadOnly="True"
+             Text="{Binding SelectedCustomer.PriceType}"
+             FontSize="12"
+             Width="70"
+             Height="25"
+             VerticalContentAlignment="Center"/>
+
+             <TextBlock Text="{Binding CustomerLevelArrow}"
+               Foreground="{Binding CustomerLevelArrowColor}"
+               FontSize="16"
+               FontWeight="Bold"
+               Margin="6,0,0,0"
+               VerticalAlignment="Center"
+               Visibility="{Binding ShowCustomerLevelArrow, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock.ToolTip>
+                                <StackPanel>
+                                    <!--<TextBlock Text="{Binding CustomerLast30DaysTotal, StringFormat=Сумма за 30 дней: {0:N2}}"/>-->
+                                    <TextBlock Text="{Binding CustomerCalculatedPriceType, StringFormat=Предлагаемый уровень: {0}}"/>
+                                </StackPanel>
+                            </TextBlock.ToolTip>
+                    </TextBlock>
+                    </StackPanel>
                     <!-- Ограничение -->
                     <TextBlock Text="Ограничение" Grid.Row="0" Grid.Column="9" VerticalAlignment="Center" FontSize="12" Margin="2"/>
                     <TextBox Grid.Row="0" IsReadOnly="True" Grid.Column="10" Text="{Binding SelectedCustomer.Restriction}" FontSize="12" Margin="2" />
@@ -403,7 +444,7 @@
 
                     <!-- Заказ прямо со склада -->
                     <TextBlock Text="Заказ прямо со склада" Grid.Row="1" Grid.Column="9" VerticalAlignment="Center" FontSize="12" Margin="2"/>
-                    <CheckBox Grid.Row="1" Grid.Column="10" Margin="3" IsChecked="{Binding IsDirectFromStock}" HorizontalAlignment="Left"/>
+                    <CheckBox Grid.Row="1" Grid.Column="10" Margin="3" IsChecked="{Binding DirectFromStock, Mode=TwoWay}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                 </Grid>
 
                 <!-- StackPanel create order -->
@@ -438,6 +479,13 @@
                               VerticalAlignment="Center"
                               IsChecked="{Binding IsBarter}"
                               ToolTip="Отметьте, если заказ оформляется по бартеру"/>
+
+                        <CheckBox Grid.Column="3"
+                              Content="ОЗ"
+                              Margin="10,0"
+                              VerticalAlignment="Center"
+                              IsChecked="{Binding OfficialOrder, Mode=TwoWay}"
+                              Visibility="{Binding ShowOfficialOrder, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                       
                         <!-- Оформить заказ -->
                         <Button Grid.Column="4" Margin="10,0"

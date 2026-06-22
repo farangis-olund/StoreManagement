@@ -1,4 +1,5 @@
 ﻿
+using PresentationWpf.Converters;
 using PresentationWpf.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
@@ -47,8 +48,9 @@ public partial class SaleTotalByGroupReportView : UserControl
 
         PivotGrid.Columns.Add(rowColumn);
 
+      
         // BRAND COLUMNS
-        for (int i = 0; i < vm.BrandColumns.Count; i++)
+       for (int i = 0; i < vm.BrandColumns.Count; i++)
         {
             int columnIndex = i;
 
@@ -65,9 +67,9 @@ public partial class SaleTotalByGroupReportView : UserControl
             brandColumn.ElementStyle = new Style(typeof(TextBlock))
             {
                 Setters =
-            {
-                new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Right)
-            }
+        {
+            new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Right)
+        }
             };
 
             PivotGrid.Columns.Add(brandColumn);
@@ -103,7 +105,7 @@ public partial class SaleTotalByGroupReportView : UserControl
             new Setter(DataGridRow.BackgroundProperty, Brushes.White)
         },
             Triggers =
-        {
+            {
             new DataTrigger
             {
                 Binding = new Binding("IsTotalRow"),
@@ -113,6 +115,18 @@ public partial class SaleTotalByGroupReportView : UserControl
                     new Setter(DataGridRow.FontWeightProperty, FontWeights.Bold),
                     new Setter(DataGridRow.BackgroundProperty,
                         new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EDEDED")))
+                }
+            },
+
+            new DataTrigger
+            {
+                Binding = new Binding("IsPercentRow"),
+                Value = true,
+                Setters =
+                {
+                    new Setter(DataGridRow.FontWeightProperty, FontWeights.Bold),
+                    new Setter(DataGridRow.BackgroundProperty,
+                        new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F5F5F5")))
                 }
             }
         }

@@ -43,7 +43,6 @@
                       IsEditable="True"
                       Margin="0,0,20,0"/>
 
-            <!-- 🔥 NEW -->
             <CheckBox Content="С учетом даты"
                       IsChecked="{Binding UseDateGrouping}"
                       VerticalAlignment="Center"/>
@@ -53,16 +52,18 @@
       
         <!-- TABLE -->
         <DataGrid Grid.Row="2"
-                  ItemsSource="{Binding Rows}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  Style="{StaticResource SummaryGrid}">
+          ItemsSource="{Binding Rows}"
+          AutoGenerateColumns="False"
+          IsReadOnly="True"
+          Style="{StaticResource SummaryGrid}">
+
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Код клиента" Binding="{Binding CustomerCode}"/>
+                <DataGridTextColumn Header="Код" Width="100" Binding="{Binding CustomerCode}"/>
+                <DataGridTextColumn Header="ФИО" Width="200" Binding="{Binding FullName}"/>
                 <DataGridTextColumn Header="Продажа" Binding="{Binding Sales}"/>
                 <DataGridTextColumn Header="Платежи" Binding="{Binding Payments}"/>
-             </DataGrid.Columns>
+            </DataGrid.Columns>
 
         </DataGrid>
 

@@ -32,7 +32,9 @@ public class Customer
 
 	public string? SalesManagerId { get; set; }
 
-	public string DisplayText => $"{Id} - {FullName}";
+    public bool OfficialCustomer { get; set; } = false;
+
+    public string DisplayText => $"{Id} - {FullName}";
 
 	public static implicit operator Customer?(CustomerEntity? entity)
 	{
@@ -54,7 +56,7 @@ public class Customer
 			Notes = entity.Notes,
 			Debt = entity.Debt,
 			Restriction = entity.Restriction,
-
+			OfficialCustomer = entity.OfficialCustomer,
 			// --- Коэффициенты ---
 			DailyPurchaseCoefficient = entity.DailyPurchaseCoefficient,
 			DailyRepaymentCoefficient = entity.DailyRepaymentCoefficient,

@@ -32,6 +32,7 @@ public partial class RetailViewModel : ObservableObject
 	private readonly SalesManagerRepository _salesManagerRepo;
 	private readonly DialogService _dialogService;
 	private readonly CustomerFinanceService _financeService;
+    private readonly PermissionService _permissionService;
 	public RetailViewModel(ProductService productService, 
 							UserSessionService userSessionService, 
 							OrderService orderService, 
@@ -42,7 +43,8 @@ public partial class RetailViewModel : ObservableObject
 							StorekeeperRepository storekeeperRepo,
 							SalesManagerRepository salesManagerRepo,
 							DialogService dialogService,
-							CustomerFinanceService financeService)
+							CustomerFinanceService financeService,
+                            PermissionService permissionService)
 	{
 		_productService = productService;
 		_orderService = orderService;
@@ -55,6 +57,7 @@ public partial class RetailViewModel : ObservableObject
 		_salesManagerRepo = salesManagerRepo;
 		_dialogService = dialogService;
 		_financeService = financeService;
+        _permissionService = permissionService;
 
 		_productList = [];
 		_selectedProductList = [];
@@ -109,8 +112,22 @@ public partial class RetailViewModel : ObservableObject
 	[ObservableProperty]
 	private Customer? _selectedCustomer = null!;
 
+    public bool IsOnlyOfficialCustomer =>
+        _permissionService.Has("OnlyOfficialCustomer") ||
+        _permissionService.Has("onlyOfficialCustomer");
+
+    public bool CanViewCustomerCode => !IsOnlyOfficialCustomer;
+
+    public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "Id";
+
 	[ObservableProperty]
 	private bool _directFromStock;
+
+    [ObservableProperty]
+    private bool _officialOrder = true;
+
+    [ObservableProperty]
+    private bool _showOfficialOrder;
 
 	[ObservableProperty]
 	private double _exchangeRate = 1;
@@ -259,7 +276,20 @@ public partial class RetailViewModel : ObservableObject
         InlineSuggestionOffset = formatted.Width;
     }
 
+    [ObservableProperty]
+    private string? customerLevelArrow;
 
+    [ObservableProperty]
+    private Brush customerLevelArrowColor = Brushes.Transparent;
+
+    [ObservableProperty]
+    private bool showCustomerLevelArrow;
+
+    [ObservableProperty]
+    private decimal customerLast30DaysTotal;
+
+    [ObservableProperty]
+    private string? customerCalculatedPriceType;
 
     public ICollectionView ProductListView { get; private set; } = null!;
 
@@ -369,17 +399,24 @@ public partial class RetailViewModel : ObservableObject
 
 	partial void OnSelectedCustomerChanged(Customer? value)
 	{
+        ShowOfficialOrder = value?.OfficialCustomer == true;
+        OfficialOrder = ShowOfficialOrder;
+
 		ApplyCustomerLevelPrice();
 
-		if (value == null)
+        _ = UpdateCustomerLevelIndicatorAsync();
+
+        _ = LoadInactiveForSelectedCustomerAsync(value);
+
+        if (value == null)
 		{
 			RequiredPurchase = 0;
 			PlannedPurchase = 0;
 			return;
 		}
-
-		// ✅ Check if this customer exists in inactive debt list
-		var debtInfo = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == value.Id);
+      
+        // ✅ Check if this customer exists in inactive debt list
+        var debtInfo = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == value.Id);
 		if (debtInfo != null)
 		{
 			RequiredPurchase = debtInfo.Shortfall;
@@ -400,10 +437,58 @@ public partial class RetailViewModel : ObservableObject
 			PlannedPurchase = 0;
 		}
 
+
 	}
 
+    private async Task UpdateCustomerLevelIndicatorAsync()
+    {
+        if (SelectedCustomer == null)
+        {
+            CustomerLevelArrow = null;
+            CustomerLevelArrowColor = Brushes.Transparent;
+            ShowCustomerLevelArrow = false;
+            CustomerLast30DaysTotal = 0;
+            CustomerCalculatedPriceType = null;
+            return;
+        }
 
-	private void ApplyCustomerLevelPrice()
+        var info = await _customerService.GetCustomerLevelChangeAsync(SelectedCustomer.Id);
+
+        if (info == null)
+        {
+            CustomerLevelArrow = null;
+            CustomerLevelArrowColor = Brushes.Transparent;
+            ShowCustomerLevelArrow = false;
+            CustomerLast30DaysTotal = 0;
+            CustomerCalculatedPriceType = null;
+            return;
+        }
+
+        CustomerLast30DaysTotal = info.Last30DaysTotal;
+        CustomerCalculatedPriceType = info.CalculatedPriceType;
+
+        if (info.IsUp)
+        {
+            CustomerLevelArrow = "▲";
+            CustomerLevelArrowColor = Brushes.Green;
+            ShowCustomerLevelArrow = true;
+        }
+        else if (info.IsDown)
+        {
+            CustomerLevelArrow = "▼";
+            CustomerLevelArrowColor = Brushes.Red;
+            ShowCustomerLevelArrow = true;
+        }
+        else
+        {
+            CustomerLevelArrow = null;
+            CustomerLevelArrowColor = Brushes.Transparent;
+            ShowCustomerLevelArrow = false;
+        }
+    }
+
+
+    private void ApplyCustomerLevelPrice()
 	{
 		if (ProductList is null) return;
 
@@ -498,6 +583,20 @@ public partial class RetailViewModel : ObservableObject
 
     private async Task SaveOrder()
     {
+        if (DirectFromStock)
+        {
+            var confirm = MessageBox.Show(
+                "Вы выбрали оформление заказа напрямую со склада.\n\n" +
+                "В этом случае количество товара НЕ будет списано со склада.\n\n" +
+                "Вы уверены, что хотите продолжить?",
+                "Подтверждение оформления",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirm != MessageBoxResult.Yes)
+                return;
+        }
+
         try
         {
             if (SelectedProductList == null || !SelectedProductList.Any())
@@ -579,6 +678,7 @@ public partial class RetailViewModel : ObservableObject
                 CustomerId = SelectedCustomer.Id,
                 WithoutInvoice = IsSellingWithoutInvoice,
                 DirectFromStock = DirectFromStock,
+                OfficialOrder = OfficialOrder,
                 Stock = false,
                 IsPaid = false,
                 IsBarter = IsBarter,
@@ -609,6 +709,7 @@ public partial class RetailViewModel : ObservableObject
             MessageBox.Show("Заказ успешно оформлен!", "Оформление заказа");
 
             SelectedProductList.Clear();
+			DirectFromStock = false;
             await RefreshProductsAsync();
 
             // ✅ Handle barter flow (add payment + report)
@@ -742,6 +843,9 @@ public partial class RetailViewModel : ObservableObject
 	{
 		if (obj is not Customer c) return false;
 
+        if (IsOnlyOfficialCustomer && !c.OfficialCustomer)
+            return false;
+
 		// If no manager selected -> show everyone
 		if (SelectedSalesManager == null) return true;
 
@@ -847,36 +951,94 @@ public partial class RetailViewModel : ObservableObject
 
 	[ObservableProperty]
 	private int _inactivePlannedCount;
-	private async Task LoadInactiveCustomersAsync()
-	{
-		InactiveDebtCustomers.Clear();
-		InactivePlannedCustomers.Clear();
+    //private async Task LoadInactiveCustomersAsync()
+    //{
+    //	InactiveDebtCustomers.Clear();
+    //	InactivePlannedCustomers.Clear();
 
-		InactiveDebtCount = 0;
-		InactivePlannedCount = 0;
+    //	InactiveDebtCount = 0;
+    //	InactivePlannedCount = 0;
 
-		if (SelectedSalesManager == null)
-			return;
+    //	if (SelectedSalesManager == null)
+    //		return;
 
-		var managerId = SelectedSalesManager.Id;
-		var territory = SelectedTerritory;
+    //	var managerId = SelectedSalesManager.Id;
+    //	var territory = SelectedTerritory;
 
-		// 1) Customers with unpaid debts
-		var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(managerId, territory);
-		foreach (var c in debtList)
-			InactiveDebtCustomers.Add(c);
+    //	// 1) Customers with unpaid debts
+    //	var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(managerId, territory);
+    //	foreach (var c in debtList)
+    //		InactiveDebtCustomers.Add(c);
 
-		InactiveDebtCount = InactiveDebtCustomers.Count;
+    //	InactiveDebtCount = InactiveDebtCustomers.Count;
 
-		// 2) Customers not buying as planned
-		var plannedList = await _financeService.NeaktivNeZakupAsync(managerId, territory);
-		foreach (var c in plannedList)
-			InactivePlannedCustomers.Add(c);
+    //	// 2) Customers not buying as planned
+    //	var plannedList = await _financeService.NeaktivNeZakupAsync(managerId, territory);
+    //	foreach (var c in plannedList)
+    //		InactivePlannedCustomers.Add(c);
 
-		InactivePlannedCount = InactivePlannedCustomers.Count;
-	}
+    //	InactivePlannedCount = InactivePlannedCustomers.Count;
+    //}
 
-	private async Task RefreshProductsAsync()
+    private async Task LoadInactiveCustomersAsync()
+    {
+        InactiveDebtCustomers.Clear();
+        InactivePlannedCustomers.Clear();
+
+        InactiveDebtCount = 0;
+        InactivePlannedCount = 0;
+
+        string? managerId = SelectedSalesManager?.Id;
+        string? territory = SelectedTerritory;
+        string? customerId = SelectedCustomer?.Id;
+
+        var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(
+            managerId,
+            territory,
+            customerId
+        );
+
+        foreach (var c in debtList)
+            InactiveDebtCustomers.Add(c);
+
+        InactiveDebtCount = InactiveDebtCustomers.Count;
+
+        var plannedList = await _financeService.NeaktivNeZakupAsync(
+            managerId,
+            territory,
+            customerId
+        );
+
+        foreach (var c in plannedList)
+            InactivePlannedCustomers.Add(c);
+
+        InactivePlannedCount = InactivePlannedCustomers.Count;
+    }
+
+    private async Task LoadInactiveForSelectedCustomerAsync(Customer? value)
+    {
+        if (value == null)
+        {
+            RequiredPurchase = 0;
+            PlannedPurchase = 0;
+            return;
+        }
+
+        await LoadInactiveCustomersAsync();
+
+        var debtInfo = InactiveDebtCustomers
+            .FirstOrDefault(c => c.CustomerId == value.Id);
+
+        RequiredPurchase = debtInfo?.Shortfall ?? 0;
+
+        var plannedInfo = InactivePlannedCustomers
+            .FirstOrDefault(c => c.CustomerId == value.Id);
+
+        PlannedPurchase = plannedInfo?.Shortfall ?? 0;
+    }
+
+
+    private async Task RefreshProductsAsync()
 	{
 		ProductList.Clear();
 		var productDtos = await _productService.GetAllProductAsync();

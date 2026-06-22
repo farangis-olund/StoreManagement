@@ -47,7 +47,7 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
     public DbSet<CategoryEntity> Categories { get; set; }
     public DbSet<ExpenseEntity> Expenses { get; set; }
     public DbSet<CourierPaymentEntity> CourierPayments { get; set; }
-
+    public DbSet<StoreTransferSummaryEntity> StoreTransferSummaries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

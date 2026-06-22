@@ -13,6 +13,7 @@ using System.IO;
 using PresentationWpf.Services;
 using Infrastructure.Entities;
 using DocumentFormat.OpenXml.Drawing.Charts;
+using System.Windows.Controls;
 
 namespace PresentationWpf.ViewModels;
 
@@ -158,6 +159,33 @@ public partial class SalesSummaryViewModel : ObservableObject
     {
         SelectedClient = null;
         await LoadAllAsync();
+    }
+
+    [RelayCommand]
+    private void ExportSalesSummary(DataGrid? grid)
+    {
+        if (grid == null)
+            return;
+
+        ExcelExportHelper.ExportFromDataGrid(grid, "Итоги по продажам.xlsx");
+    }
+
+    [RelayCommand]
+    private void ExportAllInactives(DataGrid? grid)
+    {
+        if (grid == null)
+            return;
+
+        ExcelExportHelper.ExportFromDataGrid(grid, "Задолженность без оборота.xlsx");
+    }
+
+    [RelayCommand]
+    private void ExportInactives(DataGrid? grid)
+    {
+        if (grid == null)
+            return;
+
+        ExcelExportHelper.ExportFromDataGrid(grid, "Неактивные клиенты.xlsx");
     }
 
     [RelayCommand]

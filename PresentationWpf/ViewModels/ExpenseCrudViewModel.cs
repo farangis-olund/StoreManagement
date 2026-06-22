@@ -20,11 +20,12 @@ public partial class ExpenseCrudViewModel : ObservableObject
     private readonly ExpenseService _service;
     private readonly UserSessionService _userSessionService;
     private readonly IDbContextFactory<DatabaseContext> _dbFactory;
-   
+
+    public PermissionService PermissionService { get; }
 
     public ExpenseCrudViewModel(
         ExpenseService service, UserSessionService userSessionService,
-        IDbContextFactory<DatabaseContext> dbFactory)
+        IDbContextFactory<DatabaseContext> dbFactory, PermissionService permissionService)
     {
         _service = service;
         _dbFactory = dbFactory;
@@ -34,9 +35,10 @@ public partial class ExpenseCrudViewModel : ObservableObject
         ToDate = null;
 
         Reasons = ExpenseReasonMapper.GetItems(); // RU list
+      
+        PermissionService = permissionService;
 
         _ = LoadAsync();
-        
     }
 
     // =========================
@@ -70,18 +72,59 @@ public partial class ExpenseCrudViewModel : ObservableObject
     [ObservableProperty] private DateTime? fromDate;
     [ObservableProperty] private DateTime? toDate;
 
-    // =========================
+    public bool CanViewRemove => PermissionService.Has("Expenses.Remove");
+    public bool CanShowAllExpenses => PermissionService.Has("Expenses.ShowAllExpenses");
+    public void RefreshPermissions()
+    {
+        OnPropertyChanged(nameof(CanViewRemove));
+        OnPropertyChanged(nameof(CanShowAllExpenses));
+
+    }
+
+
+    [ObservableProperty] private decimal totalAmountTjs;
+    [ObservableProperty] private decimal totalAmountEuro;
+    [ObservableProperty] private int totalRowsCount;
+
+    private void RecalculateTotals()
+    {
+        TotalAmountTjs = Rows.Sum(x => x.AmountTjs);
+        TotalAmountEuro = Rows.Sum(x => x.AmountEuro);
+        TotalRowsCount = Rows.Count;
+    }
+
+    
     // LOAD
-    // =========================
-    public async Task LoadAsync()
+       public async Task LoadAsync()
     {
         Rows.Clear();
         Persons.Clear();
 
-        var data = await _service.GetExpensesAsync(FromDate, ToDate);
+        bool canShowAllExpenses = PermissionService.Has("Expenses.ShowAllExpenses");
+        int currentUserId = _userSessionService.UserId;
+
+        DateTime? from = FromDate;
+        DateTime? to = ToDate;
+
+        if (!canShowAllExpenses)
+        {
+            from = DateTime.Today;
+            to = DateTime.Today;
+        }
+
+        var data = await _service.GetExpensesAsync(from, to);
+
+        if (!canShowAllExpenses)
+        {
+            data = data
+                .Where(x => x.UserId == currentUserId && x.Date.Date == DateTime.Today)
+                .ToList();
+        }
 
         foreach (var x in data)
             Rows.Add(x);
+
+        RecalculateTotals();
 
         await using var db = await _dbFactory.CreateDbContextAsync();
 
@@ -205,18 +248,8 @@ public partial class ExpenseCrudViewModel : ObservableObject
         var rate = _userSessionService.ExchangeRate;
         var calculatedEuro = rate > 0 ? Math.Round(AmountTjs / (decimal)rate, 2) : 0;
 
-        int? selectedUserId = null;
-        string? selectedCourierId = null;
-
-        if (SelectedPerson != null)
-        {
-            if (SelectedPerson.Type == "User" && int.TryParse(SelectedPerson.Id, out var uid))
-                selectedUserId = uid;
-
-            if (SelectedPerson.Type == "Courier")
-                selectedCourierId = SelectedPerson.Id;
-        }
-
+        int selectedUserId = _userSessionService.UserId;
+       
         ExpenseEntity? entity;
         bool isNew = SelectedRow == null;
 
@@ -226,7 +259,6 @@ public partial class ExpenseCrudViewModel : ObservableObject
             {
                 Date = Date,
                 UserId = selectedUserId,
-                CourierId = selectedCourierId,
                 AmountEuro = calculatedEuro,
                 AmountSmn = AmountTjs,
                 Reason = SelectedReason!.Value,
@@ -244,7 +276,6 @@ public partial class ExpenseCrudViewModel : ObservableObject
 
             entity.Date = Date;
             entity.UserId = selectedUserId;
-            entity.CourierId = selectedCourierId;
             entity.AmountEuro = calculatedEuro;
             entity.AmountSmn = AmountTjs;
             entity.Reason = SelectedReason!.Value;
@@ -424,18 +455,7 @@ public partial class ExpenseCrudViewModel : ObservableObject
 
     private bool ValidateBeforeSave()
     {
-        if (Date == default)
-        {
-            MessageBox.Show("Выберите дату.", "Проверка", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return false;
-        }
-
-        if (SelectedPerson == null)
-        {
-            MessageBox.Show("Выберите пользователя или доставщика.", "Проверка", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return false;
-        }
-
+        
         if (AmountTjs <= 0)
         {
             MessageBox.Show("Введите сумму больше нуля.", "Проверка", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -476,5 +496,5 @@ public class ExpenseInvoiceViewModel
     public decimal Rate { get; set; }
 
     public string ShopName { get; set; } = "AutoSpaire Store";
-    public string InvoiceNumber => $"EXP-{Id}";
+    public string InvoiceNumber => $"РАСХ-{Id}";
 }

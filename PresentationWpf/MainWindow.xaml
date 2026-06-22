@@ -122,7 +122,7 @@
         <Style x:Key="ArrowToggleButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Foreground" Value="Gold"/>
+            <Setter Property="Foreground" Value="Wheat"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -221,16 +221,29 @@
             <Button DockPanel.Dock="Top" Command="{Binding GoHomeCommand}"
                Style="{StaticResource LogoButtonStyle}">
                 <StackPanel Background="#302D3E" Margin="0,0,0,0">
-                    <Grid Background="#302D3E" Margin="0,20,0,0" Width="40">
-                        <Image Source="Images/icons/wheel.png"/>
+                    <Grid Background="#302D3E" Margin="0,20,0,0" Width="100">
+                        <Image Source="Images/icons/wheel.png" Width="50"/>
                     </Grid>
-                    <TextBlock Text="AutoSpaire Store"
-                   FontWeight="Bold"
-                   HorizontalAlignment="Center"
-                   FontSize="12"
-                   Foreground="Wheat"
-                   VerticalAlignment="Top"
-                   Margin="0,0,0,20"/>
+                    <Grid HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,20">
+                        <TextBlock Text="Auto Spaire"
+                           FontSize="22"
+                           FontWeight="Bold"
+                           Foreground="#66000000"
+                           Margin="1,2,0,0"/>
+
+                        <TextBlock Text="Auto Spaire"
+                           FontSize="22"
+                           FontWeight="Bold">
+                            <TextBlock.Foreground>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#FFFBECC2" Offset="0.0"/>
+                                    <GradientStop Color="#F8DE9B" Offset="0.5"/>
+                                    <GradientStop Color="#D4B06A" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </TextBlock.Foreground>
+                        </TextBlock>
+                    </Grid>
+
                 </StackPanel>
             </Button>
 
@@ -343,7 +356,7 @@
                 Command="{Binding LogoutCommand}"
                 Height="50"
                 Background="Transparent"
-                 Style="{StaticResource LogoutButtonStyle}"
+                Style="{StaticResource LogoutButtonStyle}"
                 HorizontalContentAlignment="Center"
                 Visibility="{Binding IsLoggedIn, Converter={StaticResource BooleanToVisibilityConverter}}"
                 Width="180"
@@ -570,8 +583,16 @@
                     <views:TotalSalesReportView/>
                 </DataTemplate>
 
+                <DataTemplate DataType="{x:Type viewmodels:OfficialSalesSummaryReportViewModel}">
+                    <views:OfficialSalesSummaryReportView/>
+                </DataTemplate>
+
                 <DataTemplate DataType="{x:Type viewmodels:ExpenseCrudViewModel}">
                     <views:ExpenseCrudView/>
+                </DataTemplate>
+
+                <DataTemplate DataType="{x:Type viewmodels:ReturnsDayReportViewModel}">
+                    <views:ReturnsDayReportView/>
                 </DataTemplate>
 
             </ContentControl.Resources>

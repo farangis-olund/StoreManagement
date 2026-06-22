@@ -11,6 +11,7 @@ using System.IO;
 using QuestPDF.Fluent;
 using Infrastructure.Contexts;
 using Microsoft.EntityFrameworkCore;
+using PresentationWpf.Services;
 
 namespace PresentationWpf.ViewModels;
 
@@ -21,7 +22,24 @@ public partial class TransferReceiveViewModel : ObservableObject
     private readonly ProductService _productService;
     private readonly OrganizationInfoService _organizationInfoService;
     private readonly IDbContextFactory<DatabaseContext> _dbFactory;
+    private readonly UserSessionService _userSessionService;
 
+    public TransferReceiveViewModel(StoreService storeService,
+        StoreExchangeService exchangeService,
+        ProductService productService,
+        OrganizationInfoService organizationInfoService, IDbContextFactory<DatabaseContext> dbFactory,
+        UserSessionService userSessionService)
+    {
+        _storeService = storeService;
+        _exchangeService = exchangeService;
+        _productService = productService;
+        _organizationInfoService = organizationInfoService;
+        _dbFactory = dbFactory;
+        _userSessionService = userSessionService;
+
+        _ = LoadStoresAsync();
+
+    }
     public event Action? RequestClose;
 
     [ObservableProperty] private ObservableCollection<StoreEntity> storeList = [];
@@ -52,20 +70,7 @@ public partial class TransferReceiveViewModel : ObservableObject
     public event Action? RequestFocusQuantity;
 
 
-    public TransferReceiveViewModel(StoreService storeService, 
-        StoreExchangeService exchangeService, 
-        ProductService productService, 
-        OrganizationInfoService organizationInfoService, IDbContextFactory<DatabaseContext> dbFactory)
-    {
-        _storeService = storeService;
-        _exchangeService = exchangeService;
-        _productService = productService;
-        _organizationInfoService = organizationInfoService;
-        _dbFactory = dbFactory;
-
-        _ = LoadStoresAsync();
-       
-    }
+    
 
     // === Load Stores ===
     [RelayCommand]
@@ -158,6 +163,42 @@ public partial class TransferReceiveViewModel : ObservableObject
 
             await _exchangeService.AddAsync(newExchange);
             savedItems.Add(newExchange);
+        }
+
+        // 🔴 SAVE ONLY IF "передача_товара"
+        if (currentType == "передача_товара")
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+
+            int totalQty = Products.Where(p => p.Quantity > 0).Sum(p => p.Quantity);
+
+            // If you DON'T have price → keep 0
+            decimal totalAmount = 0;
+
+            // OPTIONAL (only if you want real total money)
+            foreach (var p in Products.Where(p => p.Quantity > 0))
+            {
+                var dbProduct = await db.Products
+                    .FirstOrDefaultAsync(x => x.ArticleNumber == p.Artikul);
+
+                if (dbProduct != null)
+                {
+                    // ⚠️ change to your real price field
+                    totalAmount += p.Quantity * (dbProduct.PriceLevel1);
+                }
+            }
+
+            var summary = new StoreTransferSummaryEntity
+            {
+                Date = DateTime.Now,
+                StoreCode = SelectedStore.StoreCode,
+                TotalQuantity = totalQty,
+                TotalAmount = totalAmount,
+                UserId = _userSessionService.UserId
+            };
+
+            db.StoreTransferSummaries.Add(summary);
+            await db.SaveChangesAsync();
         }
 
         // ✅ Clear UI

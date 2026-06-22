@@ -85,6 +85,13 @@
                              Style="{StaticResource GrayButton}"
                              Command="{Binding ShowAllCommand}"/>
 
+                        <Button Content="Экспорт..."
+                             Width="100"
+                             Margin="6,0,0,0"
+                             Style="{StaticResource GrayButton}"
+                             Command="{Binding ExportSalesSummaryCommand}"
+                             CommandParameter="{Binding ElementName=SalesGrid}"/>
+
                         <Button Margin="6,0,0,0" Style="{StaticResource GrayButton}"
                           Command="{Binding PrintCommand}"
                           Width="100"
@@ -116,7 +123,8 @@
                 </Grid>
 
                 <!-- ================= GRID ================= -->
-                <DataGrid Grid.Row="1"
+                <DataGrid x:Name="SalesGrid"
+                          Grid.Row="1"
                           ItemsSource="{Binding Sales}"
                           Style="{StaticResource SummaryGrid}"
                           AutoGenerateColumns="False"
@@ -242,6 +250,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- ЛЕВАЯ ЧАСТЬ (период) -->
@@ -293,6 +302,16 @@
                             <TextBlock Text="Печать"/>
                         </StackPanel>
                     </Button>
+
+                    <Button Grid.Column="3"
+                         Content="Экспорт..."
+                         Margin="6,0,0,0"
+                         Style="{StaticResource GrayButton}"
+                         Command="{Binding ExportAllInactivesCommand}"
+                         CommandParameter="{Binding ElementName=InactiveClientsGrid}"
+                         VerticalAlignment="Top"
+                         Width="100"
+                         Height="32"/>
                 </Grid>
 
                 <!-- ================= MANAGER + FILTER ================= -->
@@ -349,6 +368,14 @@
                             </StackPanel>
                             </Button>
 
+                            <Button Content="Экспорт..."
+                                 Margin="6,0,0,0"
+                                 Style="{StaticResource GrayButton}"
+                                 Command="{Binding ExportInactivesCommand}"
+                                 CommandParameter="{Binding ElementName=InactiveClientsGrid}"
+                                 Width="100"
+                                 Height="32"/>
+
                     </StackPanel>
                 </Grid>
 
@@ -360,7 +387,8 @@
                Margin="0,0,0,6"/>
 
                 <!-- ================= DATAGRID ================= -->
-                <DataGrid Grid.Row="3"
+                <DataGrid x:Name="InactiveClientsGrid"
+              Grid.Row="3"
               ItemsSource="{Binding InactiveClients}"
               Style="{StaticResource SummaryGrid}"
               AutoGenerateColumns="False"

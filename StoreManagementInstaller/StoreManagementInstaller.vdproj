@@ -15,43 +15,37 @@
     {
         "Entry"
         {
-        "MsmKey" = "8:_10888CC98CD0457EB7EAC9400CE6B420"
+        "MsmKey" = "8:_2D1126674E45418FB0CB13392127E0CA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_6FFA6FD51C6F4FE9829044A9CEA200C5"
+        "MsmKey" = "8:_4F8B4C2E4F694353BDFE2C990E0A4C27"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_85961BCA3CAD4877BDEC4966AA444AAA"
+        "MsmKey" = "8:_61B0765555394485A7BE8620E09F90B2"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_8E4D61AE805748128C9C28D5141BE120"
+        "MsmKey" = "8:_9A1A2B3DB3CB46228B09927AF9939CCA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_99099DE52F9145308550D3B1FA28466F"
+        "MsmKey" = "8:_ADB3553296DA42B5B3A62A6D0EFD292B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_BB706A95CE8940DEAD644C49FEA3914B"
-        "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_EAF6095F25654305A515990E8779F3BC"
+        "MsmKey" = "8:_FD14C75115294F9CBCF56FDEEA5C4BFB"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -142,47 +136,7 @@
         }
         "File"
         {
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_10888CC98CD0457EB7EAC9400CE6B420"
-            {
-            "SourcePath" = "8:..\\publish\\Microsoft.Web.WebView2.WinForms.xml"
-            "TargetName" = "8:Microsoft.Web.WebView2.WinForms.xml"
-            "Tag" = "8:"
-            "Folder" = "8:_B99C993D0F294D5197E060DBBD5032BB"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_6FFA6FD51C6F4FE9829044A9CEA200C5"
-            {
-            "SourcePath" = "8:..\\publish\\Infrastructure.pdb"
-            "TargetName" = "8:Infrastructure.pdb"
-            "Tag" = "8:"
-            "Folder" = "8:_B99C993D0F294D5197E060DBBD5032BB"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_85961BCA3CAD4877BDEC4966AA444AAA"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2D1126674E45418FB0CB13392127E0CA"
             {
             "SourcePath" = "8:..\\publish\\Microsoft.Web.WebView2.Wpf.xml"
             "TargetName" = "8:Microsoft.Web.WebView2.Wpf.xml"
@@ -202,7 +156,7 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8E4D61AE805748128C9C28D5141BE120"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4F8B4C2E4F694353BDFE2C990E0A4C27"
             {
             "SourcePath" = "8:..\\publish\\PresentationWpf.exe"
             "TargetName" = "8:PresentationWpf.exe"
@@ -222,10 +176,10 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_99099DE52F9145308550D3B1FA28466F"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_61B0765555394485A7BE8620E09F90B2"
             {
-            "SourcePath" = "8:..\\publish\\LatoFont\\OFL.txt"
-            "TargetName" = "8:OFL.txt"
+            "SourcePath" = "8:..\\publish\\PresentationWpf.pdb"
+            "TargetName" = "8:PresentationWpf.pdb"
             "Tag" = "8:"
             "Folder" = "8:_B99C993D0F294D5197E060DBBD5032BB"
             "Condition" = "8:"
@@ -242,7 +196,27 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BB706A95CE8940DEAD644C49FEA3914B"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9A1A2B3DB3CB46228B09927AF9939CCA"
+            {
+            "SourcePath" = "8:..\\publish\\Microsoft.Web.WebView2.WinForms.xml"
+            "TargetName" = "8:Microsoft.Web.WebView2.WinForms.xml"
+            "Tag" = "8:"
+            "Folder" = "8:_B99C993D0F294D5197E060DBBD5032BB"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_ADB3553296DA42B5B3A62A6D0EFD292B"
             {
             "SourcePath" = "8:..\\publish\\Microsoft.Web.WebView2.Core.xml"
             "TargetName" = "8:Microsoft.Web.WebView2.Core.xml"
@@ -262,10 +236,10 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_EAF6095F25654305A515990E8779F3BC"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_FD14C75115294F9CBCF56FDEEA5C4BFB"
             {
-            "SourcePath" = "8:..\\publish\\PresentationWpf.pdb"
-            "TargetName" = "8:PresentationWpf.pdb"
+            "SourcePath" = "8:..\\publish\\Infrastructure.pdb"
+            "TargetName" = "8:Infrastructure.pdb"
             "Tag" = "8:"
             "Folder" = "8:_B99C993D0F294D5197E060DBBD5032BB"
             "Condition" = "8:"
