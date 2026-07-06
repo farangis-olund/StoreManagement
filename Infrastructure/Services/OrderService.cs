@@ -775,35 +775,51 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var query =
-            from o in db.Set<OrderEntity>().AsNoTracking()
-            where !o.IsPaid
-                  && o.CustomerId == customerId
-                  && !o.IsBarter
-            let totalAmount = db.Set<OrderDetailEntity>()
-                .Where(d => d.OrderId == o.Id)
-                .Sum(d => (decimal?)(d.Price * d.Quentity)) ?? 0m
-            let paid = db.Set<CustomerPaymentEntity>()
-                .Where(p => p.OrderId == o.Id)
-                .Sum(p => (decimal?)p.Amount) ?? 0m
-            where paid > 0m // ✅ Only include if the customer has paid something
-            select new UnpaidOrderDto
+        var query = GetUnpaidPaymentOrdersQuery(db, customerId)
+            .Select(o => new UnpaidOrderDto
             {
                 Id = o.Id,
                 Date = o.Date,
                 CustomerId = o.CustomerId,
-                TotalAmount = totalAmount,
-                Paid = paid,
+                TotalAmount = db.Set<OrderDetailEntity>()
+                    .Where(d => d.OrderId == o.Id)
+                    .Sum(d => (decimal?)(d.Price * d.Quentity)) ?? 0m,
+                Paid = db.Set<CustomerPaymentEntity>()
+                    .Where(p => p.OrderId == o.Id)
+                    .Sum(p => (decimal?)p.Amount) ?? 0m,
                 PaymentId = db.Set<CustomerPaymentEntity>()
                     .Where(p => p.OrderId == o.Id)
                     .OrderByDescending(p => p.Date)
                     .Select(p => p.Id)
                     .FirstOrDefault()
-            };
+            });
 
         return await query
             .OrderBy(x => x.Date)
             .ToListAsync(ct);
+    }
+
+    public async Task<int> GetUnpaidPaymentCountAsync(string customerId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+            return 0;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+
+        return await GetUnpaidPaymentOrdersQuery(db, customerId)
+            .CountAsync(ct);
+    }
+
+    private static IQueryable<OrderEntity> GetUnpaidPaymentOrdersQuery(DatabaseContext db, string customerId)
+    {
+        return db.Set<OrderEntity>()
+            .AsNoTracking()
+            .Where(o =>
+                !o.IsPaid &&
+                o.CustomerId == customerId &&
+                !o.IsBarter &&
+                db.Set<CustomerPaymentEntity>()
+                    .Any(p => p.OrderId == o.Id && p.Amount > 0m));
     }
 
     public async Task<bool> HasUnpaidOrdersAsync(string customerId)
@@ -843,4 +859,3 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         await db.SaveChangesAsync(ct);
     }
 }
-

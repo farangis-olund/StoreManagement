@@ -211,6 +211,9 @@
                          <TextBlock Text="Ограничение" />
                         <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Restriction, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
                     </StackPanel>
+
+                    <TextBlock Text="Лимит неоплаченных платежей" />
+                    <TextBox Height="32" Margin="0,0,0,5" Text="{Binding UnpaidPaymentLimit, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
                 
                 </StackPanel>
 

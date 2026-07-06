@@ -212,6 +212,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("Territory")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("UnpaidPaymentLimit")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PriceLevelId");

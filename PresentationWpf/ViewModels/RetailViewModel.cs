@@ -407,6 +407,7 @@ public partial class RetailViewModel : ObservableObject
         _ = UpdateCustomerLevelIndicatorAsync();
 
         _ = LoadInactiveForSelectedCustomerAsync(value);
+        _ = WarnIfUnpaidPaymentLimitReachedAsync(value);
 
         if (value == null)
 		{
@@ -439,6 +440,28 @@ public partial class RetailViewModel : ObservableObject
 
 
 	}
+
+    private async Task WarnIfUnpaidPaymentLimitReachedAsync(Customer? customer)
+    {
+        if (customer == null)
+            return;
+
+        var unpaidPaymentLimit = customer.UnpaidPaymentLimit ?? 0;
+        if (unpaidPaymentLimit <= 0)
+            return;
+
+        var unpaidPaymentCount = await _orderService.GetUnpaidPaymentCountAsync(customer.Id);
+        if (unpaidPaymentCount < unpaidPaymentLimit)
+            return;
+
+        MessageBox.Show(
+            $"У клиента {customer.FullName} есть {unpaidPaymentCount} неоплаченных платежей.\n" +
+            $"Лимит для этого клиента: {unpaidPaymentLimit}.\n" +
+            "Сначала нужно закрыть неоплаченные платежи, затем можно оформить новый заказ.",
+            "Лимит неоплаченных платежей достигнут",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
 
     private async Task UpdateCustomerLevelIndicatorAsync()
     {
@@ -557,7 +580,6 @@ public partial class RetailViewModel : ObservableObject
             return;
         }
 
-        
         product.OrderQuentity = 0;
 
         // Add to chart
@@ -605,10 +627,27 @@ public partial class RetailViewModel : ObservableObject
                 return;
             }
 
-            if (SelectedCustomer == null)
+			if (SelectedCustomer == null)
             {
                 MessageBox.Show("Для оформление заказа, сперва выберите клиента.", "Ошибка");
                 return;
+            }
+
+            var unpaidPaymentLimit = SelectedCustomer.UnpaidPaymentLimit ?? 0;
+            if (unpaidPaymentLimit > 0)
+            {
+                var unpaidPaymentCount = await _orderService.GetUnpaidPaymentCountAsync(SelectedCustomer.Id);
+                if (unpaidPaymentCount >= unpaidPaymentLimit)
+                {
+                    MessageBox.Show(
+                        $"У клиента {SelectedCustomer.FullName} есть {unpaidPaymentCount} неоплаченных платежей.\n" +
+                        $"Лимит для этого клиента: {unpaidPaymentLimit}.\n" +
+                        "Сначала нужно закрыть неоплаченные платежи, затем можно оформить новый заказ.",
+                        "Лимит неоплаченных платежей достигнут",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
             }
 
             // ❗ Validate that every product has quantity > 0
