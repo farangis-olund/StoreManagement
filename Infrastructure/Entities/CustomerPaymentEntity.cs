@@ -11,6 +11,9 @@ public class CustomerPaymentEntity
 	public string? Note { get; set; }           // (optional) примечание
 
     public decimal Rate { get; set; }
+    public string? CourierId { get; set; }
+    public bool IsDeliveryConfirmed { get; set; }
+    public CourierEntity? Courier { get; set; }
   
     // Navs (optional but useful)
     public CustomerEntity? Customer { get; set; }

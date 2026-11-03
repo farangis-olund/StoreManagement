@@ -9,5 +9,6 @@ public sealed class UnpaidOrderDto
     public decimal TotalAmount { get; set; }
     public decimal Paid { get; set; }
     public int? PaymentId { get; set; } 
+    public string DocumentNumber => PaymentId?.ToString() ?? Id;
 
 }

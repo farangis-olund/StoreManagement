@@ -12,5 +12,6 @@ public class CustomerFinanceInfo
 	public decimal TotalReturns { get; set; }
 	public decimal OldDebt { get; set; }
 	public decimal Balance { get; set; }
+    public decimal AvailableRestriction => CreditLimit - Balance;
 	public DateTime? ContractDate { get; set; }
 }

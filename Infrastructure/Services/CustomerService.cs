@@ -3,6 +3,7 @@ using Infrastructure.Contexts;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Repositories;
+using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
@@ -17,38 +18,55 @@ public class CustomerService
 	private readonly PriceLevelRepository _priceLevelRepository;
 	private readonly SalesManagerRepository _salesManagerRepository;
     private readonly IDbContextFactory<DatabaseContext> _dbFactory;
-    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger)
+    private readonly CustomerFieldPermissionPolicy _fieldPermissions;
+    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger, CustomerFieldPermissionPolicy fieldPermissions)
 	{
 		_customerRepository = customerRepository;
 		_logger = logger;
 		_priceLevelRepository = priceLevelRepository;
 		_salesManagerRepository = salesManagerRepository;
 		_dbFactory = dbFactory;
+        _fieldPermissions = fieldPermissions;
 	}
 
 	public async Task<CustomerEntity> AddCustomerAsync(CustomerEntity customer)
 	{
 		try
 		{
-			var existingCustomer = await _customerRepository.GetOneAsync(c => c.Id == customer.Id);
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var existing = string.IsNullOrWhiteSpace(customer.Id) ? null
+                : await db.Customers.FirstOrDefaultAsync(c => c.Id == customer.Id);
+            if (existing == null && !string.IsNullOrWhiteSpace(customer.Id))
+                throw new InvalidOperationException("Клиент больше не существует. Обновите список клиентов.");
 
-			if (existingCustomer is not null)
-			{
-				// Update existing customer
-				await UpdateCustomerAsync(customer);
-			}
-			else
-			{
-				// Add new customer
-				var allCustomers = await _customerRepository.GetAllAsync();
+            _fieldPermissions.EnsureCanSave(existing, customer);
+            await ValidateRequiredFieldsAsync(db, customer);
 
-				// Generate and assign ID
-				customer.Id = GenerateNextCustomerId(allCustomers);
-				await _customerRepository.AddAsync(customer);
-			}
+            if (existing == null)
+            {
+                customer.Id = GenerateNextCustomerId(await db.Customers.AsNoTracking().ToListAsync());
+                db.Customers.Add(customer);
+            }
+            else
+            {
+                db.Entry(existing).CurrentValues.SetValues(customer);
+            }
 
-			return customer;
+            // Save the manager link here, without a second service rewriting a stale customer.
+            var links = await db.ManagerCustomers.Where(link => link.CustomerId == customer.Id).ToListAsync();
+            db.ManagerCustomers.RemoveRange(links.Where(link => link.ManagerId != customer.SalesManagerId));
+            if (!links.Any(link => link.ManagerId == customer.SalesManagerId))
+                db.ManagerCustomers.Add(new ManagerCustomerEntity { CustomerId = customer.Id, ManagerId = customer.SalesManagerId! });
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return existing ?? customer;
 		}
+        catch (Exception ex) when (ex is UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            throw;
+        }
 		catch (Exception ex)
 		{
 			_logger.LogError($"Error getting/adding customer: {ex.Message}");
@@ -118,19 +136,22 @@ public class CustomerService
 		}
 	}
 
-	public async Task<CustomerEntity> UpdateCustomerAsync(CustomerEntity customer)
-	{
-		try
-		{
-			return await _customerRepository.UpdateAsync(c => c.Id == customer.Id, customer);
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError($"Error in updating product: {ex.Message}");
-			Debug.WriteLine($"Error in updating product: {ex.Message}");
-			return null!;
-		}
-	}
+    public Task<CustomerEntity> UpdateCustomerAsync(CustomerEntity customer) =>
+        string.IsNullOrWhiteSpace(customer.Id) ? Task.FromResult<CustomerEntity>(null!) : AddCustomerAsync(customer);
+
+    private static async Task ValidateRequiredFieldsAsync(DatabaseContext db, CustomerEntity customer)
+    {
+        if (string.IsNullOrWhiteSpace(customer.FullName) || string.IsNullOrWhiteSpace(customer.MobilePhone) ||
+            string.IsNullOrWhiteSpace(customer.Address) || string.IsNullOrWhiteSpace(customer.City) ||
+            string.IsNullOrWhiteSpace(customer.Region) || string.IsNullOrWhiteSpace(customer.PriceLevelId) ||
+            string.IsNullOrWhiteSpace(customer.SalesManagerId) || string.IsNullOrWhiteSpace(customer.Territory))
+            throw new ArgumentException("Заполните все обязательные поля клиента.");
+
+        if (!await db.PriceLevels.AnyAsync(level => level.Level == customer.PriceLevelId))
+            throw new ArgumentException("Выберите уровень из списка.");
+        if (!await db.SalesManagers.AnyAsync(manager => manager.Id == customer.SalesManagerId))
+            throw new ArgumentException("Выберите менеджера по продажам из списка.");
+    }
 
 	public async Task<bool> DeleteCustomerAsync(CustomerEntity customer)
 	{

@@ -3,6 +3,7 @@ using Infrastructure.Contexts;
 using Infrastructure.Helpers;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
+using Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -117,6 +118,11 @@ public partial class App : Application
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<RetailViewModel>();
                 services.AddTransient<RetailView>();
+                services.AddTransient<ProductRequestsViewModel>();
+                services.AddTransient<ProductRequestsView>();
+                services.AddTransient<ProductRequestService>();
+                services.AddTransient<MyNewArticlesViewModel>();
+                services.AddTransient<MyNewArticlesView>();
                 services.AddTransient<ProductViewModel>();
                 services.AddTransient<ProductView>();
                 services.AddTransient<WholesaleViewModel>();
@@ -249,6 +255,9 @@ public partial class App : Application
                 services.AddTransient<CleanService>();
                 services.AddTransient<NavigationService>();
                 services.AddSingleton<PermissionService>();
+                services.AddSingleton<SessionPermissionRefresher>();
+                services.AddSingleton<IPermissionChecker>(sp => sp.GetRequiredService<PermissionService>());
+                services.AddSingleton<CustomerFieldPermissionPolicy>();
                 services.AddSingleton<SalesTotalService>();
                 services.AddSingleton<ReportService>();
                 services.AddSingleton<ExpenseService>();
@@ -318,6 +327,7 @@ public partial class App : Application
                 using var db = dbFactory.CreateDbContext();
 
                 db.Database.Migrate();
+                PermissionCatalogSynchronizer.Synchronize(db);
             }
 
             var mainWindow = builder!.Services.GetRequiredService<MainWindow>();

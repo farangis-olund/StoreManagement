@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Infrastructure/Infrastructure.csproj" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
+    <!-- Load the forms without application startup or migrations. -->
+    <Page Include="../../PresentationWpf/Views/PermissionsView.xaml" Link="Views/PermissionsView.xaml" />
+    <Compile Include="../../PresentationWpf/Views/PermissionsView.xaml.cs" Link="Views/PermissionsView.xaml.cs" />
+    <Page Include="../../PresentationWpf/Views/RoleManagementView.xaml" Link="Views/RoleManagementView.xaml" />
+    <Compile Include="../../PresentationWpf/Views/RoleManagementView.xaml.cs" Link="Views/RoleManagementView.xaml.cs" />
+    <Compile Include="../../PresentationWpf/ViewModels/RoleManagementViewModel.cs" Link="ViewModels/RoleManagementViewModel.cs" />
+    <Compile Include="../../PresentationWpf/ViewModels/PermissionsViewModel.cs" Link="ViewModels/PermissionsViewModel.cs" />
+    <Compile Include="../../PresentationWpf/Dtos/RoleDto.cs" Link="Dtos/RoleDto.cs" />
+    <Compile Include="../../PresentationWpf/Converters/BoolToVisibilityConverter.cs" Link="Converters/BoolToVisibilityConverter.cs" />
+    <Compile Include="../../PresentationWpf/Converters/BoolToColorConverter.cs" Link="Converters/BoolToColorConverter.cs" />
+    <Page Include="../../PresentationWpf/Views/CustomerView.xaml" Link="Views/CustomerView.xaml" />
+    <Compile Include="../../PresentationWpf/Views/CustomerView.xaml.cs" Link="Views/CustomerView.xaml.cs" />
+    <Compile Include="../../PresentationWpf/ViewModels/CustomerViewModel.cs" Link="ViewModels/CustomerViewModel.cs" />
+    <Compile Include="../../PresentationWpf/Services/PermissionService.cs" Link="Services/PermissionService.cs" />
+    <Compile Include="../../PresentationWpf/Services/SessionPermissionRefresher.cs" Link="Services/SessionPermissionRefresher.cs" />
+    <Compile Include="../../PresentationWpf/Services/UserSessionService.cs" Link="Services/UserSessionService.cs" />
+    <Compile Include="../../PresentationWpf/Converters/NullableDecimalConverter.cs" Link="Converters/NullableDecimalConverter.cs" />
+  </ItemGroup>
+</Project>

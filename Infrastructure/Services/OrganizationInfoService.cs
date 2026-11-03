@@ -78,7 +78,7 @@ namespace Infrastructure.Services
             var org = await db.OrganizationInfo.FirstOrDefaultAsync();
             if (org == null) return null;
 
-            return $"{org.OrganizationCode} | {org.Name}";
+            return $"{org.Name}";
         }
     }
 }

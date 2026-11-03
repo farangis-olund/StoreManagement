@@ -67,7 +67,7 @@ public partial class LoginViewModel(IServiceProvider serviceProvider,  UserSessi
         // =============================================
         // 2) Load all permissions for this user's roles
         // =============================================
-        var permissionKeys = await _userService.GetPermissionKeysAsync(user.Id);
+        var permissionKeys = await _rolePermRepo.GetPermissionKeysForUserAsync(user.Id);
 
         // Store permissions globally for UI
         _permissionService.SetPermissions(permissionKeys);

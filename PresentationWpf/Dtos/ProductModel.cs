@@ -22,6 +22,7 @@ public class ProductModel : INotifyPropertyChanged
 	public string GroupName { get; set; } = null!;
 	public string BrandName { get; set; } = null!;
 	public int Quentity { get; set; }
+    public event Action<ProductModel, int>? OrderQuantityExceeded;
 	public string WarehousePlace { get; set; } = null!;
 	public int MinRemainingQuantity { get; set; }
 
@@ -141,6 +142,8 @@ public class ProductModel : INotifyPropertyChanged
 				_orderQuentity = value > Quentity ? Quentity : Math.Max(0, value);
 				OnPropertyChanged(nameof(OrderQuentity));
 				UpdateTotal();
+				if (value > Quentity)
+                    OrderQuantityExceeded?.Invoke(this, value);
 			}
 		}
 	}

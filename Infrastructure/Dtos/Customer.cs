@@ -1,10 +1,21 @@
 ﻿
 using Infrastructure.Entities;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Infrastructure.Dtos;
 
-public class Customer
+public class Customer : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 	public string Id { get; set; } = null!;
 	public string FullName { get; set; } = null!;
 	public string? Email { get; set; }
@@ -18,18 +29,64 @@ public class Customer
 	public int? PriceLevelCode { get; set; }
 	public string? Notes { get; set; }
 
-	public double? Debt { get; set; }
-	public double? Restriction { get; set; }
-	public int? UnpaidPaymentLimit { get; set; }
+    private double? _debt;
+    public double? Debt
+    {
+        get => _debt;
+        set => SetField(ref _debt, value);
+    }
+    private double? _restriction;
+    public double? Restriction
+    {
+        get => _restriction;
+        set => SetField(ref _restriction, value);
+    }
+    private decimal? _buyLimit;
+    public decimal? BuyLimit
+    {
+        get => _buyLimit;
+        set => SetField(ref _buyLimit, value);
+    }
+    private decimal? _unpaidPaymentLimit;
+    public decimal? UnpaidPaymentLimit
+    {
+        get => _unpaidPaymentLimit;
+        set => SetField(ref _unpaidPaymentLimit, value);
+    }
 
 	// === Дневные коэффициенты ===
-	public double? DailyPurchaseCoefficient { get; set; }        // КоэфДневЗакупа
-	public double? DailyRepaymentCoefficient { get; set; }       // КоэфЕжеднПогашение
-	public double? DailyPlannedPurchaseCoefficient { get; set; } // КоэфДневЗапланЗакупа
+    private double? _dailyPurchaseCoefficient;
+    public double? DailyPurchaseCoefficient
+    {
+        get => _dailyPurchaseCoefficient;
+        set => SetField(ref _dailyPurchaseCoefficient, value);
+    }
+    private double? _dailyRepaymentCoefficient;
+    public double? DailyRepaymentCoefficient
+    {
+        get => _dailyRepaymentCoefficient;
+        set => SetField(ref _dailyRepaymentCoefficient, value);
+    }
+    private double? _dailyPlannedPurchaseCoefficient;
+    public double? DailyPlannedPurchaseCoefficient
+    {
+        get => _dailyPlannedPurchaseCoefficient;
+        set => SetField(ref _dailyPlannedPurchaseCoefficient, value);
+    }
 
-	public DateTime? ContractDate { get; set; }
+    private DateTime? _contractDate;
+    public DateTime? ContractDate
+    {
+        get => _contractDate;
+        set => SetField(ref _contractDate, value);
+    }
 	public string? Territory { get; set; }
-	public bool? ExcludeDailyRepayment { get; set; }             // ИсключитьЕжеднПогашение
+    private bool? _excludeDailyRepayment;
+    public bool? ExcludeDailyRepayment
+    {
+        get => _excludeDailyRepayment;
+        set => SetField(ref _excludeDailyRepayment, value);
+    }
 
 	public string? SalesManagerId { get; set; }
 
@@ -37,6 +94,7 @@ public class Customer
 
     public string DisplayText => $"{Id} - {FullName}";
 
+    [return: NotNullIfNotNull(nameof(entity))]
 	public static implicit operator Customer?(CustomerEntity? entity)
 	{
 		if (entity == null)
@@ -57,6 +115,7 @@ public class Customer
 			Notes = entity.Notes,
 			Debt = entity.Debt,
 			Restriction = entity.Restriction,
+			BuyLimit = entity.BuyLimit,
 			UnpaidPaymentLimit = entity.UnpaidPaymentLimit,
 			OfficialCustomer = entity.OfficialCustomer,
 			// --- Коэффициенты ---

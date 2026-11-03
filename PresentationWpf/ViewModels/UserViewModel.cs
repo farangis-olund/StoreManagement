@@ -13,6 +13,7 @@ namespace PresentationWpf.ViewModels
     {
         private readonly UserService _userService;
         private readonly UserSessionService _userSession;
+        private readonly SessionPermissionRefresher _permissionRefresher;
 
         [ObservableProperty]
         private ObservableCollection<UserEntity> users = new();
@@ -26,10 +27,11 @@ namespace PresentationWpf.ViewModels
         [ObservableProperty]
         private RoleEntity selectedRole = new();
 
-        public UserViewModel(UserService userService, UserSessionService userSession)
+        public UserViewModel(UserService userService, UserSessionService userSession, SessionPermissionRefresher permissionRefresher)
         {
             _userService = userService;
             _userSession = userSession;
+            _permissionRefresher = permissionRefresher;
 
             _ = LoadDataAsync();
         }
@@ -159,6 +161,7 @@ namespace PresentationWpf.ViewModels
             }
 
             await _userService.UpdateAsync(CurrentUser, SelectedRole?.Id);
+            await RefreshSessionPermissionsAsync();
             await LoadDataAsync();
             _userSession.UpdateCurrentUser(CurrentUser);
             MessageBox.Show("Изменения успешно сохранены.", "Изменение пользователя",
@@ -186,12 +189,26 @@ namespace PresentationWpf.ViewModels
             return;
 
         await _userService.DeleteAsync(CurrentUser.Id);
+        await RefreshSessionPermissionsAsync();
         await LoadDataAsync();
         CurrentUser = new UserEntity();
 
         MessageBox.Show("Пользователь успешно удалён.", "Удаление пользователя",
             MessageBoxButton.OK, MessageBoxImage.Information);
     }
+
+        private async Task RefreshSessionPermissionsAsync()
+        {
+            try
+            {
+                await _permissionRefresher.RefreshAsync();
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Изменения сохранены, но не удалось обновить права текущего пользователя. Проверьте подключение к базе данных.",
+                    "Права доступа", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
 
         public bool IsUserValid =>
             CurrentUser != null &&

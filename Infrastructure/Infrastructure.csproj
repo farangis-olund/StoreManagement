@@ -14,9 +14,11 @@
   <ItemGroup>
     <Content Include="Data\DataBase.mdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
     <Content Include="Data\DataBase_log.ldf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 

@@ -6,12 +6,15 @@
              xmlns:local="clr-namespace:PresentationWpf.Views"
               xmlns:fa="http://schemas.fontawesome.io/icons/"
              xmlns:views="clr-namespace:PresentationWpf.Views"
+             xmlns:converters="clr-namespace:PresentationWpf.Converters"
              xmlns:viewmodels="clr-namespace:PresentationWpf.ViewModels"
              d:DataContext="{d:DesignInstance Type=viewmodels:CustomerViewModel}"
              mc:Ignorable="d" 
            
              d:DesignHeight="450" d:DesignWidth="900">
     <UserControl.Resources>
+        <converters:NullableDecimalConverter x:Key="NullableDecimalConverter"/>
+
         <Style x:Key="TransparentHoverButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#302D3E"/>
@@ -36,6 +39,9 @@
                         </Border>
 
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                            </Trigger>
 
                             <!-- 🔵 HOVER EFFECT -->
                             <Trigger Property="IsMouseOver" Value="True">
@@ -93,7 +99,9 @@
                              <TextBlock Text="Новый клиент" FontSize="16" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button Command="{Binding SaveCustomerCommand}" 
+            <Button Command="{Binding SaveCustomerCommand}"
+                PreviewMouseLeftButtonDown="SaveButton_PreviewMouseLeftButtonDown"
+                Click="SaveButton_Click"
                 Style="{StaticResource TransparentHoverButton}" 
                 Margin="0,0,15,0" 
                 Width="120" 
@@ -182,97 +190,112 @@
                 </StackPanel>
 
                 <!-- Middle Column -->
-                <StackPanel Grid.Column="1" Margin="10,10,10,10" DataContext="{Binding SelectedCustomer}">
-                    <TextBlock >
-                        <Run Text="Уровень" Foreground="Black"/>
-                        <Run Text="*" Foreground="Red"/>
-                    </TextBlock>
-                    <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
-                      ItemsSource="{Binding DataContext.PriceLevels, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                      DisplayMemberPath="PriceType"
-                      SelectedValuePath="Level"
-                      SelectedValue="{Binding PriceLevelId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-
-                    <TextBlock Text="Примечания" />
-                    <TextBox Height="60" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
-                    Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" />
-                    
-                    <StackPanel Visibility="{Binding DataContext.CanViewDebt,
-                     RelativeSource={RelativeSource AncestorType=UserControl},
-                     Converter={StaticResource BoolToVisibilityConverter}}">                       
-                        <TextBlock Text="Задолжность" />
-                        <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Debt, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5" />
-                    </StackPanel>
-                    
-                    <StackPanel Visibility="{Binding DataContext.CanViewRestriction,
-                     RelativeSource={RelativeSource AncestorType=UserControl},
-                     Converter={StaticResource BoolToVisibilityConverter}}">
-                         <TextBlock Text="Ограничение" />
-                        <TextBox Height="32" Margin="0,0,0,5" Text="{Binding Restriction, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
+                <StackPanel Grid.Column="1" Margin="10" DataContext="{Binding SelectedCustomer}">
+                    <StackPanel Visibility="{Binding DataContext.PriceLevelAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock><Run Text="Уровень"/><Run Text=" *" Foreground="Red"/></TextBlock>
+                        <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" Padding="5"
+                            IsEnabled="{Binding DataContext.PriceLevelAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                            ItemsSource="{Binding DataContext.PriceLevels, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            DisplayMemberPath="PriceType" SelectedValuePath="Level"
+                            SelectedValue="{Binding PriceLevelId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
 
-                    <TextBlock Text="Лимит неоплаченных платежей" />
-                    <TextBox Height="32" Margin="0,0,0,5" Text="{Binding UnpaidPaymentLimit, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
-                
+                    <TextBlock Text="Примечания"/>
+                    <TextBox Height="60" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,5" FontSize="14" Padding="5"
+                        Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <StackPanel Visibility="{Binding DataContext.DebtAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="Задолженность"/>
+                        <DockPanel LastChildFill="True">
+                            <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                                IsEnabled="{Binding DataContext.DebtAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                                Text="{Binding Debt, TargetNullValue='', UpdateSourceTrigger=PropertyChanged}"/>
+                        </DockPanel>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding DataContext.RestrictionAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="Ограничение"/>
+                        <DockPanel LastChildFill="True">
+                            <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                                IsEnabled="{Binding DataContext.RestrictionAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                                Text="{Binding Restriction, TargetNullValue='', UpdateSourceTrigger=PropertyChanged}"/>
+                        </DockPanel>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding DataContext.BuyLimitAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="Лимит суммы заказа"/>
+                        <DockPanel LastChildFill="True">
+                            <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                                IsEnabled="{Binding DataContext.BuyLimitAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                                Text="{Binding BuyLimit, Converter={StaticResource NullableDecimalConverter}, UpdateSourceTrigger=PropertyChanged}"/>
+                        </DockPanel>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding DataContext.UnpaidPaymentLimitAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="Лимит суммы неоплаченных платежей"/>
+                        <DockPanel LastChildFill="True">
+                            <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                                IsEnabled="{Binding DataContext.UnpaidPaymentLimitAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                                Text="{Binding UnpaidPaymentLimit, Converter={StaticResource NullableDecimalConverter}, UpdateSourceTrigger=PropertyChanged}"/>
+                        </DockPanel>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Right Column -->
-                <StackPanel Grid.Column="2" Margin="10,10,10,10"  DataContext="{Binding SelectedCustomer}" >
-                    <TextBlock Text="КоэфОгрСумЗакупа" />
-                    <TextBox IsReadOnly="True" Height="32" Margin="0,0,0,5" Text="{Binding DailyPurchaseCoefficient, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
-                    <TextBlock Text="КоэфЕжедПогашение" />
-                    <TextBox IsReadOnly="True" Height="32" Margin="0,0,0,5" Text="{Binding DailyRepaymentCoefficient, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
-                    <TextBlock Text="КоэфПланирЗакупа" />
-                    <TextBox IsReadOnly="True" Height="32" Margin="0,0,0,5" Text="{Binding DailyPlannedPurchaseCoefficient, UpdateSourceTrigger=PropertyChanged}" FontSize="14" VerticalContentAlignment="Center" Padding="5"/>
-
-                    <TextBlock Text="Дата контракта" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <DatePicker Width="120"
-                            SelectedDate="{Binding ContractDate, UpdateSourceTrigger=PropertyChanged}"
-                            FontSize="14"
-                            VerticalContentAlignment="Center"
-                            Padding="5" />
-                        <Button Content="Расчет коэф"
-                            Width="100"
-                            Margin="5,0,0,0"
-                            Command="{Binding DataContext.CalculateCoefficientsForCustomerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-
+                <StackPanel Grid.Column="2" Margin="10" DataContext="{Binding SelectedCustomer}">
+                    <StackPanel Visibility="{Binding DataContext.CoefficientsAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="КоэфОгрСумЗакупа"/>
+                        <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                            IsEnabled="{Binding DataContext.CanInputPurchaseCoefficient, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                            Text="{Binding DailyPurchaseCoefficient, TargetNullValue='', UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="КоэфЕжедПогашение"/>
+                        <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                            IsEnabled="{Binding DataContext.CanInputRepaymentCoefficient, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                            Text="{Binding DailyRepaymentCoefficient, TargetNullValue='', UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="КоэфПланирЗакупа"/>
+                        <TextBox Height="32" Margin="0,0,0,5" FontSize="14" VerticalContentAlignment="Center" Padding="5"
+                            IsEnabled="{Binding DataContext.CanInputPlannedPurchaseCoefficient, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                            Text="{Binding DailyPlannedPurchaseCoefficient, TargetNullValue='', UpdateSourceTrigger=PropertyChanged}"/>
+                        <DockPanel>
+                            <Button Content="Расчет коэф" Height="28" Margin="0,0,0,5"
+                                Command="{Binding DataContext.CalculateCoefficientsForCustomerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                        </DockPanel>
                     </StackPanel>
 
-                    <TextBlock >
-                        <Run Text="Территория" Foreground="Black"/>
-                        <Run Text="*" Foreground="Red"/>
-                    </TextBlock>
-                    <ComboBox Height="32" Margin="0,0,0,5" Padding="5"
-                       ItemsSource="{Binding DataContext.DistinctTerritories, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        SelectedItem="{Binding Territory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                          Text="{Binding Territory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"    
-                      IsEditable="True"
-                      FontSize="14"/>
-                    
-                    <CheckBox Content="ИсключитьЕжедПогашение"  IsChecked="{Binding ExcludeMonthlyRepayment, UpdateSourceTrigger=PropertyChanged}" FontSize="14"  Margin="0,0,0,5" />
-
-                    <TextBlock >
-                        <Run Text="Менеджер по продажам" Foreground="Black"/>
-                        <Run Text="*" Foreground="Red"/>
-                    </TextBlock>
-
-                    <StackPanel Orientation="Horizontal">
-                        <ComboBox Width="180"
-                          Height="32"
-                          FontSize="14"
-                          VerticalContentAlignment="Center"
-                          Padding="5"
-                          ItemsSource="{Binding DataContext.SalesManagers, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                          DisplayMemberPath="FullName"
-                          SelectedValuePath="Id"
-                          SelectedValue="{Binding SalesManagerId, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <CheckBox Margin="30,0,0,0" FontSize="20" 
-                          VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                          IsChecked="{Binding OfficialCustomer, UpdateSourceTrigger=PropertyChanged}" />
+                    <StackPanel Visibility="{Binding DataContext.ContractDateAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="Дата контракта"/>
+                        <DockPanel LastChildFill="True">
+                            <DatePicker SelectedDate="{Binding ContractDate, UpdateSourceTrigger=PropertyChanged}"
+                                FontSize="14" Padding="5" Margin="0,0,0,5"
+                                IsEnabled="{Binding DataContext.ContractDateAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"/>
+                        </DockPanel>
                     </StackPanel>
+
+                    <StackPanel Visibility="{Binding DataContext.TerritoryAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock><Run Text="Территория"/><Run Text=" *" Foreground="Red"/></TextBlock>
+                        <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" Padding="5"
+                            IsEnabled="{Binding DataContext.TerritoryAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                            ItemsSource="{Binding DataContext.DistinctTerritories, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            SelectedItem="{Binding Territory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            Text="{Binding Territory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEditable="True"/>
+                    </StackPanel>
+
+                    <CheckBox Content="ИсключитьЕжедПогашение" FontSize="14" Margin="0,5,0,5"
+                        Visibility="{Binding DataContext.ExcludeDailyRepaymentAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
+                        IsEnabled="{Binding DataContext.ExcludeDailyRepaymentAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                        IsChecked="{Binding ExcludeDailyRepayment, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <StackPanel Visibility="{Binding DataContext.SalesManagerAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock><Run Text="Менеджер по продажам"/><Run Text=" *" Foreground="Red"/></TextBlock>
+                        <ComboBox Height="32" Margin="0,0,0,5" FontSize="14" Padding="5"
+                            IsEnabled="{Binding DataContext.SalesManagerAccess.CanInput, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}"
+                            ItemsSource="{Binding DataContext.SalesManagers, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            DisplayMemberPath="FullName" SelectedValuePath="Id"
+                            SelectedValue="{Binding SalesManagerId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+
+                    <CheckBox Content="Официальный клиент" Margin="0,5,0,0"
+                        IsChecked="{Binding OfficialCustomer, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
             </Grid>
         </ScrollViewer> 

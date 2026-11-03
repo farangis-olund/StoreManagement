@@ -209,7 +209,7 @@ namespace PresentationWpf.ViewModels
         private ObservableCollection<CustomerLite> customersFiltered = new();
 
         public bool IsOnlyOfficialCustomer =>
-            _permissionService.Has("OnlyOfficialCustomer") ||
+            _permissionService.Has(PermissionCatalog.OnlyOfficialCustomer) ||
             _permissionService.Has("onlyOfficialCustomer");
 
         public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "Display";

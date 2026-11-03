@@ -1,0 +1,116 @@
+<UserControl x:Class="PresentationWpf.Views.ProductRequestsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#FDFFFE" Language="ru-RU" FontSize="14">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="VisibleIf"/>
+        <Style x:Key="RequestTextCell" TargetType="TextBlock" BasedOn="{StaticResource TextCellStyle}">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="16">
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsBusy}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="2*"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Заявки на товары" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="1">
+            <WrapPanel Background="{StaticResource AdminTopBackground}" Margin="0,0,0,12">
+                <RadioButton Content="Недостаточный остаток" Style="{StaticResource AdminTopButtonStyle}"
+                             GroupName="RequestTabs" IsChecked="{Binding IsShortage, Mode=OneWay}"
+                             Command="{Binding SelectTabCommand}" CommandParameter="0"/>
+                <RadioButton Content="Нет в наличии" Style="{StaticResource AdminTopButtonStyle}"
+                             GroupName="RequestTabs" IsChecked="{Binding IsOutOfStock, Mode=OneWay}"
+                             Command="{Binding SelectTabCommand}" CommandParameter="1"/>
+                <RadioButton Content="Новые артикулы" Style="{StaticResource AdminTopButtonStyle}"
+                             GroupName="RequestTabs" IsChecked="{Binding IsNewArticles, Mode=OneWay}"
+                             Command="{Binding SelectTabCommand}" CommandParameter="2"/>
+            </WrapPanel>
+            <WrapPanel Margin="0,0,0,8">
+                <TextBlock Text="Бренд" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox Width="180" Height="36" Padding="6,3" VerticalContentAlignment="Center"
+                          ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}" Margin="0,0,12,4"/>
+                <TextBlock Text="С" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <DatePicker Width="140" Height="36" SelectedDate="{Binding From}" Margin="0,0,8,4"/>
+                <TextBlock Text="По" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <DatePicker Width="140" Height="36" SelectedDate="{Binding Through}" Margin="0,0,12,4"/>
+                <Button Content="Показать" Command="{Binding RefreshCommand}" Style="{StaticResource GrayButton}"
+                        Width="185" Height="36" Margin="0,0,8,4"/>
+                <Button Content="Печать" Click="Print_Click" Style="{StaticResource GreenButton}"
+                        Width="120" Height="36" Margin="0,0,8,4"/>
+                <Button x:Name="DeleteDisplayedButton" Content="Удалить показанные" Command="{Binding DeleteDisplayedCommand}"
+                        Style="{StaticResource OrangeButton}" Width="185" Height="36" Margin="0,0,0,4"
+                        ToolTip="Удалить все заявки из текущего списка с учётом применённых фильтров"
+                        Visibility="{Binding CanDelete, Converter={StaticResource VisibleIf}}"/>
+                <Button x:Name="MarkDisplayedProcessedButton" Content="Отметить все обработанными"
+                        Command="{Binding MarkDisplayedProcessedCommand}" Style="{StaticResource RoundedButtonStyle}"
+                        Height="36" Margin="0,0,0,4"
+                        ToolTip="Отметить обработанными все заявки из текущего списка с учётом применённых фильтров"
+                        Visibility="{Binding IsNewArticles, Converter={StaticResource VisibleIf}}"/>
+                <CheckBox Content="Показывать обработанные" IsChecked="{Binding IncludeProcessed}" Margin="12,0,0,0"
+                          VerticalAlignment="Center" Visibility="{Binding IsNewArticles, Converter={StaticResource VisibleIf}}"/>
+            </WrapPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Margin="0,0,0,8">
+            <TextBlock Text="{Binding FilterDescription}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+        </StackPanel>
+        <DataGrid x:Name="RequestsGrid" Grid.Row="3" ItemsSource="{Binding Rows}" Style="{StaticResource SummaryGrid}"
+                  RowHeight="44" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber}" Width="150" ElementStyle="{StaticResource RequestTextCell}"/>
+                <DataGridTextColumn Header="Наименование" Binding="{Binding ProductName}" Width="280" MaxWidth="320"
+                                    ElementStyle="{StaticResource RequestTextCell}"/>
+                <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}" Width="140" ElementStyle="{StaticResource RequestTextCell}"/>
+                <DataGridTextColumn Header="Количество" Binding="{Binding Quantity}" Width="115" ElementStyle="{StaticResource NumberCellStyle}"/>
+                <DataGridTextColumn Header="Заявок" Binding="{Binding RequestCount}" Width="80" ElementStyle="{StaticResource NumberCellStyle}"/>
+                <DataGridTemplateColumn Header="Действия" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Детальный просмотр" Margin="4" Style="{StaticResource GrayButton}" Width="170"
+                                        Command="{Binding DataContext.ShowDetailsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"/>
+                                <Button Content="Удалить" Margin="4" Style="{StaticResource GrayButton}" Width="90"
+                                        Visibility="{Binding DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=DataGrid}, Converter={StaticResource VisibleIf}}"
+                                        Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"/>
+                                <CheckBox Content="Обработано" IsChecked="{Binding IsProcessed, Mode=OneWay}" Margin="8,3" VerticalAlignment="Center"
+                                          Visibility="{Binding DataContext.IsNewArticles, RelativeSource={RelativeSource AncestorType=DataGrid}, Converter={StaticResource VisibleIf}}"
+                                          Command="{Binding DataContext.ToggleProcessedCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                          CommandParameter="{Binding}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Grid.Row="4" Text="{Binding DetailTitle}" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,6"/>
+        <DataGrid Grid.Row="5" ItemsSource="{Binding Details}" Style="{StaticResource SummaryGrid}" RowHeight="34" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Дата" Binding="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" ElementStyle="{StaticResource TextCellStyle}"/>
+                <DataGridTextColumn Header="Пользователь" Binding="{Binding UserName}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="180"/>
+                <DataGridTextColumn Header="Код клиента" Binding="{Binding CustomerId}" ElementStyle="{StaticResource TextCellStyle}"/>
+                <DataGridTextColumn Header="Клиент" Binding="{Binding CustomerName}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="220"/>
+                <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber}" ElementStyle="{StaticResource TextCellStyle}"/>
+                <DataGridTextColumn Header="Количество" Binding="{Binding Quantity}" ElementStyle="{StaticResource NumberCellStyle}"/>
+                <DataGridTextColumn Header="Наименование" Binding="{Binding ProductName}" Width="260" MaxWidth="320" ElementStyle="{StaticResource RequestTextCell}"/>
+                <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="180"/>
+                <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="180"/>
+                <DataGridTextColumn Header="Модель" Binding="{Binding Model}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="300"/>
+                <DataGridTextColumn Header="Группа" Binding="{Binding GroupName}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="180"/>
+                <DataGridTextColumn Header="Альтернатива" Binding="{Binding Alternative}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="200"/>
+                <DataGridTextColumn Header="Примечание" Binding="{Binding Notes}" ElementStyle="{StaticResource RequestTextCell}" MaxWidth="260"/>
+                <DataGridTextColumn Header="Отправлена" Binding="{Binding SubmittedAt, StringFormat=dd.MM.yyyy HH:mm}" ElementStyle="{StaticResource TextCellStyle}"/>
+                <DataGridCheckBoxColumn Header="Обработано" Binding="{Binding IsProcessed}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

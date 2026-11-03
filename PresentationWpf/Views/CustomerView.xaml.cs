@@ -24,5 +24,21 @@ namespace PresentationWpf.Views
         {
             InitializeComponent();
         }
+
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            CommitFocusedTextBox();
+        }
+
+        private void SaveButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            CommitFocusedTextBox();
+        }
+
+        private static void CommitFocusedTextBox()
+        {
+            if (Keyboard.FocusedElement is TextBox textBox)
+                BindingOperations.GetBindingExpression(textBox, TextBox.TextProperty)?.UpdateSource();
+        }
     }
 }

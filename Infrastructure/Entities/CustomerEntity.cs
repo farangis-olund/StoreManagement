@@ -17,7 +17,8 @@ public class CustomerEntity
 
 	public double? Debt { get; set; }                       // Задолженность
 	public double? Restriction { get; set; }                // Ограничение
-	public int? UnpaidPaymentLimit { get; set; }            // Лимит неоплаченных платежей
+	public decimal? BuyLimit { get; set; }                  // Лимит суммы заказа
+	public decimal? UnpaidPaymentLimit { get; set; }        // Лимит суммы неоплаченных платежей
 
 	// === Три ключевых дневных коэффициента ===
 	public double? DailyPurchaseCoefficient { get; set; }        // КоэфДневЗакупа
@@ -55,6 +56,7 @@ public class CustomerEntity
 			Notes = entity.Notes,
 			Debt = entity.Debt,
 			Restriction = entity.Restriction,
+			BuyLimit = entity.BuyLimit,
 			UnpaidPaymentLimit = entity.UnpaidPaymentLimit,
 			DailyPurchaseCoefficient = entity.DailyPurchaseCoefficient,
 			DailyRepaymentCoefficient = entity.DailyRepaymentCoefficient,

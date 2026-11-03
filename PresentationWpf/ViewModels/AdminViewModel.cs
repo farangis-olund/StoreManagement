@@ -101,10 +101,14 @@ public partial class AdminViewModel : ObservableObject
 
         // Direct MessageBox confirmation (no dialog service)
         var result = MessageBox.Show(
-            "Вы уверены, что хотите удалить ВСЕ данные?",
+            "Будут удалены все заказы, их детали, платежи клиентов и доставщиков, возвраты и их детали, " +
+            "обмены магазинов, движения склада, журнал обновлений и ошибки импорта.\n\n" +
+            "Клиенты, товары и их текущие остатки, пользователи, роли, права, настройки, расходы и сводки перемещений останутся.\n\n" +
+            "Перед очисткой создайте резервную копию. Продолжить?",
             "Подтверждение удаления",
             MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
 
         if (result != MessageBoxResult.Yes)
             return;
@@ -112,12 +116,18 @@ public partial class AdminViewModel : ObservableObject
         try
         {
             await _cleanService.DeleteAllAsync();
-            MessageBox.Show("Все данные успешно удалены.", "Готово");
+            MessageBox.Show("Очистка завершена. Выбранные категории данных удалены; справочники и настройки сохранены.", "Готово");
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Ошибка при удалении: {ex.Message}", "Ошибка");
+            System.Diagnostics.Debug.WriteLine(ex);
+            MessageBox.Show($"Очистка отменена, изменения не сохранены.\n\nПричина: {ex.GetBaseException().Message}",
+                "Ошибка очистки", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
         }
+
+        if (CurrentViewModel is DataBaseViewModel databaseView)
+            databaseView.RefreshCommand.Execute(null);
 
 
     }

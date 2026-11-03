@@ -126,6 +126,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
 using Infrastructure.Services;
 using PresentationWpf.Services;
 
@@ -180,7 +181,7 @@ public partial class StockViewModel : ObservableObject
         _transferReceiveViewModel.RequestClose += () => ResetTab(ref isTransferSelected);
     }
 
-    public bool CanViewCatalog => PermissionService.Has("Inventory.Catalog");
+    public bool CanViewCatalog => PermissionService.Has(PermissionCatalog.InventoryCatalog);
 
     public void RefreshPermissions()
     {

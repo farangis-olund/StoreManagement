@@ -6,7 +6,9 @@ public class CourierPaymentEntity
 
     public DateTime Date { get; set; }              // Дата
 
-    public string OrderId { get; set; } = "";       // № накладной
+    public string? OrderId { get; set; }       // № накладной
+    public int? CustomerPaymentId { get; set; }
+    public CustomerPaymentEntity? CustomerPayment { get; set; }
 
     public decimal AmountInEuro { get; set; }             // Сумма евро
     public decimal AmountInTJS { get; set; }             // Сумма смн

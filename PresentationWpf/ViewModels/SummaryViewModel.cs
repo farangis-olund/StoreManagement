@@ -11,6 +11,7 @@ using PresentationWpf.Views;
 using QuestPDF.Fluent;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Globalization;
 using System.Windows;
 
 
@@ -46,7 +47,18 @@ public partial class SummaryViewModel : ObservableObject
 	public string CustomerId { get; set; } = null!;
 
 	// ── Add-payment inputs ─────────────────────────────────
-	[ObservableProperty] private decimal paymentAmount;     // bound TextBox -> decimal
+	[ObservableProperty] private decimal paymentAmount;
+    [ObservableProperty] private string paymentAmountText = "0";
+
+    partial void OnPaymentAmountChanged(decimal value)
+    {
+        PaymentAmountText = value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    public bool TryGetPaymentAmount(out decimal amount) => decimal.TryParse(
+        PaymentAmountText?.Trim().Replace(',', '.'),
+        NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+        CultureInfo.InvariantCulture, out amount);
 	[ObservableProperty] private DateTime paymentDate;      // bound DatePicker
 	[ObservableProperty] private string? paymentOrderId;    // optional tie to invoice
     [ObservableProperty] private double _exchangeRate = 1;
@@ -84,8 +96,9 @@ public partial class SummaryViewModel : ObservableObject
 
         // Load unpaidPayments
         var unpaidOrders = await _orderService.GetUnpaidOrdersAsync(CustomerId);
+        UnpaidOrders.Clear();
         foreach (var o in unpaidOrders)
-            UnpaidOrders.Add(new UnpaidOrderDto { Date = o.Date, Id = o.Id, Paid = o.Paid, PaymentId = o.PaymentId });
+            UnpaidOrders.Add(o);
 
 
 
@@ -282,8 +295,19 @@ public partial class SummaryViewModel : ObservableObject
     [RelayCommand]
 	private async Task AddPayment()
 	{
-       
-        if (PaymentAmount <= 0)
+        if (string.IsNullOrWhiteSpace(_dataTransferService.PaymentCourierId))
+        {
+            MessageBox.Show("Сначала выберите доставщика на экране заказа, затем откройте итоги клиента снова.",
+                "Платеж", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!TryGetPaymentAmount(out var amount))
+        {
+            MessageBox.Show("Введите сумму числом, например 20,5 или 20.5.", "Платеж",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (amount <= 0)
 		{
 			MessageBox.Show("Сумма платежа должна быть больше 0.", "Платеж");
 			return;
@@ -296,15 +320,16 @@ public partial class SummaryViewModel : ObservableObject
 		// If no order exists, just set to null (instead of "0")
 		if (string.IsNullOrEmpty(todayOrderId))
 			todayOrderId = null;
-		var totalSumInWords = NumberToWordsConverter.ConvertToRussianWords(PaymentAmount);
+		var totalSumInWords = NumberToWordsConverter.ConvertToRussianWords(amount);
 
 		var saved = await _orderService.AddPaymentAsync(
 			customerId: CustomerId,
-			amount: PaymentAmount,
+			amount: amount,
 			amountInWords: totalSumInWords,
 			date: DateTime.Today,
 			orderId: todayOrderId, 
-            rate: ExchangeRate);
+            rate: ExchangeRate,
+            courierId: _dataTransferService.PaymentCourierId);
 
 		if (saved == null)
 		{
@@ -314,6 +339,7 @@ public partial class SummaryViewModel : ObservableObject
 		MessageBox.Show("Платеж успешно оформлен.", "Платеж");
 		// reset input and refresh
 		PaymentAmount = 0;
+        PaymentAmountText = "0";
 		await LoadAsync();
 	}
 

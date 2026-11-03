@@ -1,6 +1,7 @@
 ﻿
 using Infrastructure.Contexts;
-using Infrastructure.Dtos;
+using Infrastructure.Constants;
+using Infrastructure.Security;
 using Infrastructure.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,10 +10,66 @@ namespace Infrastructure.Services;
 public class CoefficientService
 {
 	private readonly DatabaseContext _db;
+	private readonly IDbContextFactory<DatabaseContext> _contextFactory;
+	private readonly CustomerFieldPermissionPolicy _fieldPermissions;
 
-	public CoefficientService(DatabaseContext db)
+	public CoefficientService(DatabaseContext db, IDbContextFactory<DatabaseContext> contextFactory,
+		CustomerFieldPermissionPolicy fieldPermissions)
 	{
 		_db = db;
+		_contextFactory = contextFactory;
+		_fieldPermissions = fieldPermissions;
+	}
+
+	public async Task<CustomerEntity> CalculateForCustomerAsync(string customerId)
+	{
+		await using var db = await _contextFactory.CreateDbContextAsync();
+		await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+		var coef = await db.RaschetKoefficenta.AsNoTracking().FirstOrDefaultAsync()
+			?? throw new InvalidOperationException("Настройки расчета коэффициентов не найдены.");
+		var customer = await db.Customers
+			.Include(c => c.Orders).ThenInclude(o => o.OrderDetails)
+			.Include(c => c.Payments).Include(c => c.Returns)
+			.FirstOrDefaultAsync(c => c.Id == customerId)
+			?? throw new InvalidOperationException("Клиент не найден.");
+
+		var ordersTotal = customer.Orders.SelectMany(o => o.OrderDetails).Sum(d => d.Price * d.Quentity);
+		var balance = ordersTotal - customer.Returns.Sum(r => r.TotalAmount)
+			+ ((decimal?)customer.Debt ?? 0) - customer.Payments.Sum(p => p.Amount);
+		var brackets = new[]
+		{
+			(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
+			(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
+			(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
+			(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
+			(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5)
+		};
+		decimal repayment = 0;
+		foreach (var (minimum, maximum, days) in brackets)
+		{
+			if (balance < minimum || balance > maximum) continue;
+			if (days <= 0)
+				throw new InvalidOperationException("Количество дней погашения должно быть больше нуля.");
+			repayment = Math.Round(balance / days, 2);
+			break;
+		}
+
+		var calculated = new CustomerEntity
+		{
+			DailyPurchaseCoefficient = coef.KoefZakupaDni == 0 ? 0
+				: (double)Math.Round(balance * coef.KoefZakupa / coef.KoefZakupaDni, 2),
+			DailyRepaymentCoefficient = (double)repayment,
+			DailyPlannedPurchaseCoefficient = coef.KoefZaplanZakupDni == 0 ? 0
+				: (double)Math.Round((ordersTotal + ordersTotal * coef.KoefZaplanZakup / 100m) / coef.KoefZaplanZakupDni, 2)
+		};
+		// Validate every result before changing any of the three saved values.
+		_fieldPermissions.EnsureCanChange(CustomerField.Coefficients, customer, calculated);
+		customer.DailyPurchaseCoefficient = calculated.DailyPurchaseCoefficient;
+		customer.DailyRepaymentCoefficient = calculated.DailyRepaymentCoefficient;
+		customer.DailyPlannedPurchaseCoefficient = calculated.DailyPlannedPurchaseCoefficient;
+		await db.SaveChangesAsync();
+		await transaction.CommitAsync();
+		return customer;
 	}
 
 	/// <summary>
@@ -120,102 +177,6 @@ public class CoefficientService
 
 	}
 
-	public async Task CalculateEzhPogashForCustomerAsync(Customer customer)
-	{
-		var coef = await _db.RaschetKoefficenta.FirstOrDefaultAsync();
-		if (coef == null) return;
-
-		var customerEntity = await _db.Customers
-			.Include(c => c.Orders).ThenInclude(o => o.OrderDetails)
-			.Include(c => c.Payments)
-			.Include(c => c.Returns)
-			.FirstOrDefaultAsync(c => c.Id == customer.Id);
-
-		if (customerEntity == null) return;
-
-		decimal ordersTotal = customerEntity.Orders
-			.SelectMany(o => o.OrderDetails)
-			.Sum(od => od.Price * od.Quentity);
-
-		decimal returnsTotal = customerEntity.Returns.Sum(r => r.TotalAmount);
-		decimal paymentsTotal = customerEntity.Payments.Sum(p => p.Amount);
-		decimal debt = (decimal?)customer.Debt ?? 0;
-
-		decimal balance = ordersTotal - returnsTotal + debt - paymentsTotal;
-
-		decimal koefEzhPogash = 0;
-
-		if (balance >= coef.KoefEzhPogashOstatokNach1 && balance <= coef.KoefEzhPogashOstatokKon1)
-			koefEzhPogash = balance / coef.KoefEzhPogashDin1;
-		else if (balance >= coef.KoefEzhPogashOstatokNach2 && balance <= coef.KoefEzhPogashOstatokKon2)
-			koefEzhPogash = balance / coef.KoefEzhPogashDin2;
-		else if (balance >= coef.KoefEzhPogashOstatokNach3 && balance <= coef.KoefEzhPogashOstatokKon3)
-			koefEzhPogash = balance / coef.KoefEzhPogashDin3;
-		else if (balance >= coef.KoefEzhPogashOstatokNach4 && balance <= coef.KoefEzhPogashOstatokKon4)
-			koefEzhPogash = balance / coef.KoefEzhPogashDin4;
-		else if (balance >= coef.KoefEzhPogashOstatokNach5 && balance <= coef.KoefEzhPogashOstatokKon5)
-			koefEzhPogash = balance / coef.KoefEzhPogashDin5;
-
-		customerEntity.DailyRepaymentCoefficient = (double)Math.Round(koefEzhPogash, 2);
-
-		await _db.SaveChangesAsync();
-	}
-
-	public async Task CalculateZakupForCustomerAsync(string customerId)
-	{
-		var coef = await _db.RaschetKoefficenta.FirstOrDefaultAsync();
-		if (coef == null) return;
-
-		var customer = await _db.Customers
-			.Include(c => c.Orders).ThenInclude(o => o.OrderDetails)
-			.Include(c => c.Payments)
-			.Include(c => c.Returns)
-			.FirstOrDefaultAsync(c => c.Id == customerId);
-
-		if (customer == null) return;
-
-		decimal ordersTotal = customer.Orders
-			.SelectMany(o => o.OrderDetails)
-			.Sum(od => od.Price * od.Quentity);
-
-		decimal returnsTotal = customer.Returns.Sum(r => r.TotalAmount);
-		decimal paymentsTotal = customer.Payments.Sum(p => p.Amount);
-		decimal debt = (decimal?)customer.Debt ?? 0;
-
-		decimal balance = ordersTotal - returnsTotal + debt - paymentsTotal;
-
-		decimal result = coef.KoefZakupaDni == 0
-			? 0
-			: Math.Round(balance * coef.KoefZakupa / coef.KoefZakupaDni, 2);
-
-		customer.DailyPurchaseCoefficient = (double)result;
-
-		await _db.SaveChangesAsync();
-	}
-
-	public async Task CalculateZaplanZakupForCustomerAsync(string customerId)
-	{
-		var coef = await _db.RaschetKoefficenta.FirstOrDefaultAsync();
-		if (coef == null) return;
-
-		var customer = await _db.Customers
-			.Include(c => c.Orders).ThenInclude(o => o.OrderDetails)
-			.FirstOrDefaultAsync(c => c.Id == customerId);
-
-		if (customer == null) return;
-
-		decimal ordersTotal = customer.Orders
-			.SelectMany(o => o.OrderDetails)
-			.Sum(od => od.Price * od.Quentity);
-
-		decimal result = coef.KoefZaplanZakupDni == 0
-			? 0
-			: Math.Round((ordersTotal + ordersTotal * coef.KoefZaplanZakup / 100m) / coef.KoefZaplanZakupDni, 2);
-
-		customer.DailyPlannedPurchaseCoefficient = (double)result;
-
-		await _db.SaveChangesAsync();
-	}
 
 	/// <summary>
 	/// Возвращает первую запись RaschetKoefficenta или создаёт её с дефолтными значениями.

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System;
+using Infrastructure.Security;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PresentationWpf.Services;
 
-public class PermissionService : ObservableObject
+public class PermissionService : ObservableObject, IPermissionChecker
 {
     private HashSet<string> _currentPermissions = new();
 

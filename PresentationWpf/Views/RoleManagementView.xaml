@@ -45,7 +45,7 @@
     <Grid Margin="20">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>       <!-- Shared Roles+Permissions group -->
-            <ColumnDefinition x:Name="PermissionManagerColumn">
+            <ColumnDefinition x:Name="PermissionManagerColumn" MaxWidth="520">
                 <ColumnDefinition.Style>
                     <Style TargetType="ColumnDefinition">
                         <Setter Property="Width" Value="0"/>
@@ -53,7 +53,7 @@
 
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsPermissionManagerVisible}" Value="True">
-                                <Setter Property="Width" Value="520"/>
+                                <Setter Property="Width" Value="0.8*"/>
                                 <!-- Visible when toggled -->
                             </DataTrigger>
                         </Style.Triggers>
@@ -233,9 +233,8 @@
                
                 <Border Grid.Column="1"
                     VerticalAlignment="Stretch"
-                    HorizontalAlignment="Left"
+                    HorizontalAlignment="Stretch"
                     Padding="15"
-                    Width="295"
                     Background="#F7F7F7"
                     BorderBrush="#DDD"
                     BorderThickness="1"
@@ -249,18 +248,14 @@
                             <RowDefinition Height="Auto"/>                    <!-- Buttons at bottom -->
                         </Grid.RowDefinitions>
 
-                        <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock 
-                                   Text="Права доступа"
-                                   FontSize="22"
-                                   FontWeight="Bold"
-                                   DockPanel.Dock="Left"/>
+                        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
                             <!-- Settings button -->
                             <Button Style="{StaticResource GrayButton}"
                                      Command="{Binding TogglePermissionManagerCommand}"
                                      Width="40"
                                      Height="35"
-                                     Margin="50,0,0,0" DockPanel.Dock="Right">
+                                     Margin="8,0,0,0" DockPanel.Dock="Right"
+                                     ToolTip="Каталог прав">
                                     <StackPanel Orientation="Horizontal">
                                         <fa:ImageAwesome Icon="Gear"
                                             Width="14"
@@ -270,37 +265,92 @@
                                     <TextBlock Text=""/>
                                 </StackPanel>
                             </Button>
+                            <TextBlock Text="Права доступа" FontSize="22" FontWeight="Bold"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
 
                         </DockPanel>
 
-                        <StackPanel Grid.Row="1">
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                                <Button DockPanel.Dock="Right" Width="28" Margin="4,0,0,0"
+                                        ToolTip="Очистить поиск" Command="{Binding ClearPermissionSearchCommand}">
+                                    <fa:ImageAwesome Icon="Times" Width="12" Height="12"/>
+                                </Button>
+                                <Grid>
+                                    <TextBox x:Name="PermissionSearchBox" MinHeight="30" Padding="6,4"
+                                             VerticalContentAlignment="Center" AutomationProperties.Name="Поиск прав"
+                                             ToolTip="Поиск по названию или ключу"
+                                             Text="{Binding PermissionSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Text="Поиск прав" Margin="8,0" VerticalAlignment="Center"
+                                               Foreground="Gray" IsHitTestVisible="False">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=PermissionSearchBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DockPanel>
 
                             <!-- SELECT ALL / UNSELECT ALL -->
-                            <CheckBox Content="Выбрать все"
+                            <CheckBox Grid.Row="1" Content="Выбрать все"
                                   FontWeight="Bold"
                                   Margin="0,0,0,10"
+                                  ToolTip="Выбрать все права в текущем списке"
+                                  IsEnabled="{Binding HasVisiblePermissions}"
                                   Visibility="{Binding IsPermissionsVisible, Converter={StaticResource BoolToVisibilityConverter}}"
                                   IsChecked="{Binding AreAllSelected, Mode=TwoWay}" />
 
                             <!-- PERMISSIONS LIST -->
-                            <ScrollViewer Height="400"
-                                  VerticalAlignment="Top"
+                            <ScrollViewer x:Name="PermissionScroll" Grid.Row="2"
+                                  HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Auto">
 
-                                <ItemsControl ItemsSource="{Binding Permissions}">
+                                <ItemsControl x:Name="PermissionList" ItemsSource="{Binding FilteredPermissions}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <CheckBox Content="{Binding Description}"
+                                            <CheckBox HorizontalContentAlignment="Stretch"
                                               IsChecked="{Binding IsAssigned, Mode=TwoWay}"
+                                              ToolTip="{Binding Key}"
                                               FontSize="14"
-                                              Margin="0,5,0,0"/>
+                                              Margin="0,5,4,5">
+                                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="3,0,0,0"/>
+                                            </CheckBox>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
                             </ScrollViewer>
+                            <TextBlock Grid.Row="2" Text="Права не найдены" Foreground="Gray" Margin="0,8"
+                                       VerticalAlignment="Top" IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsPermissionsVisible}" Value="True"/>
+                                                    <Condition Binding="{Binding HasVisiblePermissions}" Value="False"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
 
-                        </StackPanel>
+                        </Grid>
 
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
@@ -332,9 +382,9 @@
 
         <Border Grid.Column="1"
         Padding="15"
-        Width="500"
+        Visibility="{Binding IsPermissionManagerVisible, Converter={StaticResource BoolToVisibilityConverter}}"
         VerticalAlignment="Stretch"
-        HorizontalAlignment="Left"
+        HorizontalAlignment="Stretch"
         Background="#F7F7F7"
         CornerRadius="8"
         BorderBrush="#DDD"

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
 using PresentationWpf.Dtos;
 using Infrastructure.Services;
 using System.Collections.ObjectModel;
@@ -33,6 +34,7 @@ public partial class RetailViewModel : ObservableObject
 	private readonly DialogService _dialogService;
 	private readonly CustomerFinanceService _financeService;
     private readonly PermissionService _permissionService;
+    private bool _isAdjustingProductLimit;
 	public RetailViewModel(ProductService productService, 
 							UserSessionService userSessionService, 
 							OrderService orderService, 
@@ -44,7 +46,8 @@ public partial class RetailViewModel : ObservableObject
 							SalesManagerRepository salesManagerRepo,
 							DialogService dialogService,
 							CustomerFinanceService financeService,
-                            PermissionService permissionService)
+                            PermissionService permissionService,
+                            ProductRequestService productRequestService)
 	{
 		_productService = productService;
 		_orderService = orderService;
@@ -58,6 +61,9 @@ public partial class RetailViewModel : ObservableObject
 		_dialogService = dialogService;
 		_financeService = financeService;
         _permissionService = permissionService;
+        _productRequestService = productRequestService;
+        PropertyChangedEventManager.AddHandler(_permissionService, OnOrderPermissionsChanged,
+            nameof(PermissionService.CurrentPermissions));
 
 		_productList = [];
 		_selectedProductList = [];
@@ -65,21 +71,21 @@ public partial class RetailViewModel : ObservableObject
 
 		SelectedProductList.CollectionChanged += (s, e) =>
 		{
-			if (e.NewItems != null)
-			{
-				foreach (ProductModel item in e.NewItems)
-				{
-					item.PropertyChanged += OnProductModelPropertyChanged;
-				}
-			}
-
-			if (e.OldItems != null)
-			{
-				foreach (ProductModel item in e.OldItems)
-				{
-					item.PropertyChanged -= OnProductModelPropertyChanged;
-				}
-			}
+            // Clear() reports Reset without OldItems; detach those rows as well.
+            foreach (var item in _subscribedCartProducts.Except(SelectedProductList).ToArray())
+            {
+                item.PropertyChanged -= OnProductModelPropertyChanged;
+                item.OrderQuantityExceeded -= OnOrderQuantityExceeded;
+                _subscribedCartProducts.Remove(item);
+                foreach (var key in _cartRequestIds.Keys.Where(k => k.Article == item.ArticleNumber).ToArray())
+                    _cartRequestIds.Remove(key);
+            }
+            foreach (var item in SelectedProductList.Except(_subscribedCartProducts))
+            {
+                item.PropertyChanged += OnProductModelPropertyChanged;
+                item.OrderQuantityExceeded += OnOrderQuantityExceeded;
+                _subscribedCartProducts.Add(item);
+            }
 
 			UpdateTotalSum();
 		};
@@ -112,16 +118,56 @@ public partial class RetailViewModel : ObservableObject
 	[ObservableProperty]
 	private Customer? _selectedCustomer = null!;
 
+    [ObservableProperty]
+    private bool _isOrderBlockedByUnpaidPaymentLimit;
+
+    [ObservableProperty]
+    private decimal? _availableRestriction;
+    private int _restrictionRequestVersion;
+    private decimal? _customerBalance;
+
+    private bool IsCustomerFinanceReady => SelectedCustomer != null && _customerBalance.HasValue;
+    private CustomerOrderAllowance? OrderAllowance => IsCustomerFinanceReady
+        ? new CustomerOrderAllowance(SelectedCustomer!.BuyLimit, _customerBalance!.Value,
+            _permissionService.Has(PermissionCatalog.OrdersExceedBuyLimit))
+        : null;
+
     public bool IsOnlyOfficialCustomer =>
-        _permissionService.Has("OnlyOfficialCustomer") ||
+        _permissionService.Has(PermissionCatalog.OnlyOfficialCustomer) ||
         _permissionService.Has("onlyOfficialCustomer");
 
     public bool CanViewCustomerCode => !IsOnlyOfficialCustomer;
 
     public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "Id";
 
+    public bool CanUseBarter => _permissionService.Has(PermissionCatalog.OrdersBarter);
+    public bool CanUseDirectFromStock => _permissionService.Has(PermissionCatalog.OrdersDirectFromStock);
+
+    private void OnOrderPermissionsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(CanUseBarter));
+        OnPropertyChanged(nameof(CanUseDirectFromStock));
+        if (!CanUseBarter) IsBarter = false;
+        if (!CanUseDirectFromStock) DirectFromStock = false;
+        SaveOrderCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanSaveOrder() => IsCustomerFinanceReady && !IsOrderBlockedByUnpaidPaymentLimit && !HasPendingProductRequests &&
+        (!IsBarter || CanUseBarter) && (!DirectFromStock || CanUseDirectFromStock);
+
+    partial void OnIsOrderBlockedByUnpaidPaymentLimitChanged(bool value)
+    {
+        SaveOrderCommand.NotifyCanExecuteChanged();
+    }
+
 	[ObservableProperty]
 	private bool _directFromStock;
+
+    partial void OnDirectFromStockChanged(bool value)
+    {
+        if (value && !CanUseDirectFromStock) DirectFromStock = false;
+        SaveOrderCommand.NotifyCanExecuteChanged();
+    }
 
     [ObservableProperty]
     private bool _officialOrder = true;
@@ -198,21 +244,23 @@ public partial class RetailViewModel : ObservableObject
 		get => _filterText;
 		set
 		{
-			SetProperty(ref _filterText, value);
+			if (!SetProperty(ref _filterText, value)) return;
+            ResetProductRequestEntry();
+            SelectedProduct = null!;
             UpdateInlineSuggestion();
             ApplyFilter();
 		}
 	}
 
-	private bool _searchAllWords;
+    private string? _exactArticleFilter;
+	private bool _searchAllWords = true;
 	public bool SearchAllWords
 	{
 		get => _searchAllWords;
 		set
 		{
-			_searchAllWords = value;
-			OnPropertyChanged(nameof(SearchAllWords));
-			CollectionViewSource.GetDefaultView(ProductListView).Refresh();
+            if (SetProperty(ref _searchAllWords, value))
+                ApplyFilter();
 		}
 	}
 
@@ -315,7 +363,7 @@ public partial class RetailViewModel : ObservableObject
 
 		ProductListView = CollectionViewSource.GetDefaultView(ProductList);
 		ProductListView.Filter = FilterProducts;
-		ProductListView.Refresh();
+        ApplyFilter();
 		// 3) Customers (source collection)
 		var customersEntity = await _customerService.GetAllCustomersAsync();
 		AllCustomers = new ObservableCollection<Customer>(
@@ -376,6 +424,7 @@ public partial class RetailViewModel : ObservableObject
 			if (_selectedProduct == value) return;
 			_selectedProduct = value;
 			OnPropertyChanged(nameof(SelectedProduct));
+            UpdateProductRequestPrompt();
 			
 			AlternativeProductList.Clear(); 
 			if (_selectedProduct != null && !string.IsNullOrEmpty(_selectedProduct.Alternative))
@@ -399,6 +448,10 @@ public partial class RetailViewModel : ObservableObject
 
 	partial void OnSelectedCustomerChanged(Customer? value)
 	{
+        _manualRequestId = Guid.NewGuid();
+        _customerBalance = null;
+        AddToChartCommand.NotifyCanExecuteChanged();
+        SaveOrderCommand.NotifyCanExecuteChanged();
         ShowOfficialOrder = value?.OfficialCustomer == true;
         OfficialOrder = ShowOfficialOrder;
 
@@ -408,6 +461,7 @@ public partial class RetailViewModel : ObservableObject
 
         _ = LoadInactiveForSelectedCustomerAsync(value);
         _ = WarnIfUnpaidPaymentLimitReachedAsync(value);
+        _ = RefreshAvailableRestrictionAsync(value);
 
         if (value == null)
 		{
@@ -441,22 +495,68 @@ public partial class RetailViewModel : ObservableObject
 
 	}
 
+    private async Task<bool> RefreshAvailableRestrictionAsync(Customer? customer)
+    {
+        var requestVersion = ++_restrictionRequestVersion;
+        AvailableRestriction = null;
+        _customerBalance = null;
+        AddToChartCommand.NotifyCanExecuteChanged();
+        SaveOrderCommand.NotifyCanExecuteChanged();
+        if (customer == null) return false;
+
+        try
+        {
+            // Use the same balance as the customer summary, including payments and returns.
+            var finance = await _financeService.GetFinanceInfoAsync(customer.Id, orderId: null!);
+            if (requestVersion == _restrictionRequestVersion && SelectedCustomer == customer)
+            {
+                AvailableRestriction = finance.AvailableRestriction;
+                _customerBalance = finance.Balance;
+                AddToChartCommand.NotifyCanExecuteChanged();
+                SaveOrderCommand.NotifyCanExecuteChanged();
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            if (requestVersion == _restrictionRequestVersion && SelectedCustomer == customer)
+                MessageBox.Show("Не удалось загрузить остаток для расчета ограничения. Повторно выберите клиента.",
+                    "Ограничение", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        return false;
+    }
+
     private async Task WarnIfUnpaidPaymentLimitReachedAsync(Customer? customer)
     {
         if (customer == null)
+        {
+            IsOrderBlockedByUnpaidPaymentLimit = false;
             return;
+        }
 
         var unpaidPaymentLimit = customer.UnpaidPaymentLimit ?? 0;
         if (unpaidPaymentLimit <= 0)
+        {
+            IsOrderBlockedByUnpaidPaymentLimit = false;
+            return;
+        }
+
+        var unpaidPaymentTotal = await _orderService.GetUnpaidPaymentTotalAsync(customer.Id);
+        if (SelectedCustomer?.Id != customer.Id)
             return;
 
-        var unpaidPaymentCount = await _orderService.GetUnpaidPaymentCountAsync(customer.Id);
-        if (unpaidPaymentCount < unpaidPaymentLimit)
+        if (unpaidPaymentTotal < unpaidPaymentLimit)
+        {
+            IsOrderBlockedByUnpaidPaymentLimit = false;
             return;
+        }
+
+        IsOrderBlockedByUnpaidPaymentLimit = true;
 
         MessageBox.Show(
-            $"У клиента {customer.FullName} есть {unpaidPaymentCount} неоплаченных платежей.\n" +
-            $"Лимит для этого клиента: {unpaidPaymentLimit}.\n" +
+            $"У клиента {customer.FullName} сумма неоплаченных платежей {unpaidPaymentTotal:N2}.\n" +
+            $"Лимит для этого клиента: {unpaidPaymentLimit:N2}.\n" +
             "Сначала нужно закрыть неоплаченные платежи, затем можно оформить новый заказ.",
             "Лимит неоплаченных платежей достигнут",
             MessageBoxButton.OK,
@@ -542,7 +642,9 @@ public partial class RetailViewModel : ObservableObject
 
     public event Action OnProductAdded;
 
-	[RelayCommand]
+    private bool CanAddToChart(ProductModel? product) => IsCustomerFinanceReady && product?.Quentity > 0;
+
+	[RelayCommand(CanExecute = nameof(CanAddToChart))]
     private void AddToChart(ProductModel product)
     {
         
@@ -553,6 +655,13 @@ public partial class RetailViewModel : ObservableObject
         if (SelectedCustomer == null)
         {
             MessageBox.Show("Для оформление заказа, сперва выберите клиента.", "Ошибка");
+            return;
+        }
+
+        if (!IsCustomerFinanceReady)
+        {
+            MessageBox.Show("Дождитесь загрузки остатка клиента. Если загрузка не удалась, повторно выберите клиента.",
+                "Остаток клиента", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -580,6 +689,12 @@ public partial class RetailViewModel : ObservableObject
             return;
         }
 
+        if (IsBuyLimitActive() && TotalSum >= GetMaximumOrderTotal())
+        {
+            ShowBuyLimitReachedMessage();
+            return;
+        }
+
         product.OrderQuentity = 0;
 
         // Add to chart
@@ -601,10 +716,20 @@ public partial class RetailViewModel : ObservableObject
     public event Action<ProductModel>? OnInvalidQuantityFound;
 
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSaveOrder))]
 
     private async Task SaveOrder()
     {
+        if (HasPendingProductRequests)
+        {
+            MessageBox.Show("Сначала повторите отправку несохранённых заявок на недостающее количество.", "Заявки на товары");
+            return;
+        }
+        if ((IsBarter && !CanUseBarter) || (DirectFromStock && !CanUseDirectFromStock))
+        {
+            MessageBox.Show("Нет права на выбранный режим заказа.", "Права доступа", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         if (DirectFromStock)
         {
             var confirm = MessageBox.Show(
@@ -633,15 +758,19 @@ public partial class RetailViewModel : ObservableObject
                 return;
             }
 
+            var customerForOrder = SelectedCustomer;
+            if (!await RefreshAvailableRestrictionAsync(customerForOrder) || SelectedCustomer != customerForOrder)
+                return;
+
             var unpaidPaymentLimit = SelectedCustomer.UnpaidPaymentLimit ?? 0;
             if (unpaidPaymentLimit > 0)
             {
-                var unpaidPaymentCount = await _orderService.GetUnpaidPaymentCountAsync(SelectedCustomer.Id);
-                if (unpaidPaymentCount >= unpaidPaymentLimit)
+                var unpaidPaymentTotal = await _orderService.GetUnpaidPaymentTotalAsync(SelectedCustomer.Id);
+                if (unpaidPaymentTotal >= unpaidPaymentLimit)
                 {
                     MessageBox.Show(
-                        $"У клиента {SelectedCustomer.FullName} есть {unpaidPaymentCount} неоплаченных платежей.\n" +
-                        $"Лимит для этого клиента: {unpaidPaymentLimit}.\n" +
+                        $"У клиента {SelectedCustomer.FullName} сумма неоплаченных платежей {unpaidPaymentTotal:N2}.\n" +
+                        $"Лимит для этого клиента: {unpaidPaymentLimit:N2}.\n" +
                         "Сначала нужно закрыть неоплаченные платежи, затем можно оформить новый заказ.",
                         "Лимит неоплаченных платежей достигнут",
                         MessageBoxButton.OK,
@@ -691,6 +820,12 @@ public partial class RetailViewModel : ObservableObject
             if (totalSum <= 0)
             {
                 MessageBox.Show("Сумма заказа не может быть 0. Пожалуйста, проверьте количество заказа.", "Ошибка");
+                return;
+            }
+
+            if (IsBuyLimitExceeded(totalSum))
+            {
+                ShowBuyLimitReachedMessage();
                 return;
             }
 
@@ -809,6 +944,7 @@ public partial class RetailViewModel : ObservableObject
                     window.ShowDialog();
                 }
             }
+            await RefreshAvailableRestrictionAsync(SelectedCustomer);
         }
         catch (Exception ex)
         {
@@ -827,6 +963,8 @@ public partial class RetailViewModel : ObservableObject
 		if (e.PropertyName == nameof(ProductModel.Total))
 		{
 			UpdateTotalSum();
+            if (sender is ProductModel product)
+                EnforceBuyLimitForProduct(product);
 		}
 	}
 
@@ -835,14 +973,83 @@ public partial class RetailViewModel : ObservableObject
 		TotalSum = SelectedProductList.Sum(p => p.Total);
 	}
 
+    private bool IsBuyLimitActive()
+    {
+        return OrderAllowance?.MaximumTotal.HasValue == true;
+    }
+
+    private decimal GetMaximumOrderTotal()
+    {
+        return OrderAllowance?.MaximumTotal ?? 0m;
+    }
+
+    private bool IsBuyLimitExceeded(decimal total)
+    {
+        return OrderAllowance?.IsExceeded(total) == true;
+    }
+
+    private void EnforceBuyLimitForProduct(ProductModel product)
+    {
+        if (_isAdjustingProductLimit || !IsBuyLimitExceeded(TotalSum))
+            return;
+
+        var limit = GetMaximumOrderTotal();
+        var totalWithoutProduct = SelectedProductList
+            .Where(p => p != product)
+            .Sum(p => p.Total);
+
+        var availableForProduct = Math.Max(0m, limit - totalWithoutProduct);
+        var unitPrice = product.OrderQuentity > 0
+            ? product.Total / product.OrderQuentity
+            : product.EffectivePriceSom ?? 0m;
+
+        var allowedQuantity = unitPrice > 0
+            ? (int)Math.Floor(availableForProduct / unitPrice)
+            : 0;
+
+        _isAdjustingProductLimit = true;
+        try
+        {
+            product.OrderQuentity = allowedQuantity;
+            UpdateTotalSum();
+        }
+        finally
+        {
+            _isAdjustingProductLimit = false;
+        }
+
+        ShowBuyLimitReachedMessage();
+    }
+
+    private void ShowBuyLimitReachedMessage()
+    {
+        var allowance = OrderAllowance;
+        if (allowance?.MaximumTotal == null) return;
+
+        MessageBox.Show(
+            $"Лимит суммы заказа: {allowance.BuyLimit:N2}\n" +
+            $"Предоплата клиента: {allowance.Prepayment:N2}\n" +
+            $"Допустимая сумма с предоплатой: {allowance.MaximumTotal:N2}\n" +
+            $"Сумма в корзине: {TotalSum:N2}\n" +
+            $"Осталось предоплаты: {allowance.RemainingPrepayment(TotalSum):N2}\n" +
+            $"Можно добавить еще на сумму: {allowance.Remaining(TotalSum):N2}\n\n" +
+            "Чтобы добавить товар сверх этой суммы, удалите другой товар или уменьшите количество в заказе.",
+            "Лимит суммы заказа достигнут",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
 	private bool FilterProducts(object item)
 	{
 		if (item is ProductModel product)
 		{
-			if (string.IsNullOrEmpty(FilterText))
+			if (string.IsNullOrWhiteSpace(FilterText))
 			{
 				return true;
 			}
+
+            if (_exactArticleFilter != null)
+                return string.Equals(product.ArticleNumber, _exactArticleFilter, StringComparison.OrdinalIgnoreCase);
 
 			// Split FilterText into words
 			var filterWords = FilterText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -874,7 +1081,12 @@ public partial class RetailViewModel : ObservableObject
 
 	private void ApplyFilter()
 	{
+        // Resolve the whole article once per search, before considering individual keywords.
+        var searchText = FilterText?.Trim();
+        _exactArticleFilter = string.IsNullOrEmpty(searchText) ? null : ProductList
+            .FirstOrDefault(p => string.Equals(p.ArticleNumber, searchText, StringComparison.OrdinalIgnoreCase))?.ArticleNumber;
 		ProductListView?.Refresh();
+        UpdateProductRequestPrompt();
 	}
 	
 	
@@ -926,6 +1138,11 @@ public partial class RetailViewModel : ObservableObject
 		set
 		{
 			if (_isBarter == value) return;
+            if (value && !CanUseBarter)
+            {
+                OnPropertyChanged(nameof(IsBarter));
+                return;
+            }
 
             // 👇 Prevent enabling barter if customer has unpaid orders
             if (value == true)
@@ -937,6 +1154,7 @@ public partial class RetailViewModel : ObservableObject
 
             _isBarter = value;
 			OnPropertyChanged(nameof(IsBarter));
+            SaveOrderCommand.NotifyCanExecuteChanged();
 
 			foreach (var item in SelectedProductList)
 				item.ClearBarterPrice(); // start with blank barter price
@@ -952,13 +1170,15 @@ public partial class RetailViewModel : ObservableObject
 			return;
 		}
 		_dataTransferService.CustomerId = SelectedCustomer.Id;
+        _dataTransferService.PaymentCourierId = SelectedCourier?.Id;
 
 		var vm = _serviceProvider.GetRequiredService<SummaryViewModel>();
 
 		await vm.LoadAsync();
 		
 		_dialogService.Show(vm);
-		
+
+        await RefreshAvailableRestrictionAsync(SelectedCustomer);
 	}
 
 	public async Task SelectCustomerByIdAsync(string customerId)
@@ -1082,7 +1302,7 @@ public partial class RetailViewModel : ObservableObject
 		ProductList.Clear();
 		var productDtos = await _productService.GetAllProductAsync();
 
-		foreach (var dto in productDtos.Where(p => p.Quentity > 0))
+		foreach (var dto in productDtos)
 		{
 			var pm = (ProductModel)dto;
 			pm.ExchangeRate = ExchangeRate;
@@ -1090,6 +1310,7 @@ public partial class RetailViewModel : ObservableObject
 			ProductList.Add(pm);
 		}
 		ApplyCustomerLevelPrice();
+        ApplyFilter();
 	}
 
 	private InactiveCustomerDto? _selectedRequiredPurchaseCombo;
@@ -1190,6 +1411,7 @@ public partial class RetailViewModel : ObservableObject
 
     private async Task CheckBarterEligibilityAsync()
     {
+        if (!CanUseBarter) return;
         if (SelectedCustomer == null)
         {
             MessageBox.Show("Сначала выберите клиента.", "Бартер", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -1199,6 +1421,7 @@ public partial class RetailViewModel : ObservableObject
 
         // ✅ Ask order service if customer has unpaid orders
         bool hasDebt = await _orderService.HasUnpaidOrdersAsync(SelectedCustomer.Id);
+        if (!CanUseBarter) return;
 
         if (hasDebt)
         {
@@ -1216,6 +1439,7 @@ public partial class RetailViewModel : ObservableObject
         // ✅ All good — enable barter
         _isBarter = true;
         OnPropertyChanged(nameof(IsBarter));
+        SaveOrderCommand.NotifyCanExecuteChanged();
 
         foreach (var item in SelectedProductList)
             item.ClearBarterPrice();
@@ -1223,8 +1447,10 @@ public partial class RetailViewModel : ObservableObject
 
     public void ResetState()
     {
+        ResetProductRequestEntry();
         SelectedCustomer = null;
         FilterText = "";
+        SearchAllWords = true;
         SelectedProductList.Clear();
         SelectedSalesManager = null;
         SelectedTerritory = null;

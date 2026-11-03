@@ -1,10 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Services;
+using Infrastructure.Security;
 using PresentationWpf.Services;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
 
 
@@ -15,15 +18,18 @@ public partial class CustomerViewModel : ObservableObject
 {
 	private readonly CustomerService _customerService;
 	private readonly CoefficientService _coefficientService;
-	private readonly ManagerService _managerService;
+    private readonly CustomerFieldPermissionPolicy _fieldPermissions;
+    private CustomerEntity? _originalCustomer;
+    private bool _isLoading;
     public PermissionService PermissionService { get; }
-    public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService, ManagerService managerService, PermissionService permissionService)
+    public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService, PermissionService permissionService, CustomerFieldPermissionPolicy fieldPermissions)
 	{
-		_customerService = customerService;
+        _customerService = customerService;
 		_coefficientService = coefficientService;
-		_managerService = managerService;
+        _fieldPermissions = fieldPermissions;
         PermissionService = permissionService;
-        LoadData();
+        PropertyChangedEventManager.AddHandler(PermissionService,
+            (_, _) => RefreshPermissions(), nameof(PermissionService.CurrentPermissions));
 	}
 
 	[ObservableProperty]
@@ -47,15 +53,28 @@ public partial class CustomerViewModel : ObservableObject
 	[ObservableProperty]
 	public ObservableCollection<string> distinctTerritories  = [];
 
-	private async void LoadData()
+	public async Task LoadDataAsync()
 	{
-		await LoadPriceLevelsAsync();
-		await LoadSalesManagersAsync();
-		await LoadCustomersAsync();
+        if (_isLoading)
+            return;
+
+        _isLoading = true;
+        try
+        {
+            await LoadPriceLevelsAsync();
+            await LoadSalesManagersAsync();
+            await LoadCustomersAsync();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
 	}
 
 	private async Task LoadCustomersAsync()
 	{
+        Customers.Clear();
+
 		var customerList = await _customerService.GetAllCustomersAsync(); 
 
 		foreach (var customer in customerList.Where(c => !IsOnlyOfficialCustomer || c.OfficialCustomer))
@@ -79,10 +98,11 @@ public partial class CustomerViewModel : ObservableObject
 	}
 
 
-	[RelayCommand]
+	[RelayCommand(CanExecute = nameof(CanCreateCustomer))]
 	private void CreateCustomer()
 	{
-		SelectedCustomer = new CustomerEntity();
+        if (!CanCreateCustomer()) return;
+		SelectedCustomer = new Customer { ContractDate = null };
         MessageBox.Show("Заполните все обязательные поля, затем нажмите на кнопу Сохранить.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
 
     }
@@ -105,7 +125,16 @@ public partial class CustomerViewModel : ObservableObject
             return;
         }
 
-        var savedCustomer = await _customerService.AddCustomerAsync(SelectedCustomer);
+        CustomerEntity? savedCustomer;
+        try
+        {
+            savedCustomer = await _customerService.AddCustomerAsync(SelectedCustomer);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            MessageBox.Show(ex.Message, "Сохранение клиента", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
 
         if (savedCustomer is null)
         {
@@ -116,20 +145,6 @@ public partial class CustomerViewModel : ObservableObject
                 MessageBoxImage.Error
             );
             return;
-        }
-
-        if (!string.IsNullOrEmpty(savedCustomer.SalesManagerId))
-        {
-            var link = new ManagerCustomerEntity
-            {
-                ManagerId = savedCustomer.SalesManagerId,
-                CustomerId = savedCustomer.Id
-            };
-
-            await _managerService.SaveManagerCustomersAsync(
-                savedCustomer.SalesManagerId,
-                new[] { link }
-            );
         }
 
         var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
@@ -160,25 +175,74 @@ public partial class CustomerViewModel : ObservableObject
             MessageBoxImage.Information
         );
     }
-    public bool CanViewDebt => PermissionService.Has("Customers.Debt");
-    public bool CanViewRestriction => PermissionService.Has("Customers.Restriction");
+    public CustomerFieldAccess DebtAccess => Access(CustomerField.Debt);
+    public CustomerFieldAccess RestrictionAccess => Access(CustomerField.Restriction);
+    public CustomerFieldAccess BuyLimitAccess => Access(CustomerField.BuyLimit);
+    public CustomerFieldAccess UnpaidPaymentLimitAccess => Access(CustomerField.UnpaidPaymentLimit);
+    public CustomerFieldAccess CoefficientsAccess => Access(CustomerField.Coefficients);
+    public CustomerFieldAccess ContractDateAccess => Access(CustomerField.ContractDate);
+    public CustomerFieldAccess PriceLevelAccess => Access(CustomerField.PriceLevel);
+    public CustomerFieldAccess SalesManagerAccess => Access(CustomerField.SalesManager);
+    public CustomerFieldAccess TerritoryAccess => Access(CustomerField.Territory);
+    public CustomerFieldAccess ExcludeDailyRepaymentAccess => Access(CustomerField.ExcludeDailyRepayment);
+
+    public bool CanInputPurchaseCoefficient => SelectedCustomer != null &&
+        CanInputValue(CustomerField.Coefficients, _originalCustomer?.DailyPurchaseCoefficient);
+    public bool CanInputRepaymentCoefficient => SelectedCustomer != null &&
+        CanInputValue(CustomerField.Coefficients, _originalCustomer?.DailyRepaymentCoefficient);
+    public bool CanInputPlannedPurchaseCoefficient => SelectedCustomer != null &&
+        CanInputValue(CustomerField.Coefficients, _originalCustomer?.DailyPlannedPurchaseCoefficient);
+
+    // Delete-only users may erase text; the save policy still rejects replacement values without Edit.
+    private bool CanInputValue(CustomerField field, object? originalValue) =>
+        _fieldPermissions.CanEnterValue(field, originalValue) ||
+        (!CustomerFieldPermissionPolicy.IsEmpty(field, originalValue) && _fieldPermissions.CanDelete(field));
+
+    private bool CanCreateCustomer() => _fieldPermissions.CanCreateCustomer;
+
+    private CustomerFieldAccess Access(CustomerField field)
+    {
+        var originalValues = CustomerFieldPermissionPolicy.Values(field, _originalCustomer);
+        var canInput = field == CustomerField.ExcludeDailyRepayment && _originalCustomer?.ExcludeDailyRepayment == true
+            ? _fieldPermissions.CanDelete(field)
+            : originalValues.Any(value => CanInputValue(field, value));
+        return new CustomerFieldAccess(_fieldPermissions.CanView(field), SelectedCustomer != null && canInput);
+    }
     public bool IsOnlyOfficialCustomer =>
-        PermissionService.Has("OnlyOfficialCustomer") ||
+        PermissionService.Has(PermissionCatalog.OnlyOfficialCustomer) ||
         PermissionService.Has("onlyOfficialCustomer");
 
     public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "DisplayText";
 
     public void RefreshPermissions()
     {
-        OnPropertyChanged(nameof(CanViewDebt));
-        OnPropertyChanged(nameof(CanViewRestriction));
+        OnPropertyChanged(nameof(DebtAccess));
+        OnPropertyChanged(nameof(RestrictionAccess));
+        OnPropertyChanged(nameof(BuyLimitAccess));
+        OnPropertyChanged(nameof(UnpaidPaymentLimitAccess));
+        OnPropertyChanged(nameof(CoefficientsAccess));
+        OnPropertyChanged(nameof(ContractDateAccess));
+        OnPropertyChanged(nameof(PriceLevelAccess));
+        OnPropertyChanged(nameof(SalesManagerAccess));
+        OnPropertyChanged(nameof(TerritoryAccess));
+        OnPropertyChanged(nameof(ExcludeDailyRepaymentAccess));
+        OnPropertyChanged(nameof(CanInputPurchaseCoefficient));
+        OnPropertyChanged(nameof(CanInputRepaymentCoefficient));
+        OnPropertyChanged(nameof(CanInputPlannedPurchaseCoefficient));
         OnPropertyChanged(nameof(CustomerDisplayMemberPath));
+        CreateCustomerCommand.NotifyCanExecuteChanged();
+        CalculateCoefficientsForCustomerCommand.NotifyCanExecuteChanged();
     }
 
 
     private List<string> ValidateCustomer()
     {
         var errors = new List<string>();
+        if (SelectedCustomer == null)
+        {
+            errors.Add("Выберите клиента.");
+            return errors;
+        }
 
         if (string.IsNullOrWhiteSpace(SelectedCustomer.FullName))
             errors.Add("Поле 'ФИО' обязательно.");
@@ -195,11 +259,18 @@ public partial class CustomerViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(SelectedCustomer.Region))
             errors.Add("Поле 'Область' обязательно.");
 
-        if (SelectedCustomer.PriceLevelId == null)
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.PriceLevelId))
             errors.Add("Поле 'Уровень' обязательно.");
+        else if (!PriceLevels.Any(level => level.Level == SelectedCustomer.PriceLevelId))
+            errors.Add("Выберите уровень из списка.");
 
-        if (SelectedCustomer.Territory == null)
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.Territory))
             errors.Add("Поле 'Территория' обязательно.");
+
+        if (string.IsNullOrWhiteSpace(SelectedCustomer.SalesManagerId))
+            errors.Add("Поле 'Менеджер по продажам' обязательно.");
+        else if (!SalesManagers.Any(manager => manager.Id == SelectedCustomer.SalesManagerId))
+            errors.Add("Выберите менеджера по продажам из списка.");
 
         return errors;
     }
@@ -253,24 +324,47 @@ public partial class CustomerViewModel : ObservableObject
 	[RelayCommand(CanExecute = nameof(CanCalculateCoefficients))]
 	private async Task CalculateCoefficientsForCustomerAsync()
 	{
-		if (SelectedCustomer is null) return;
+        if (!CanCalculateCoefficients() || SelectedCustomer is null) return;
 
-		await _coefficientService.CalculateEzhPogashForCustomerAsync(SelectedCustomer);
-		await _coefficientService.CalculateZakupForCustomerAsync(SelectedCustomer.Id);
-		//await _coefficientService.CalculateZaplanZakupForCustomerAsync(SelectedCustomer.Id);
-
-		var updated = await _customerService.GetCustomerByIdAsync(SelectedCustomer.Id);
-		if (updated != null)
-			SelectedCustomer = updated;
+        try
+        {
+            var customer = SelectedCustomer;
+            var updated = await _coefficientService.CalculateForCustomerAsync(customer.Id);
+            customer.DailyPurchaseCoefficient = updated.DailyPurchaseCoefficient;
+            customer.DailyRepaymentCoefficient = updated.DailyRepaymentCoefficient;
+            customer.DailyPlannedPurchaseCoefficient = updated.DailyPlannedPurchaseCoefficient;
+            if (SelectedCustomer == customer && _originalCustomer != null)
+            {
+                _originalCustomer.DailyPurchaseCoefficient = updated.DailyPurchaseCoefficient;
+                _originalCustomer.DailyRepaymentCoefficient = updated.DailyRepaymentCoefficient;
+                _originalCustomer.DailyPlannedPurchaseCoefficient = updated.DailyPlannedPurchaseCoefficient;
+                RefreshPermissions();
+            }
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException)
+        {
+            MessageBox.Show(ex.Message, "Расчет коэффициентов", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        catch (Exception)
+        {
+            MessageBox.Show("Не удалось рассчитать коэффициенты. Проверьте подключение к базе данных.",
+                "Расчет коэффициентов", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
 	}
 
 	// This is called automatically to check if the button should be enabled
-	private bool CanCalculateCoefficients() => SelectedCustomer is not null;
+    private bool CanCalculateCoefficients() => !string.IsNullOrWhiteSpace(SelectedCustomer?.Id) &&
+        CustomerFieldPermissionPolicy.Values(CustomerField.Coefficients, _originalCustomer)
+            .All(value => _fieldPermissions.CanEnterValue(CustomerField.Coefficients, value));
 
 	// Refresh CanExecute when SelectedCustomer changes
 	partial void OnSelectedCustomerChanged(Customer? value)
 	{
-		CalculateCoefficientsForCustomerCommand.NotifyCanExecuteChanged();
+        _originalCustomer = value != null && !string.IsNullOrWhiteSpace(value.Id) ? (CustomerEntity)value : null;
+        RefreshPermissions();
 	}
 
 }
+
+public sealed record CustomerFieldAccess(bool CanView, bool CanInput);

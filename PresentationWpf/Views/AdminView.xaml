@@ -18,10 +18,10 @@
         </Grid.RowDefinitions>
 
         <!-- === TOP MENU BAR === -->
-        <StackPanel Grid.Row="0"
+        <WrapPanel Grid.Row="0"
             Orientation="Horizontal"
             Background="{StaticResource AdminTopBackground}"
-            Height="45">
+            >
 
           
           
@@ -68,7 +68,7 @@
               IsChecked="{Binding IsDeleteDataSelected}"
               Command="{Binding OpenDeleteAllCommand}"/>
             
-        </StackPanel>
+        </WrapPanel>
 
 
         <!-- === MAIN CONTENT AREA === -->

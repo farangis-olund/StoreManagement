@@ -301,6 +301,17 @@
                     </StackPanel>
                 </RadioButton>
 
+                <RadioButton x:Name="ProductRequestsMenuItem" GroupName="Sidebar"
+                    Visibility="{Binding CanViewProductRequests, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"
+                    Width="180" Background="Transparent" Command="{Binding NavigateToProductRequestsCommand}" Margin="0,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="ListAlt" Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Заявки на товары" FontSize="16" Style="{StaticResource CustomTextBlockStyle}"
+                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </RadioButton>
+
                 <RadioButton GroupName="Sidebar" 
                  Visibility="{Binding CanViewExpenses, Converter={StaticResource BoolToVisibilityConverter}}"
                 Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180" Background="Transparent" Command="{Binding NavigateToExpensesCommand}" Margin="0,0,0,0">
@@ -409,6 +420,10 @@
                     <views:Welcome/>
                 </DataTemplate>
 
+                <DataTemplate DataType="{x:Type viewmodels:MyNewArticlesViewModel}">
+                    <views:MyNewArticlesView/>
+                </DataTemplate>
+
                 <DataTemplate DataType="{x:Type viewmodels:LoginViewModel}">
                     <views:LoginView/>
                 </DataTemplate>
@@ -435,6 +450,9 @@
 
                 <DataTemplate DataType="{x:Type viewmodels:AdminViewModel}">
                     <views:AdminView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type viewmodels:ProductRequestsViewModel}">
+                    <views:ProductRequestsView/>
                 </DataTemplate>
 
                 <DataTemplate DataType="{x:Type viewmodels:ReturnInvoiceViewModel}">

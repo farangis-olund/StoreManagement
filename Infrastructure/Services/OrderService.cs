@@ -2,6 +2,8 @@
 using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.InkML;
 using Infrastructure.Contexts;
+using Infrastructure.Constants;
+using Infrastructure.Security;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Repositories;
@@ -20,19 +22,22 @@ public class OrderService
 	private readonly ILogger<OrderService> _logger;
 	private readonly IDbContextFactory<DatabaseContext> _dbFactory;
 	private readonly ProductService _productService;
+    private readonly IPermissionChecker _permissions;
 
 	// Allowed characters for the random part
 	private static readonly char[] _chars =
 		"ABDEFGHIJLMNOPQRTUVWXYZ0123456789".ToCharArray();
 	public OrderService(OrderRepository orderRepository,
 								OrderDetailRepository orderDetailRepository,
-								ILogger<OrderService> logger, ProductService productService, IDbContextFactory<DatabaseContext> dbFactory)
+								ILogger<OrderService> logger, ProductService productService, IDbContextFactory<DatabaseContext> dbFactory,
+                                IPermissionChecker permissions)
 	{
 		_orderRepository = orderRepository;
 		_orderDetailRepository = orderDetailRepository;
 		_logger = logger;
 		_dbFactory = dbFactory;
 		_productService = productService;
+        _permissions = permissions;
 
 	}
 
@@ -70,6 +75,11 @@ public class OrderService
 
     public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
     {
+        if (orderEntity.IsBarter && !_permissions.Has(PermissionCatalog.OrdersBarter))
+            throw new UnauthorizedAccessException("Нет права: Заказы.Бартер.");
+        if (orderEntity.DirectFromStock && !_permissions.Has(PermissionCatalog.OrdersDirectFromStock))
+            throw new UnauthorizedAccessException("Нет права: Заказы.Заказ прямо со склада.");
+
         await using var db = await _dbFactory.CreateDbContextAsync();
         try
         {
@@ -350,12 +360,23 @@ public class OrderService
 	string? orderId = null,
 	string? amountInWords = null,
     
-	CancellationToken ct = default)
+	CancellationToken ct = default,
+    string? courierId = null)
 	{
 		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
 		{
 			if (amount <= 0) return null;
+
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var order = string.IsNullOrWhiteSpace(orderId) ? null
+                : await db.Orders.SingleOrDefaultAsync(o => o.Id == orderId && o.CustomerId == customerId, ct);
+            if (!string.IsNullOrWhiteSpace(orderId) && order == null) return null;
+            var isBarter = order?.IsBarter == true;
+            if (!isBarter && (string.IsNullOrWhiteSpace(courierId) ||
+                !await db.Couriers.AnyAsync(c => c.Id == courierId, ct))) return null;
+            // A settled invoice must never hide a later, independently collected receipt.
+            if (order?.IsPaid == true && !isBarter) orderId = null;
 
 			var p = new CustomerPaymentEntity
 			{
@@ -364,11 +385,14 @@ public class OrderService
 				Amount = amount,
 				OrderId = orderId,
 				AmountInWords = amountInWords,
+                CourierId = isBarter ? null : courierId,
+                IsDeliveryConfirmed = isBarter,
                 Rate = (decimal)rate
 			};
 
 			db.Set<CustomerPaymentEntity>().Add(p);
 			await db.SaveChangesAsync(ct);
+			await transaction.CommitAsync(ct);
 			return p;
 		}
 		catch (Exception ex)
@@ -539,7 +563,7 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
     }
 
     /// <summary>
-    /// Gets all orders for a given courier (optionally only unpaid).
+    /// Gets individual receipts plus orders which have no receipt for this courier.
     /// </summary>
     public async Task<IReadOnlyList<OrderWithPaymentsDto>> GetOrdersByCourierAsync(
      string courierId,
@@ -549,16 +573,29 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         try
         {
-            var query = db.Orders
-                .AsNoTracking()
-                .Include(o => o.Customer)
-                .Include(o => o.OrderDetails)
-                .Where(o => o.CourierId == courierId);
+            var payments = db.Payments.AsNoTracking().Where(p => p.CourierId == courierId &&
+                (p.Order == null || !p.Order.IsBarter));
+            if (onlyUnpaid) payments = payments.Where(p => !p.IsDeliveryConfirmed);
 
-            if (onlyUnpaid)
-                query = query.Where(o => !o.IsPaid);
+            var data = await payments.Select(p => new OrderWithPaymentsDto
+            {
+                OrderId = p.OrderId ?? "",
+                PaymentId = p.Id,
+                Date = p.Date,
+                Rate = p.Rate,
+                CustomerId = p.CustomerId,
+                FullName = p.Customer!.FullName,
+                Address = p.Customer.Address,
+                City = p.Customer.City,
+                Phone = p.Customer.MobilePhone,
+                IsPaid = p.IsDeliveryConfirmed,
+                PaymentAmount = p.Amount
+            }).ToListAsync(ct);
 
-            var data = await query
+            var query = db.Orders.AsNoTracking()
+                .Where(o => o.CourierId == courierId && !o.IsBarter);
+            if (onlyUnpaid) query = query.Where(o => !o.IsPaid);
+            var orders = await query
                 .Select(o => new OrderWithPaymentsDto
                 {
                     OrderId = o.Id,
@@ -569,18 +606,21 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
 					City = o.Customer.City,
                     IsPaid = o.IsPaid,
 					Phone = o.Customer.MobilePhone,
-                    // ✅ Total order sum (like "Продажа" in Access)
+                    Rate = (decimal)o.Rate,
                     SaleAmount = o.OrderDetails.Sum(d => d.Price * d.Quentity),
-
-                    // ✅ Total payments (like "Сумма платежа" in Access)
-                    PaymentAmount = db.Payments
-                                      .Where(p => p.OrderId == o.Id)
-                                      .Sum(p => (decimal?)p.Amount) ?? 0m
                 })
                 .OrderByDescending(x => x.Date)
                 .ToListAsync(ct);
 
-            return data;
+            foreach (var order in orders)
+            {
+                // Count the sale once even when several receipts reference the same invoice.
+                var receipt = data.Where(p => p.OrderId == order.OrderId)
+                    .OrderBy(p => p.Date).ThenBy(p => p.PaymentId).FirstOrDefault();
+                if (receipt != null) receipt.SaleAmount = order.SaleAmount;
+                else data.Add(order);
+            }
+            return data.OrderByDescending(x => x.Date).ThenBy(x => x.PaymentId).ToList();
         }
         catch (Exception ex)
         {
@@ -775,7 +815,19 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
     {
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        var query = GetUnpaidPaymentOrdersQuery(db, customerId)
+        var rows = await PendingCustomerPayments(db, customerId)
+            .Select(p => new UnpaidOrderDto
+            {
+                Id = p.OrderId ?? "",
+                Date = p.Date,
+                CustomerId = p.CustomerId,
+                Paid = p.Amount,
+                PaymentId = p.Id
+            }).ToListAsync(ct);
+
+        var orders = await db.Orders.AsNoTracking()
+            .Where(o => o.CustomerId == customerId && !o.IsPaid && !o.IsBarter && o.CourierId != null &&
+                !db.Payments.Any(p => p.OrderId == o.Id && !p.IsDeliveryConfirmed))
             .Select(o => new UnpaidOrderDto
             {
                 Id = o.Id,
@@ -784,42 +836,77 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 TotalAmount = db.Set<OrderDetailEntity>()
                     .Where(d => d.OrderId == o.Id)
                     .Sum(d => (decimal?)(d.Price * d.Quentity)) ?? 0m,
-                Paid = db.Set<CustomerPaymentEntity>()
-                    .Where(p => p.OrderId == o.Id)
-                    .Sum(p => (decimal?)p.Amount) ?? 0m,
-                PaymentId = db.Set<CustomerPaymentEntity>()
-                    .Where(p => p.OrderId == o.Id)
-                    .OrderByDescending(p => p.Date)
-                    .Select(p => p.Id)
-                    .FirstOrDefault()
-            });
-
-        return await query
-            .OrderBy(x => x.Date)
-            .ToListAsync(ct);
+            }).ToListAsync(ct);
+        rows.AddRange(orders);
+        return rows.OrderBy(x => x.Date).ThenBy(x => x.PaymentId).ToList();
     }
 
-    public async Task<int> GetUnpaidPaymentCountAsync(string customerId, CancellationToken ct = default)
+    public async Task<decimal> GetUnpaidPaymentTotalAsync(string customerId, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(customerId))
-            return 0;
+            return 0m;
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-        return await GetUnpaidPaymentOrdersQuery(db, customerId)
-            .CountAsync(ct);
+        return await PendingCustomerPayments(db, customerId)
+            .Where(p => p.Amount > 0m)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
     }
 
-    private static IQueryable<OrderEntity> GetUnpaidPaymentOrdersQuery(DatabaseContext db, string customerId)
+    private static IQueryable<CustomerPaymentEntity> PendingCustomerPayments(DatabaseContext db, string customerId)
     {
-        return db.Set<OrderEntity>()
-            .AsNoTracking()
-            .Where(o =>
-                !o.IsPaid &&
-                o.CustomerId == customerId &&
-                !o.IsBarter &&
-                db.Set<CustomerPaymentEntity>()
-                    .Any(p => p.OrderId == o.Id && p.Amount > 0m));
+        return db.Payments.AsNoTracking().Where(p => p.CustomerId == customerId &&
+            !p.IsDeliveryConfirmed && (p.Order == null || !p.Order.IsBarter));
+    }
+
+    public async Task<bool> ConfirmDeliveryAsync(string courierId, string? orderId, int? paymentId,
+        CancellationToken ct = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(ct);
+        try
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            if (paymentId.HasValue)
+            {
+                var payment = await db.Payments.SingleOrDefaultAsync(p => p.Id == paymentId && p.CourierId == courierId, ct);
+                if (payment == null) return false;
+                if (payment.IsDeliveryConfirmed) return true;
+                payment.IsDeliveryConfirmed = true;
+                db.CourierPayments.Add(new CourierPaymentEntity
+                {
+                    CustomerPaymentId = payment.Id,
+                    OrderId = payment.OrderId,
+                    CourierId = courierId,
+                    Date = DateTime.Today,
+                    AmountInEuro = payment.Amount,
+                    AmountInTJS = payment.Amount * payment.Rate
+                });
+                if (payment.OrderId != null)
+                {
+                    var order = await db.Orders.SingleAsync(o => o.Id == payment.OrderId, ct);
+                    if (order.CourierId == courierId && !await db.Payments.AnyAsync(p =>
+                        p.OrderId == order.Id && p.Id != payment.Id && !p.IsDeliveryConfirmed, ct))
+                        order.IsPaid = true;
+                }
+            }
+            else
+            {
+                var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == orderId && o.CourierId == courierId && !o.IsBarter, ct);
+                if (order == null) return false;
+                // A receipt may have been added after this delivery screen was loaded.
+                if (await db.Payments.AnyAsync(p => p.OrderId == order.Id && p.CourierId == courierId && !p.IsDeliveryConfirmed, ct))
+                    return false;
+                order.IsPaid = true;
+            }
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Delivery confirmation failed for receipt {PaymentId}, order {OrderId}", paymentId, orderId);
+            return false;
+        }
     }
 
     public async Task<bool> HasUnpaidOrdersAsync(string customerId)

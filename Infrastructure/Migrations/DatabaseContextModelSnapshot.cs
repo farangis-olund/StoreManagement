@@ -109,6 +109,9 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("AmountInTJS")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("CustomerPaymentId")
+                        .HasColumnType("int");
+
                     b.Property<string>("CourierId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -117,12 +120,14 @@ namespace Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("OrderId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CourierId");
+
+                    b.HasIndex("CustomerPaymentId").IsUnique()
+                        .HasFilter("[CustomerPaymentId] IS NOT NULL");
 
                     b.HasIndex("OrderId");
 
@@ -159,6 +164,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("City")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("BuyLimit")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("ContractDate")
                         .HasColumnType("datetime2");
@@ -212,8 +220,8 @@ namespace Infrastructure.Migrations
                     b.Property<string>("Territory")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("UnpaidPaymentLimit")
-                        .HasColumnType("int");
+                    b.Property<decimal?>("UnpaidPaymentLimit")
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -238,6 +246,12 @@ namespace Infrastructure.Migrations
                     b.Property<string>("AmountInWords")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CourierId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsDeliveryConfirmed")
+                        .HasColumnType("bit");
+
                     b.Property<string>("CustomerId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -259,6 +273,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("OrderId");
+
+                    b.HasIndex("CourierId");
 
                     b.ToTable("Payments", (string)null);
                 });
@@ -607,7 +623,43 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", t =>
+                    {
+                        t.HasTrigger("TR_Products_RemoveNewArticleRequests");
+                        t.UseSqlOutputClause(false);
+                    });
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ProductRequestEntity", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
+                    b.Property<int>("UserId").HasColumnType("int");
+                    b.Property<string>("UserName").IsRequired().HasMaxLength(300).HasColumnType("nvarchar(300)");
+                    b.Property<string>("CustomerId").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
+                    b.Property<string>("CustomerName").IsRequired().HasMaxLength(500).HasColumnType("nvarchar(500)");
+                    b.Property<string>("ArticleNumber").IsRequired().HasMaxLength(50).IsUnicode(false).HasColumnType("varchar(50)");
+                    b.Property<int>("Quantity").HasColumnType("int");
+                    b.Property<int>("Kind").HasColumnType("int");
+                    b.Property<bool>("IsSubmitted").HasColumnType("bit");
+                    b.Property<DateTime?>("SubmittedAt").HasColumnType("datetime2");
+                    b.Property<bool>("IsProcessed").HasColumnType("bit");
+                    b.Property<string>("ProductName").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("BrandName").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("Marka").IsRequired().HasMaxLength(300).HasColumnType("nvarchar(300)");
+                    b.Property<string>("Model").IsRequired().HasMaxLength(500).HasColumnType("nvarchar(500)");
+                    b.Property<string>("GroupName").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("Alternative").IsRequired().HasMaxLength(300).HasColumnType("nvarchar(300)");
+                    b.Property<string>("Notes").IsRequired().HasMaxLength(2000).HasColumnType("nvarchar(2000)");
+                    b.HasKey("Id");
+                    b.HasIndex("ArticleNumber");
+                    b.HasIndex("Kind", "IsSubmitted", "CreatedAt");
+                    b.HasIndex("UserId", "IsSubmitted");
+                    b.ToTable("ProductRequests", t =>
+                    {
+                        t.HasCheckConstraint("CK_ProductRequests_Quantity", "[Quantity] > 0");
+                        t.HasCheckConstraint("CK_ProductRequests_Kind", "[Kind] IN (1, 2, 3)");
+                    });
                 });
 
             modelBuilder.Entity("Infrastructure.Entities.RaschetKoefficentaEntity", b =>
@@ -1084,6 +1136,11 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.CourierPaymentEntity", b =>
                 {
+                    b.HasOne("Infrastructure.Entities.CustomerPaymentEntity", "CustomerPayment")
+                        .WithMany()
+                        .HasForeignKey("CustomerPaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Infrastructure.Entities.CourierEntity", "Courier")
                         .WithMany()
                         .HasForeignKey("CourierId")
@@ -1093,10 +1150,11 @@ namespace Infrastructure.Migrations
                     b.HasOne("Infrastructure.Entities.OrderEntity", "Order")
                         .WithMany()
                         .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Courier");
+
+                    b.Navigation("CustomerPayment");
 
                     b.Navigation("Order");
                 });
@@ -1119,6 +1177,13 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.CustomerPaymentEntity", b =>
                 {
+                    b.HasOne("Infrastructure.Entities.CourierEntity", "Courier")
+                        .WithMany()
+                        .HasForeignKey("CourierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Courier");
+
                     b.HasOne("Infrastructure.Entities.CustomerEntity", "Customer")
                         .WithMany("Payments")
                         .HasForeignKey("CustomerId")

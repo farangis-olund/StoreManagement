@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
 using Infrastructure.Contexts;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
@@ -72,8 +73,8 @@ public partial class ExpenseCrudViewModel : ObservableObject
     [ObservableProperty] private DateTime? fromDate;
     [ObservableProperty] private DateTime? toDate;
 
-    public bool CanViewRemove => PermissionService.Has("Expenses.Remove");
-    public bool CanShowAllExpenses => PermissionService.Has("Expenses.ShowAllExpenses");
+    public bool CanViewRemove => PermissionService.Has(PermissionCatalog.ExpensesRemove);
+    public bool CanShowAllExpenses => PermissionService.Has(PermissionCatalog.ExpensesShowAll);
     public void RefreshPermissions()
     {
         OnPropertyChanged(nameof(CanViewRemove));
@@ -100,7 +101,7 @@ public partial class ExpenseCrudViewModel : ObservableObject
         Rows.Clear();
         Persons.Clear();
 
-        bool canShowAllExpenses = PermissionService.Has("Expenses.ShowAllExpenses");
+        bool canShowAllExpenses = PermissionService.Has(PermissionCatalog.ExpensesShowAll);
         int currentUserId = _userSessionService.UserId;
 
         DateTime? from = FromDate;

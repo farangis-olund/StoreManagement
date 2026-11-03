@@ -123,13 +123,14 @@
                       Style="{StaticResource SummaryGrid}"
                       IsReadOnly="False">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Код кл." Binding="{Binding CustomerId}" Width="80" ElementStyle="{StaticResource TextCellStyle}"/>
-                    <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*"/>
-                    <DataGridTextColumn Header="Адрес" Binding="{Binding Address}" Width="*"/>
-                    <DataGridTextColumn Header="Накладная" Binding="{Binding Invoice}" Width="100"/>
-                    <DataGridTextColumn Header="Сумма" Binding="{Binding Sale, StringFormat=N2}" Width="80" ElementStyle="{StaticResource NumberCellStyle}"/>
-                    <DataGridTextColumn Header="Платеж" Binding="{Binding Payment, StringFormat=N2}" Width="100" ElementStyle="{StaticResource NumberCellStyle}"/>
-                    <DataGridTextColumn Header="Платеж(СМН)" Binding="{Binding Amount, StringFormat=N2}" Width="110" ElementStyle="{StaticResource NumberCellStyle}"/>
+                    <DataGridTextColumn Header="Код кл." Binding="{Binding CustomerId}" Width="80" IsReadOnly="True" ElementStyle="{StaticResource TextCellStyle}"/>
+                    <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*" MinWidth="100" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Адрес" Binding="{Binding Address}" Width="*" MinWidth="100" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Накладная" Binding="{Binding Invoice}" Width="100" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="№ платежа" Binding="{Binding PaymentId}" Width="85" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Сумма" Binding="{Binding Sale, StringFormat=N2}" Width="80" IsReadOnly="True" ElementStyle="{StaticResource NumberCellStyle}"/>
+                    <DataGridTextColumn Header="Платеж" Binding="{Binding Payment, StringFormat=N2}" Width="100" IsReadOnly="True" ElementStyle="{StaticResource NumberCellStyle}"/>
+                    <DataGridTextColumn Header="Платеж(СМН)" Binding="{Binding Amount, StringFormat=N2}" Width="110" IsReadOnly="True" ElementStyle="{StaticResource NumberCellStyle}"/>
                     <DataGridTemplateColumn Header="Оплачено" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>

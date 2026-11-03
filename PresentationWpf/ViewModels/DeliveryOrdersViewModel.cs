@@ -18,6 +18,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
     private readonly OrderService _orderService;
     private readonly CourierRepository _courierRepo;
     private readonly UserSessionService _userSession;
+    private int _deliveryLoadVersion;
 
     public DeliveryOrdersViewModel(
         OrderService orderService,
@@ -132,10 +133,14 @@ public partial class DeliveryOrdersViewModel : ObservableObject
 
     private async Task LoadSessionsForCourierAsync(string courierId)
     {
+        var version = ++_deliveryLoadVersion;
         DeliverySessions.Clear();
+        SelectedSession = null;
+        OrdersForSelectedDate.Clear();
 
         // 🔹 Load all orders for this courier
         var allOrders = await _orderService.GetOrdersByCourierAsync(courierId);
+        if (version != _deliveryLoadVersion || SelectedCourier?.Id != courierId) return;
 
         // 🔹 Only unpaid orders
         var unpaid = allOrders.Where(o => !o.IsPaid).ToList();
@@ -156,12 +161,13 @@ public partial class DeliveryOrdersViewModel : ObservableObject
             foreach (var e in group)
             {
                 // 💱 Get the exchange rate stored in Orders table for this order
-                var dailyRate = await _orderService.GetExchangeRateByDateAsync(e.OrderId, e.Date);
+                var dailyRate = e.Rate;
              
                 var order = new DeliveryOrderModel
                 {
                     Date = e.Date,
                     Number = e.OrderId,
+                    PaymentId = e.PaymentId,
                     CustomerId = e.CustomerId,
                     FullName = e.FullName,
                     Address = e.Address,
@@ -187,6 +193,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
             DeliverySessions.Add(session);
         }
 
+        SelectedSession = DeliverySessions.FirstOrDefault();
         RecalculateTotals();
     }
     private void RecalculateTotals()
@@ -216,23 +223,17 @@ public partial class DeliveryOrdersViewModel : ObservableObject
         if (SelectedCourier == null)
             return;
 
+        var courierId = SelectedCourier.Id;
         foreach (var session in DeliverySessions)
         {
             foreach (var order in session.Orders.Where(o => o.IsPaid))
             {
-                await _orderService.UpdatePaymentStatusAsync(order.Number, order.IsPaid);
-
-                // ✅ 2. SAVE TO CourierPaymentEntity
-                var euro = order.Payment; // raw payment
-                var tjs = order.Payment * order.ExchangeRate;
-
-                await _orderService.AddCourierPaymentAsync(
-                    courierId: SelectedCourier.Id,
-                    orderId: order.Number,
-                    amountEuro: euro,
-                    amountTjs: tjs,
-                    date: DateTime.Today.Date
-                );
+                if (!await _orderService.ConfirmDeliveryAsync(courierId, order.Number, order.PaymentId))
+                {
+                    MessageBox.Show("Не удалось подтвердить оплату. Данные могли измениться; откройте список доставки снова.",
+                        "Доставка заказов", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
             }
         }
 
@@ -270,7 +271,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
             Address = o.Address,
             CustomerName = o.FullName,
             Phone = o.Phone, 
-            InvoiceNumber = o.Invoice
+            InvoiceNumber = o.PaymentId.HasValue ? $"{o.Invoice} / Квит. {o.PaymentId}" : o.Invoice
         }).ToList();
 
         var doc = new DeliveryNoteDocument(orgName, courierName, date, rate, invoiceNumber, lines);
@@ -325,7 +326,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
             FullName = o.FullName,
             Address = o.Address,
             City = o.City,
-            Invoice = o.Invoice,
+            Invoice = o.PaymentId.HasValue ? $"{o.Invoice} / Квит. {o.PaymentId}" : o.Invoice,
             Sale = o.Sale,
             Phone = o.Phone,
             Amount = o.Amount,
@@ -377,6 +378,7 @@ public partial class DeliveryOrderModel : ObservableObject
 
     public DateTime Date { get; set; }
     public string Number { get; set; } = "";
+    public int? PaymentId { get; set; }
     public string CustomerId { get; set; } = "";
     public string FullName { get; set; } = "";
     public string Phone { get; set; } = "";

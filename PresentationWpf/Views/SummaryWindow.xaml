@@ -149,7 +149,7 @@
                     <StackPanel Orientation="Horizontal" Margin="8" VerticalAlignment="Center">
                         <TextBlock Text="Сумма" VerticalAlignment="Center"/>
                         <TextBox Width="100" Margin="6,0,12,0" VerticalContentAlignment="Center" Padding="5"
-                                 Text="{Binding PaymentAmount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                 Text="{Binding PaymentAmountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <Button Content="Оформить платеж" Style="{StaticResource GreenButton}"
                                 Padding="10,6"
                                 Width="140"
@@ -225,7 +225,6 @@
                   
                     <!-- Orders grid -->
                     <DataGrid ItemsSource="{Binding UnpaidOrders}"
-                   SelectedItem="{Binding UnpaidOrder, Mode=TwoWay}"
                    AutoGenerateColumns="False"
                    CanUserAddRows="False"
                    IsReadOnly="True"
@@ -242,8 +241,8 @@
 
                             <!-- № Платежа -->
                             <DataGridTextColumn Width="115"
-                           Header="№ Квитанции"
-                           Binding="{Binding PaymentId}">
+                           Header="№ квит. / накл."
+                           Binding="{Binding DocumentNumber}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextCenter}"/>
                                 </DataGridTextColumn.ElementStyle>

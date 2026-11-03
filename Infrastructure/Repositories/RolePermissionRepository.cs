@@ -13,6 +13,16 @@ public class RolePermissionRepository
         _factory = factory;
     }
 
+    public async Task<List<string>> GetPermissionKeysForUserAsync(int userId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return await db.RolePermissions.AsNoTracking()
+            .Where(permission => db.UserRoles.Any(role => role.UserId == userId && role.RoleId == permission.RoleId))
+            .Select(permission => permission.Permission.Key)
+            .Distinct()
+            .ToListAsync();
+    }
+
     // Get all permission IDs assigned to a role
     public async Task<List<int>> GetPermissionIdsAsync(int roleId)
     {

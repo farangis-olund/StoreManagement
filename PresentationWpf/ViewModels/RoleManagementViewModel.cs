@@ -7,7 +7,9 @@ using PresentationWpf.Dtos;
 using PresentationWpf.Services;
 using PresentationWpf.Views;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace PresentationWpf.ViewModels;
@@ -17,11 +19,46 @@ public partial class RoleManagementViewModel : ObservableObject
     private readonly RoleRepository _roleRepo;
     private readonly PermissionRepository _permRepo;
     private readonly RolePermissionRepository _rolePermRepo;
+    private readonly SessionPermissionRefresher _permissionRefresher;
 
     public ObservableCollection<RoleDto> Roles { get; } = new();
 
     [ObservableProperty]
     private ObservableCollection<PermissionItem> permissions = new();
+
+    public ICollectionView FilteredPermissions => CollectionViewSource.GetDefaultView(Permissions);
+    public bool HasVisiblePermissions => !FilteredPermissions.IsEmpty;
+
+    [ObservableProperty]
+    private string permissionSearchText = string.Empty;
+
+    partial void OnPermissionsChanged(ObservableCollection<PermissionItem> value)
+    {
+        FilteredPermissions.Filter = MatchesPermissionSearch;
+        OnPropertyChanged(nameof(FilteredPermissions));
+        OnPropertyChanged(nameof(HasVisiblePermissions));
+        RefreshSelectAllState();
+    }
+
+    partial void OnPermissionSearchTextChanged(string value)
+    {
+        FilteredPermissions.Refresh();
+        OnPropertyChanged(nameof(HasVisiblePermissions));
+        RefreshSelectAllState();
+        ClearPermissionSearchCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool MatchesPermissionSearch(object item)
+    {
+        if (item is not PermissionItem permission) return false;
+        var terms = (PermissionSearchText ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return terms.All(term => permission.Key.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+            (permission.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanClearPermissionSearch))]
+    private void ClearPermissionSearch() => PermissionSearchText = string.Empty;
+    private bool CanClearPermissionSearch() => !string.IsNullOrEmpty(PermissionSearchText);
 
 
     [ObservableProperty]
@@ -35,12 +72,15 @@ public partial class RoleManagementViewModel : ObservableObject
     PermissionRepository permRepo,
     RolePermissionRepository rolePermRepo,
     PermissionsView permissionsView,          // Inject the view
-    PermissionsViewModel permissionsVM         // Inject the VM
+    PermissionsViewModel permissionsVM,        // Inject the VM
+    SessionPermissionRefresher permissionRefresher
 )
     {
         _roleRepo = roleRepo;
         _permRepo = permRepo;
         _rolePermRepo = rolePermRepo;
+        _permissionRefresher = permissionRefresher;
+        FilteredPermissions.Filter = MatchesPermissionSearch;
 
         PermissionManagementView = permissionsView;
         permissionsView.DataContext = permissionsVM;
@@ -74,7 +114,7 @@ public partial class RoleManagementViewModel : ObservableObject
                 IsEditing = false
             });
         }
-        AreAllSelected = Permissions.All(p => p.IsAssigned);
+        RefreshSelectAllState();
     }
 
 
@@ -158,6 +198,7 @@ public partial class RoleManagementViewModel : ObservableObject
 
         await _rolePermRepo.ClearPermissionsAsync(roleToDelete.Id);
         await _roleRepo.RemoveAsync(r => r.Id == roleToDelete.Id);
+        await RefreshSessionPermissionsAsync();
 
         await LoadRoles();
 
@@ -187,6 +228,7 @@ public partial class RoleManagementViewModel : ObservableObject
 
         // add new permissions
         await _rolePermRepo.AddPermissionsAsync(SelectedRole.Id, assignedPermIds);
+        await RefreshSessionPermissionsAsync();
 
         MessageBox.Show(
             "Права сохранены!",
@@ -209,6 +251,19 @@ public partial class RoleManagementViewModel : ObservableObject
         SelectedRole = role;
     }
 
+    private async Task RefreshSessionPermissionsAsync()
+    {
+        try
+        {
+            await _permissionRefresher.RefreshAsync();
+        }
+        catch (Exception)
+        {
+            MessageBox.Show("Изменения сохранены, но не удалось обновить права текущего пользователя. Проверьте подключение к базе данных.",
+                "Права доступа", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private bool _isPermissionManagerVisible;
     public bool IsPermissionManagerVisible
     {
@@ -221,15 +276,22 @@ public partial class RoleManagementViewModel : ObservableObject
     [ObservableProperty]
     private bool areAllSelected = false;
 
-    private bool _isUpdatingSelectAll = false;
-
     partial void OnAreAllSelectedChanged(bool value)
     {
         if (_isLoadingPermissions) return; // ❗ PREVENT UNCHECKING ON LOAD
         if (_isApplyingSelectAll) return;  // ❗ PREVENT RECURSION
 
-        foreach (var p in Permissions)
-            p.IsAssigned = value;
+        _isApplyingSelectAll = true;
+        try
+        {
+            foreach (var p in FilteredPermissions.Cast<PermissionItem>().ToList())
+                p.IsAssigned = value;
+        }
+        finally
+        {
+            _isApplyingSelectAll = false;
+            RefreshSelectAllState();
+        }
     }
 
 
@@ -237,11 +299,10 @@ public partial class RoleManagementViewModel : ObservableObject
     public void RefreshSelectAllState()
     {
         if (_isLoadingPermissions) return; // ❗ DO NOT UPDATE DURING LOAD
+        if (_isApplyingSelectAll) return;
 
-        if (Permissions == null || Permissions.Count == 0)
-            return;
-
-        bool newState = Permissions.All(p => p.IsAssigned);
+        var visible = FilteredPermissions.Cast<PermissionItem>().ToList();
+        bool newState = visible.Count > 0 && visible.All(p => p.IsAssigned);
 
         // Prevent calling OnAreAllSelectedChanged
         _isApplyingSelectAll = true;
@@ -272,6 +333,7 @@ public partial class RoleManagementViewModel : ObservableObject
         .Select(p => new PermissionItem
         {
             Id = p.Id,
+            Key = p.Key,
             Description = p.Description,
             IsAssigned = rolePermIds.Contains(p.Id),
             Parent = this
@@ -293,6 +355,7 @@ public partial class RoleManagementViewModel : ObservableObject
 public partial class PermissionItem : ObservableObject
 {
     public int Id { get; set; }
+    public string Key { get; set; } = string.Empty;
     public string? Description { get; set; }
     public RoleManagementViewModel Parent { get; set; }
 

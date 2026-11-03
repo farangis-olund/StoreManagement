@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Infrastructure.Dtos;
 using Infrastructure.Services;
@@ -34,7 +35,7 @@ public partial class ReportsViewModel : ObservableObject
     [ObservableProperty] private bool isReturnsDayReportSelected;
     [ObservableProperty] private bool isOfficialSalesSummarySelected;
 
-    public bool CanViewStandardReports => !_permissionService.Has("OnlyOfficialCustomer");
+    public bool CanViewStandardReports => !_permissionService.Has(PermissionCatalog.OnlyOfficialCustomer);
 
     public ReportsViewModel(
         IServiceProvider serviceProvider,

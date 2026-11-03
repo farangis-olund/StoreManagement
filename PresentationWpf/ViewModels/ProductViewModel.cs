@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
 using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Services;
@@ -32,8 +33,8 @@ public partial class ProductViewModel : ObservableObject
         _ = RefreshAsync();
     }
 
-    public bool CanViewRemove => PermissionService.Has("Inventory.Catalog.Remove");
-    public bool CanViewRemoveAll => PermissionService.Has("Inventory.Catalog.RemoveAll");
+    public bool CanViewRemove => PermissionService.Has(PermissionCatalog.InventoryCatalogRemove);
+    public bool CanViewRemoveAll => PermissionService.Has(PermissionCatalog.InventoryCatalogRemoveAll);
     public void RefreshPermissions()
     {
         OnPropertyChanged(nameof(CanViewRemove));

@@ -108,6 +108,18 @@ namespace PresentationWpf.Views;
         }
     }
 
+    private void ProductSearchControls_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!e.WidthChanged || ProductRequestPanel == null) return;
+
+        // Keep enough room for the notice and request controls beside the search.
+        var inline = e.NewSize.Width >= 1050;
+        Grid.SetRow(ProductRequestPanel, inline ? 1 : 2);
+        Grid.SetColumn(ProductRequestPanel, inline ? 1 : 0);
+        Grid.SetColumnSpan(ProductRequestPanel, inline ? 1 : 2);
+        ProductRequestPanel.Margin = inline ? new Thickness(16, 0, 0, 0) : new Thickness(0, 4, 0, 0);
+    }
+
 
 
 }

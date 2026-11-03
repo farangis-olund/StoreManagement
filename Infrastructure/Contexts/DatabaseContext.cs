@@ -51,6 +51,8 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        ConfigureProductRequests(modelBuilder);
+
         // Global decimal precision
         foreach (var property in modelBuilder.Model
             .GetEntityTypes()
@@ -120,6 +122,9 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
             b.ToTable("Payments");
             b.HasKey(x => x.Id);
 
+            b.HasOne(p => p.Courier).WithMany().HasForeignKey(p => p.CourierId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasOne(p => p.Order)
                 .WithMany(o => o.Payments)
                 .HasForeignKey(p => p.OrderId)
@@ -139,6 +144,14 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
             .WithMany(m => m.Customers)
             .HasForeignKey(c => c.SalesManagerId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CustomerEntity>()
+            .Property(c => c.BuyLimit)
+            .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<CustomerEntity>()
+            .Property(c => c.UnpaidPaymentLimit)
+            .HasColumnType("decimal(18,2)");
 
         // =========================
         // RETURNS
@@ -194,6 +207,10 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
         modelBuilder.Entity<CourierPaymentEntity>(entity =>
         {
             entity.HasKey(x => x.Id);
+            entity.HasOne(x => x.CustomerPayment).WithMany().HasForeignKey(x => x.CustomerPaymentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => x.CustomerPaymentId).IsUnique()
+                .HasFilter("[CustomerPaymentId] IS NOT NULL");
 
             entity.Property(x => x.AmountInEuro).HasColumnType("decimal(18,2)");
             entity.Property(x => x.AmountInTJS).HasColumnType("decimal(18,2)");

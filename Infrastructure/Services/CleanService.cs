@@ -14,21 +14,23 @@ public class CleanService
 
     public async Task DeleteAllAsync()
     {
-        using var db = await _dbFactory.CreateDbContextAsync();
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
 
-        // CHILD tables first
-        db.OrderDetails.RemoveRange(db.OrderDetails);
-        db.Payments.RemoveRange(db.Payments);
-        db.ReturnDetails.RemoveRange(db.ReturnDetails);
-        db.StockUpdateLog.RemoveRange(db.StockUpdateLog);
-        db.StockMovements.RemoveRange(db.StockMovements);
-        db.StockImportErrors.RemoveRange(db.StockImportErrors);
+        // CourierPayments has a restrictive FK to Orders, so it must be removed first.
+        // ExecuteDelete keeps large cleanup operations out of the change tracker.
+        await db.CourierPayments.ExecuteDeleteAsync();
+        await db.OrderDetails.ExecuteDeleteAsync();
+        await db.Payments.ExecuteDeleteAsync();
+        await db.ReturnDetails.ExecuteDeleteAsync();
+        await db.StockUpdateLog.ExecuteDeleteAsync();
+        await db.StockMovements.ExecuteDeleteAsync();
+        await db.StockImportErrors.ExecuteDeleteAsync();
 
-        // PARENT tables
-        db.Returns.RemoveRange(db.Returns);
-        db.Orders.RemoveRange(db.Orders);
-        db.StoreExchanges.RemoveRange(db.StoreExchanges);
+        await db.Returns.ExecuteDeleteAsync();
+        await db.Orders.ExecuteDeleteAsync();
+        await db.StoreExchanges.ExecuteDeleteAsync();
 
-        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 }
