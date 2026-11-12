@@ -268,6 +268,10 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("Rate")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("ReceiptNumber")
+                        .HasMaxLength(9)
+                        .HasColumnType("nvarchar(9)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -275,6 +279,10 @@ namespace Infrastructure.Migrations
                     b.HasIndex("OrderId");
 
                     b.HasIndex("CourierId");
+
+                    b.HasIndex("ReceiptNumber")
+                        .IsUnique()
+                        .HasFilter("[ReceiptNumber] IS NOT NULL");
 
                     b.ToTable("Payments", (string)null);
                 });
@@ -895,7 +903,11 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("UserId").HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId").IsUnique().HasFilter("[UserId] IS NOT NULL");
 
                     b.ToTable("SalesManagers");
                 });
@@ -1082,6 +1094,10 @@ namespace Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address").HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsManager").ValueGeneratedOnAdd().HasColumnType("bit").HasDefaultValue(false);
 
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
@@ -1510,6 +1526,13 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.SalesManagerEntity", b =>
                 {
+                    b.HasOne("Infrastructure.Entities.UserEntity", "User")
+                        .WithOne("SalesManager")
+                        .HasForeignKey("Infrastructure.Entities.SalesManagerEntity", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("User");
+
                     b.Navigation("Customers");
 
                     b.Navigation("ManagerBrands");
@@ -1529,7 +1552,37 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Infrastructure.Entities.UserEntity", b =>
                 {
+                    b.Navigation("SalesManager");
+
                     b.Navigation("UserRoles");
+                });
+            modelBuilder.Entity("Infrastructure.Entities.OfficialMonthlyPlanEntity", b =>
+                {
+                    b.Property<string>("CustomerId").HasMaxLength(450).HasColumnType("nvarchar(450)");
+                    b.Property<DateTime>("Month").HasColumnType("date");
+                    b.Property<decimal>("Amount").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.HasKey("CustomerId", "Month");
+                    b.HasIndex("Month");
+                    b.ToTable("OfficialMonthlyPlans", t =>
+                        {
+                            t.HasCheckConstraint("CK_OfficialMonthlyPlans_Amount", "[Amount] > 0");
+                            t.HasCheckConstraint("CK_OfficialMonthlyPlans_Month", "DAY([Month]) = 1");
+                        });
+                    b.HasOne("Infrastructure.Entities.CustomerEntity", "Customer").WithMany()
+                        .HasForeignKey("CustomerId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                    b.Navigation("Customer");
+                });
+            modelBuilder.Entity("Infrastructure.Entities.OfficialMonthlyPlanSettingsEntity", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedNever().HasColumnType("int");
+                    b.Property<decimal>("NonOfficialThreshold").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.HasKey("Id");
+                    b.ToTable("OfficialMonthlyPlanSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_OfficialMonthlyPlanSettings_Id", "[Id] = 1");
+                            t.HasCheckConstraint("CK_OfficialMonthlyPlanSettings_Threshold", "[NonOfficialThreshold] >= 0");
+                        });
+                    b.HasData(new { Id = 1, NonOfficialThreshold = 0m });
                 });
 #pragma warning restore 612, 618
         }

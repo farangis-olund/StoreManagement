@@ -108,6 +108,7 @@ namespace PresentationWpf.Views
         }
         private void PasteIntoGrid(DataGrid grid)
         {
+            if (grid.DataContext is not DataBaseViewModel { CanAccess: true }) return;
             // Commit edits before paste
             if (!grid.CommitEdit(DataGridEditingUnit.Cell, true))
                 grid.CancelEdit();

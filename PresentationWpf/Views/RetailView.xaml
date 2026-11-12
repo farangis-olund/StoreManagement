@@ -218,28 +218,38 @@
                 </Grid.ColumnDefinitions>
              
                 <!-- StackPanel info for order -->
-                <StackPanel Grid.Row="0" Background="#E0E5E6" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,10,0" Height="34">
+                <Grid Grid.Row="0" Background="#E0E5E6" VerticalAlignment="Center" Margin="10,0,10,0" Height="34">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto" MaxWidth="160"/>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*" MaxWidth="200"/>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*" MaxWidth="150"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
                     <!-- Exchange Rate Display -->
-                    <TextBlock Text="Продавец:" FontWeight="Bold" FontSize="11" Margin="0,2,10,10"/>
-                    <TextBlock Text="{Binding User}" FontSize="14" Margin="0,0,20,10"/>
+                    <TextBlock Grid.Column="0" Text="Продавец:" FontWeight="Bold" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding User}" FontSize="14" Margin="0,0,12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
                     <!-- Exchange Rate Display -->
-                    <TextBlock Text="Курс валюты:" FontWeight="Bold" FontSize="11" Margin="0,2,10,10"/>
-                    <TextBlock Text="{Binding ExchangeRate}" FontSize="14" Margin="0,0,10,10"/>
+                    <TextBlock Grid.Column="2" Text="Курс валюты:" FontWeight="Bold" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3" Text="{Binding ExchangeRate}" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
 
                      <!-- Менеджер -->
-                    <TextBlock Text="Менеджер:" FontWeight="Bold" FontSize="11" Margin="10,2,5,0" />
-                    <ComboBox Width="200" Height="26"
+                    <TextBlock Grid.Column="4" Text="Менеджер:" FontWeight="Bold" FontSize="11" Margin="6,0,5,0" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="5" Height="26"
+                      x:Name="SalesManagerComboBox"
                       ItemsSource="{Binding SalesManagerList}"
                       SelectedItem="{Binding SelectedSalesManager, Mode=TwoWay}"
+                      IsEnabled="{Binding CanChooseSalesManager}"
+                      ToolTip="{Binding ManagerSelectionHint}" ToolTipService.ShowOnDisabled="True"
                       DisplayMemberPath="DisplayText"
                       IsEditable="True"
                       TextSearch.TextPath="FullName"
                       Margin="0,2,10,0"/>
 
                     <!-- Маршрут -->
-                    <TextBlock Text="Маршрут:" FontWeight="Bold" FontSize="11" Margin="10,2,5,0"/>
-                    <ComboBox Width="150" Height="26"
+                    <TextBlock Grid.Column="6" Text="Маршрут:" FontWeight="Bold" FontSize="11" Margin="6,0,5,0" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="7" Height="26"
                   ItemsSource="{Binding TerritoryOptions}"
                   SelectedValuePath="Value"
                   DisplayMemberPath="Display"
@@ -247,8 +257,11 @@
                   Margin="10,0,5,0">
                      
                     </ComboBox>
+                    <TextBlock Grid.Column="8" x:Name="TotalMonthlyPlanLabel" Text="{Binding TotalMonthlyPlanText}"
+                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0,4,0"
+                               Visibility="{Binding CanShowTotalMonthlyPlan, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
                     
-                </StackPanel>
+                </Grid>
 
                 <!-- Grid layout info for client -->
                 <Grid Grid.Row="1" Background="#E0E5E6" Margin="10,5">
@@ -303,7 +316,7 @@
                                FontSize="12"
                                Margin="2"
                                Visibility="{Binding CanViewCustomerCode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                    <ComboBox Grid.Row="0" Grid.Column="1" Margin="2" 
+                    <ComboBox x:Name="CustomerCodeComboBox" Grid.Row="0" Grid.Column="1" Margin="2"
                       ItemsSource="{Binding CustomersView}"
                       SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
                       DisplayMemberPath="{Binding CustomerDisplayMemberPath}"
@@ -425,7 +438,7 @@
 
                     <!-- ФИО -->
                     <TextBlock Text="ФИО" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"  FontSize="12" Margin="2"/>
-                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="2" ItemsSource="{Binding CustomersView}"
+                    <ComboBox x:Name="CustomerNameComboBox" Grid.Row="1" Grid.Column="1" Margin="2" ItemsSource="{Binding CustomersView}"
               SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
               DisplayMemberPath="FullName"
               IsEditable="True" TextSearch.TextPath="FullName" FontSize="12"/>
@@ -464,20 +477,25 @@
                             <ColumnDefinition Width="Auto"/>      <!-- Просмотр Итогов -->
                             <ColumnDefinition Width="*"/>         <!-- Spacer -->
                             <ColumnDefinition Width="Auto"/>   <!-- Бартер -->
-                            <ColumnDefinition Width="Auto"/>   <!-- Оформление бартера -->
+                            <ColumnDefinition Width="Auto"/>   <!-- Остаток по плану -->
                             <ColumnDefinition Width="Auto"/>   <!-- Оформить заказ -->
                         </Grid.ColumnDefinitions>
 
                         <!-- Итоги (moved left side) -->
-                        <Button Grid.Column="0" Margin="0,0,0,0" 
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button Margin="0,0,0,0"
                             Width="200" Height="40"
                             Command="{Binding ShowSummaryCommand}"
                             Style="{StaticResource OrangeButton}">
                             Итоги и платежи клиента
                         </Button>
+                        <Button Content="Очистить корзину" Command="{Binding ClearCartCommand}"
+                                Style="{StaticResource RoundedButtonStyle}"
+                                Height="40" Margin="10,0,0,0"/>
+                        </StackPanel>
 
                         <!-- Checkbox for Barter -->
-                        <CheckBox Grid.Column="2" Content="Бартер" Margin="40,0"
+                        <CheckBox x:Name="BarterCheckBox" Grid.Column="2" Content="Бартер" Margin="16,0"
                               
                               VerticalAlignment="Center"
                               IsChecked="{Binding IsBarter}"
@@ -485,12 +503,13 @@
                               Visibility="{Binding CanUseBarter, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"
                               ToolTip="Отметьте, если заказ оформляется по бартеру"/>
 
-                        <CheckBox Grid.Column="3"
-                              Content="ОЗ"
-                              Margin="10,0"
-                              VerticalAlignment="Center"
-                              IsChecked="{Binding OfficialOrder, Mode=TwoWay}"
-                              Visibility="{Binding ShowOfficialOrder, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding MonthlyPlanError}" Foreground="#B44400" TextWrapping="Wrap"
+                                   FontSize="11" Margin="14,0,8,0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="3" Margin="0,0,8,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="CustomerMonthlyPlanLabel" Text="{Binding CustomerMonthlyPlanText}"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       Visibility="{Binding ShowCustomerMonthlyPlan, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+                        </StackPanel>
                       
                         <!-- Оформить заказ -->
                         <Button Grid.Column="4" Margin="10,0"

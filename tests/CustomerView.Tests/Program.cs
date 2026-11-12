@@ -62,6 +62,28 @@ internal static class Program
             foreach (var field in CustomerPermissionCatalog.Fields)
                 Assert(FieldGroup(field.Field.ToString()).Visibility == Visibility.Collapsed, "Field visible without View: " + field.Field);
             Assert(!vm.CreateCustomerCommand.CanExecute(null), "New customer enabled without required Add rights.");
+            var delete = (Button)view.FindName("DeleteCustomerButton");
+            Assert(delete.Visibility == Visibility.Collapsed && !vm.DeleteCustomerCommand.CanExecute(null),
+                "Client deletion must be hidden and disabled without its own permission.");
+            vm.DeleteCustomerCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            Grants(CustomerPermissionCatalog.Debt.Delete);
+            Assert(delete.Visibility == Visibility.Collapsed, "Field-clear permission must not reveal client deletion.");
+            Grants(PermissionCatalog.CustomersDelete);
+            Assert(delete.Visibility == Visibility.Visible && delete.IsEnabled && vm.DeleteCustomerCommand.CanExecute(null),
+                "The deletion grant must reveal and enable Delete for a saved client.");
+            vm.SelectedCustomer = null; Refresh();
+            Assert(!delete.IsEnabled, "Delete must be disabled when no client is selected.");
+            vm.SelectedCustomer = new Customer(); Refresh();
+            Assert(!delete.IsEnabled, "An unsaved new client must not enable Delete.");
+            vm.SelectedCustomer = customer; Refresh();
+            Assert(delete.IsEnabled, "Selecting a saved client must re-enable Delete.");
+            permissions.SetPermissions([PermissionCatalog.CustomersDelete]); Refresh();
+            Assert(delete.Visibility == Visibility.Collapsed && !vm.DeleteCustomerCommand.CanExecute(null),
+                "Client deletion must require access to the Customers module.");
+            Grants(PermissionCatalog.CustomersDelete);
+            Grants();
+            Assert(delete.Visibility == Visibility.Collapsed && !delete.IsEnabled, "Revoking deletion rights must update the existing toolbar.");
+            Console.WriteLine("PASS: client Delete button, saved-client selection, separate permission, module access and immediate revocation");
 
             // A session refresh must update the existing view without calling RefreshPermissions manually.
             permissions.SetPermissions(new[] { PermissionCatalog.Customers, CustomerPermissionCatalog.Debt.View,

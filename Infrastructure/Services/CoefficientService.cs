@@ -12,19 +12,22 @@ public class CoefficientService
 	private readonly DatabaseContext _db;
 	private readonly IDbContextFactory<DatabaseContext> _contextFactory;
 	private readonly CustomerFieldPermissionPolicy _fieldPermissions;
+    private readonly CustomerAccessPolicy _access;
 
 	public CoefficientService(DatabaseContext db, IDbContextFactory<DatabaseContext> contextFactory,
-		CustomerFieldPermissionPolicy fieldPermissions)
+		CustomerFieldPermissionPolicy fieldPermissions, CustomerAccessPolicy access)
 	{
 		_db = db;
 		_contextFactory = contextFactory;
 		_fieldPermissions = fieldPermissions;
+        _access = access;
 	}
 
 	public async Task<CustomerEntity> CalculateForCustomerAsync(string customerId)
 	{
 		await using var db = await _contextFactory.CreateDbContextAsync();
 		await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        await _access.EnsureAccessAsync(db, customerId);
 		var coef = await db.RaschetKoefficenta.AsNoTracking().FirstOrDefaultAsync()
 			?? throw new InvalidOperationException("Настройки расчета коэффициентов не найдены.");
 		var customer = await db.Customers

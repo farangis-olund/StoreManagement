@@ -283,7 +283,7 @@ public class CustomerFinanceService
         return Math.Round(repayment, 2);
     }
 
-    public async Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
+    public virtual async Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
     string? managerId = null,
     string? territory = null,
     string? customerId = null)
@@ -353,7 +353,7 @@ public class CustomerFinanceService
 
         return result;
     }
-    public async Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(
+    public virtual async Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(
      string? managerId = null,
      string? territory = null,
      string? customerId = null)

@@ -24,11 +24,13 @@ namespace PresentationWpf.Views;
         {
             if (DataContext is RetailViewModel vm)
             {
+                vm.StartMonthlyPlanRefresh();
                 vm.OnProductAdded += () => Dispatcher.Invoke(ScrollToLastCartItem);
                 vm.OnInvalidQuantityFound += product =>
                     Dispatcher.Invoke(() => ScrollToProduct(product));
             }
         };
+        Unloaded += (_, _) => { if (DataContext is RetailViewModel vm) vm.StopMonthlyPlanRefresh(); };
 
     }
 
@@ -44,11 +46,23 @@ namespace PresentationWpf.Views;
 
     private void RetailView_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
+        if (e.OldValue is RetailViewModel previous)
+            previous.CustomerSelectionRejected -= Vm_CustomerSelectionRejected;
         if (e.NewValue is RetailViewModel vm)
         {
+            vm.CustomerSelectionRejected += Vm_CustomerSelectionRejected;
             vm.OnProductAdded -= Vm_OnProductAdded; // remove previous (safety)
             vm.OnProductAdded += Vm_OnProductAdded;
         }
+    }
+
+    private void Vm_CustomerSelectionRejected()
+    {
+        if (DataContext is not RetailViewModel vm) return;
+        // Editable ComboBox text can differ even when SelectedItem was restored by binding.
+        CustomerCodeComboBox.Text = (vm.CustomerDisplayMemberPath == "FullName"
+            ? vm.SelectedCustomer?.FullName : vm.SelectedCustomer?.Id) ?? "";
+        CustomerNameComboBox.Text = vm.SelectedCustomer?.FullName ?? "";
     }
 
     private void Vm_OnProductAdded()

@@ -24,5 +24,10 @@ namespace PresentationWpf.Views
         {
             InitializeComponent();
         }
+
+        private async void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.ManagerInfoViewModel vm) await vm.LoadAsync();
+        }
     }
 }

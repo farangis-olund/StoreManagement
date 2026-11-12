@@ -1,12 +1,10 @@
 ﻿using Infrastructure.Dtos;
 using Infrastructure.Services;
-using PdfiumViewer;
 using PresentationWpf.Documents;
 using PresentationWpf.Views;
 using QuestPDF.Fluent;
 using System.IO;
 using System.Windows;
-using System.Drawing.Printing;
 
 namespace PresentationWpf.Services;
 
@@ -14,13 +12,15 @@ public class ReturnsDayReportService
 {
     private readonly ReturnService _returnService;
     private readonly OrganizationInfoService _orgService;
+    private readonly PdfPrinter _pdfPrinter;
 
     public ReturnsDayReportService(
         ReturnService returnService,
-        OrganizationInfoService orgService)
+        OrganizationInfoService orgService, PdfPrinter pdfPrinter)
     {
         _returnService = returnService;
         _orgService = orgService;
+        _pdfPrinter = pdfPrinter;
     }
 
     private async Task<string?> GenerateReportPdfAsync(DateTime reportDate)
@@ -64,7 +64,7 @@ public class ReturnsDayReportService
 
         string file = Path.Combine(
             folder,
-            $"ReturnDayReport_{reportDate:yyyyMMdd}_{DateTime.Now:HHmmss}.pdf");
+            $"ReturnDayReport_{reportDate:yyyyMMdd}_{Guid.NewGuid():N}.pdf");
 
         document.GeneratePdf(file);
 
@@ -114,26 +114,13 @@ public class ReturnsDayReportService
             return;
         }
 
-        try
-        {
-            using var document = PdfDocument.Load(file);
-            using var printDocument = document.CreatePrintDocument();
-
-            printDocument.PrinterSettings = new PrinterSettings
-            {
-                PrinterName = new PrinterSettings().PrinterName
-            };
-
-            printDocument.PrintController = new StandardPrintController();
-            printDocument.Print();
-        }
-        catch (Exception ex)
+        if (!_pdfPrinter.TryPrint(file, out var error))
         {
             MessageBox.Show(
-                $"Ошибка печати: {ex.Message}",
+                $"Отчёт сформирован, но автоматическая печать не выполнена.\n\n{error}",
                 "Печать",
                 MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                MessageBoxImage.Warning);
         }
     }
 

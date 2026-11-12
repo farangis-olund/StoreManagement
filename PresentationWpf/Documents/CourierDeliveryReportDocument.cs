@@ -22,7 +22,11 @@ namespace PresentationWpf.Documents
         {
             _orgName = orgName;
             _courierName = courierName;
-            _lines = lines;
+            _lines = lines
+                .OrderBy(line => line.CustomerId, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(line => line.City, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(line => line.Address, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
             _title = title;
             _date = date;
         }
@@ -81,6 +85,7 @@ namespace PresentationWpf.Documents
                             cols.RelativeColumn(1.3f); // Адрес
                             cols.RelativeColumn(1.0f); // Тел
                             cols.RelativeColumn(1.3f); // Накладная
+                            cols.RelativeColumn(1.3f); // Квитанция
                             cols.RelativeColumn(1.0f); // Сумма
                             cols.RelativeColumn(1.0f); // Сумма (СМН)
                             cols.RelativeColumn(1.0f); // Платеж
@@ -88,7 +93,7 @@ namespace PresentationWpf.Documents
 
                         string[] headers = new[]
                         {
-                            "Дата", "Код кл.", "ФИО", "Адрес","Тел", "Накладная", "Сумма", "Платеж(СМН)", "Платеж"
+                            "Дата", "Код кл.", "ФИО", "Адрес","Тел", "Накладная", "Квитанция", "Сумма", "Платеж(СМН)", "Платеж"
                         };
 
                         table.Header(header =>
@@ -126,6 +131,7 @@ namespace PresentationWpf.Documents
                             Cell(Trim(line.Address, 18));
                             Cell(Trim(line.Phone, 10));
                             Cell(line.Invoice);
+                            Cell(line.ReceiptNumber);
                             Cell(line.Sale.ToString("N2"), right: true);
                             Cell(line.Amount.ToString("N2"), right: true);
                             Cell(line.Payment.ToString("N2"), right: true);
@@ -170,6 +176,7 @@ namespace PresentationWpf.Documents
         public string Address { get; set; } = "";
         public string City { get; set; } = "";
         public string Invoice { get; set; } = "";
+        public string ReceiptNumber { get; set; } = "";
         public decimal Sale { get; set; }
         public decimal Amount { get; set; }
         public decimal Payment { get; set; }

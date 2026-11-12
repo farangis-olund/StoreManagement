@@ -117,9 +117,13 @@ public partial class App : Application
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<RetailViewModel>();
+                services.AddSingleton<RetailManagerService>();
                 services.AddTransient<RetailView>();
                 services.AddTransient<ProductRequestsViewModel>();
                 services.AddTransient<ProductRequestsView>();
+                services.AddTransient<OfficialMonthlyPlansViewModel>();
+                services.AddTransient<OfficialMonthlyPlansView>();
+                services.AddSingleton<OfficialMonthlyPlanService>();
                 services.AddTransient<ProductRequestService>();
                 services.AddTransient<MyNewArticlesViewModel>();
                 services.AddTransient<MyNewArticlesView>();
@@ -229,6 +233,9 @@ public partial class App : Application
                 services.AddTransient<ReturnsDayReportView>();
 
                 services.AddSingleton<UserSessionService>();
+                services.AddSingleton<Infrastructure.Security.ICurrentUserContext>(sp => sp.GetRequiredService<UserSessionService>());
+                services.AddSingleton<Infrastructure.Security.CustomerAccessPolicy>();
+                services.AddSingleton<Infrastructure.Security.AdminAccessPolicy>();
 				services.AddSingleton<DataTransferService>();
 
                 services.AddScoped<ProductService>();
@@ -252,6 +259,7 @@ public partial class App : Application
 				services.AddScoped<StorekeeperService>();
                 services.AddScoped<CourierService>();
                 services.AddTransient<PdfService>();
+                services.AddTransient<PdfPrinter>();
                 services.AddTransient<CleanService>();
                 services.AddTransient<NavigationService>();
                 services.AddSingleton<PermissionService>();

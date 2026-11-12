@@ -7,6 +7,8 @@ public class SalesManagerEntity
 	public string? Address { get; set; }                        // Адрес
 	public string? Contacts { get; set; }                       // Контакты
     public bool Active { get; set; } = true;
+    public int? UserId { get; set; }
+    public UserEntity? User { get; set; }
     public virtual ICollection<CustomerEntity> Customers { get; set; } = [];
 	public virtual ICollection<ManagerBrandEntity> ManagerBrands { get; set; } = [];
 	public virtual ICollection<ManagerCustomerEntity> ManagerCustomers { get; set; } = [];

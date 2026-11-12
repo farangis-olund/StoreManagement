@@ -70,7 +70,7 @@ public partial class SummaryViewModel : ObservableObject
     public decimal CustomerBalance { get; private set; }
 
 	public class OrderRow { public DateTime Date { get; set; } public string InvoiceNo { get; set; } = ""; public decimal Amount { get; set; } }
-	public class PaymentRow { public DateTime Date { get; set; } public int PaymentNo { get; set; } public decimal Amount { get; set; } public string? OrderId { get; set; } }
+	public class PaymentRow { public DateTime Date { get; set; } public string PaymentNo { get; set; } = ""; public decimal Amount { get; set; } public string? OrderId { get; set; } }
 
 	// Selection for grids
 	[ObservableProperty] private OrderRow? selectedOrder;
@@ -92,7 +92,7 @@ public partial class SummaryViewModel : ObservableObject
 		// Load payments
 		var pays = await _orderService.GetPaymentsByCustomerAsync(CustomerId);
 		foreach (var p in pays)
-			Payments.Add(new PaymentRow { Date = p.Date, PaymentNo = p.Id, Amount = p.Amount, OrderId = p.OrderId });
+			Payments.Add(new PaymentRow { Date = p.Date, PaymentNo = p.ReceiptNumber, Amount = p.Amount, OrderId = p.OrderId });
 
         // Load unpaidPayments
         var unpaidOrders = await _orderService.GetUnpaidOrdersAsync(CustomerId);

@@ -33,20 +33,43 @@
         <Border Margin="0,0,0,8" Padding="10" BorderBrush="#E0E3E7" BorderThickness="1" CornerRadius="6">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="150"/>
                     <ColumnDefinition Width="150"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- One-box keywords -->
-                <TextBox Grid.Column="0" Height="40" Margin="0,0,10,0"  Style="{StaticResource RoundedTextBoxStyle}"
-                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-             ToolTip="Введите несколько ключевых слов: артикул, имя клиента, модель, бренд, № накладной"/>
+                <DockPanel Grid.Column="0" Margin="0,0,10,0">
+                <TextBlock Text="Клиент:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox x:Name="ReturnCustomerComboBox" Height="40"
+                          VerticalContentAlignment="Center"
+                          ItemsSource="{Binding CustomersFiltered}"
+                          SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
+                          DisplayMemberPath="{Binding CustomerDisplayMemberPath}"
+                          TextSearch.TextPath="{Binding CustomerDisplayMemberPath}"
+                          IsEditable="True" IsTextSearchEnabled="True" StaysOpenOnEdit="True"
+                          IsEnabled="{Binding CanSelectCustomer}"
+                          ToolTip="Выберите клиента. Для смены клиента оформите возврат или удалите добавленные позиции."
+                          ToolTipService.ShowOnDisabled="True">
+                    <ComboBox.Resources>
+                        <Style TargetType="TextBox">
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        </Style>
+                    </ComboBox.Resources>
+                </ComboBox>
+                </DockPanel>
 
-                <DatePicker Grid.Column="1" Height="30" Margin="0,0,10,0"
+                <TextBox x:Name="ReturnSearchBox" Grid.Column="1" Height="40" Margin="0,0,10,0" Style="{StaticResource RoundedTextBoxStyle}"
+                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                IsEnabled="{Binding CanSearchOrders}"
+                ToolTipService.ShowOnDisabled="True"
+             ToolTip="Сначала выберите клиента, затем введите артикул, наименование, модель, бренд или № накладной"/>
+
+                <DatePicker Grid.Column="2" Height="30" Margin="0,0,10,0" IsEnabled="{Binding CanSearchOrders}"
                 SelectedDate="{Binding SearchFrom, UpdateSourceTrigger=PropertyChanged}"/>
 
-                <DatePicker Grid.Column="2" Height="30"
+                <DatePicker Grid.Column="3" Height="30" IsEnabled="{Binding CanSearchOrders}"
                 SelectedDate="{Binding SearchTo, UpdateSourceTrigger=PropertyChanged}"/>
             </Grid>
             
@@ -55,7 +78,7 @@
         <!-- ───── Collapsible search results (line level) ────────────── -->
         <GroupBox Header="Результаты поиска" Grid.Row="1" Margin="0,0,0,8">
             <Expander IsExpanded="{Binding SearchExpanded}">
-                <DataGrid ItemsSource="{Binding SearchResultsView}"
+                <DataGrid x:Name="ReturnSearchResultsGrid" Height="220" ItemsSource="{Binding SearchResultsView}"
                   SelectedItem="{Binding SelectedSearchHit, Mode=TwoWay}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
@@ -151,26 +174,8 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Customer / Product pickers -->
-                        <Grid Grid.Row="2" IsEnabled="{Binding ManualMode}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Клиент (код/ФИО)" Margin="0,0,0,4"/>
-                                <ComboBox Height="30" Width="200"
-                                     ItemsSource="{Binding CustomersFiltered}"
-                                      SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
-                                      IsEditable="True"
-                                      IsTextSearchEnabled="True"
-                                      StaysOpenOnEdit="True"
-                                      DisplayMemberPath="{Binding CustomerDisplayMemberPath}"
-                                      TextSearch.TextPath="{Binding CustomerDisplayMemberPath}"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                        <!-- The customer is selected in the shared picker above. -->
+                            <StackPanel Grid.Row="2" IsEnabled="{Binding ManualMode}" HorizontalAlignment="Left">
                                 <TextBlock Text="Товар (артикул)" Margin="0,0,0,4"/>
                                 <ComboBox Height="30" Width="300"
                                       ItemsSource="{Binding ProductsLookup}"
@@ -180,7 +185,6 @@
                                           StaysOpenOnEdit="True"
                                       DisplayMemberPath="Display"/>
                             </StackPanel>
-                        </Grid>
 
                         <!-- Qty / Price + Add button -->
                         <Grid Grid.Row="4" IsEnabled="{Binding ManualMode}">
@@ -225,10 +229,11 @@
 
                 <GroupBox Header="Позиции возврата" Grid.Column="0">
                     <DockPanel LastChildFill="True">
-                        <DataGrid ItemsSource="{Binding Lines}"
+                        <DataGrid x:Name="ReturnLinesGrid" ItemsSource="{Binding Lines}"
           AutoGenerateColumns="False"
           SelectionMode="Extended"
           IsReadOnly="False"
+          CanUserAddRows="False"
           Style="{StaticResource SummaryGrid}"
           ColumnWidth="Auto"
           CanUserResizeColumns="True"
@@ -238,17 +243,17 @@
           ScrollViewer.VerticalScrollBarVisibility="Auto">
 
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Артикул" Binding="{Binding Article}" Width="150"/>
-                                <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="200"/>
-                                <DataGridTextColumn Header="Бренд" Binding="{Binding Brand}" Width="80"/>
-                                <DataGridTextColumn Header="Марка" Binding="{Binding Marka}" Width="80"/>
-                                <DataGridTextColumn Header="Модель" Binding="{Binding Model}" Width="*"/>
+                                <DataGridTextColumn Header="Артикул" Binding="{Binding Article, Mode=OneWay}" Width="150" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Наименование" Binding="{Binding Name, Mode=OneWay}" Width="200" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Бренд" Binding="{Binding Brand, Mode=OneWay}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Марка" Binding="{Binding Marka, Mode=OneWay}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Модель" Binding="{Binding Model, Mode=OneWay}" Width="*" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Кол" Binding="{Binding PurchasedQty}" Width="60" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="К возврату" Binding="{Binding ReturnQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
-                                <DataGridTextColumn Header="Цена" Binding="{Binding Price, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:N2}}" Width="80"/>
+                                <DataGridTextColumn Header="К возврату" Binding="{Binding ReturnQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="70" IsReadOnly="False"/>
+                                <DataGridTextColumn Header="Цена" Binding="{Binding Price, Mode=OneWay, StringFormat={}{0:N2}}" Width="80" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Сумма" Binding="{Binding Total, StringFormat={}{0:N2}}" Width="100" IsReadOnly="True"/>
 
-                                <DataGridTemplateColumn Header="" Width="60">
+                                <DataGridTemplateColumn Header="" Width="60" IsReadOnly="True">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Button Content="-" Background="#8B0000" Width="50" Height="24" FontSize="10"

@@ -91,7 +91,11 @@ namespace PresentationWpf.ViewModels
 			_userSessionService = userSessionService;
             _permissionService = permissionService;
 			
-			Lines.CollectionChanged += (_, __) => RecalcTotals();
+			Lines.CollectionChanged += (_, __) =>
+            {
+                RecalcTotals();
+                OnPropertyChanged(nameof(CanSelectCustomer));
+            };
 
 			SearchResultsView = CollectionViewSource.GetDefaultView(SearchResults);
 			SearchResultsView.Filter = FilterOrders;
@@ -111,14 +115,22 @@ namespace PresentationWpf.ViewModels
         [ObservableProperty] private double _exchangeRate = 1;
         public ObservableCollection<SearchHitRow> SearchResults { get; } = [];
 		public ICollectionView SearchResultsView { get; private set; } = null!;
+        private int _orderSearchVersion;
+        private string? _exactSearchArticle;
+        public bool CanSearchOrders => SelectedCustomer != null;
+        public bool CanSelectCustomer => Lines.Count == 0;
 
 		private bool FilterOrders(object item)
 		{
 			if (item is not SearchHitRow o) return false;
+            if (!CanSearchOrders || o.CustomerId != SelectedCustomer!.Id) return false;
 
 			// 🚩 Если строка поиска пустая → не показывать ничего
 			if (string.IsNullOrWhiteSpace(SearchText))
 				return false;
+
+            if (_exactSearchArticle != null)
+                return string.Equals(o.Article, _exactSearchArticle, StringComparison.OrdinalIgnoreCase);
 
 			var words = SearchText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
@@ -137,7 +149,15 @@ namespace PresentationWpf.ViewModels
 
 		partial void OnSearchTextChanged(string value) => ApplyFilter();
 
-		private void ApplyFilter() => SearchResultsView?.Refresh();
+		private void ApplyFilter()
+        {
+            var text = SearchText?.Trim();
+            _exactSearchArticle = CanSearchOrders && !string.IsNullOrEmpty(text) && SearchResults.Any(row =>
+                row.CustomerId == SelectedCustomer!.Id && string.Equals(row.Article, text, StringComparison.OrdinalIgnoreCase))
+                ? text : null;
+            SearchResultsView?.Refresh();
+            SearchExpanded = CanSearchOrders && SearchResultsView?.IsEmpty == false;
+        }
 
 		// ===== INIT =============================================================
 		public async Task InitializeAsync()
@@ -155,7 +175,7 @@ namespace PresentationWpf.ViewModels
                 {
                     Id = c.Id,
                     FullName = c.FullName,
-                    PriceLevelCode = (int)c.PriceLevel.Code
+                    PriceLevelCode = c.PriceLevel?.Code ?? 1
                 };
 				              
                 CustomersFiltered.Add(customerLite); // ✅ initial population
@@ -216,7 +236,6 @@ namespace PresentationWpf.ViewModels
        
 		 public ObservableCollection<ProductPickItem> ProductsLookup { get; } = new();
 
-		[ObservableProperty] private string? manualCustomerId;
 		[ObservableProperty] private ProductPickItem? selectedManualProduct;
 		[ObservableProperty] private decimal manualQty = 1;
 		private bool _manualPriceTouched;
@@ -245,22 +264,27 @@ namespace PresentationWpf.ViewModels
 
 		// ===== META ==========================================================
 		[ObservableProperty] private string? reason;
-		[ObservableProperty] private string refundMethod = "cash";
+		[ObservableProperty] private string refundMethod = "";
 		[ObservableProperty] private string? comment;
 
 
 		[RelayCommand]
 		private async Task LoadOrdersAsync()
 		{
+			var version = ++_orderSearchVersion;
+			var customerId = SelectedCustomer?.Id;
+			var from = SearchFrom;
+			var to = SearchTo;
+			_exactSearchArticle = null;
 			SearchResults.Clear();
+			SelectedSearchHit = null;
+			SearchExpanded = false;
+            if (string.IsNullOrEmpty(customerId)) return;
 
-			IEnumerable<OrderRowDto> orders;
-			if (SearchFrom is null && SearchTo is null)
-				orders = await _orderService.GetOrdersAsync();
-			else
-				orders = await _orderService.GetOrdersInRangeAsync(SearchFrom, SearchTo);
+			var orders = await _orderService.GetOrdersInRangeAsync(from, to, customerId: customerId);
+            if (version != _orderSearchVersion || SelectedCustomer?.Id != customerId) return;
 
-            foreach (var o in orders)
+            foreach (var o in orders.Where(o => o.CustomerId == customerId))
             {
                 var remainingQty = o.Quantity - (o.ReturnedQty ?? 0);
 
@@ -293,7 +317,7 @@ namespace PresentationWpf.ViewModels
 				SearchResultsView.Refresh();
 			}
 
-			SearchExpanded = SearchResults.Any();
+            ApplyFilter();
 		}
 
 
@@ -302,7 +326,7 @@ namespace PresentationWpf.ViewModels
 		[RelayCommand]
 		private void UseSearchHit(SearchHitRow? hit)
 		{
-			if (hit is null) return;
+			if (hit is null || !CanSearchOrders || hit.CustomerId != SelectedCustomer!.Id || !SearchResults.Contains(hit)) return;
 
 			var line = new ReturnLineRow
 			{
@@ -384,7 +408,8 @@ namespace PresentationWpf.ViewModels
 				Model =p.ProductModel,
                 PurchasedQty = p.Quantity,
 				ReturnQty = ManualQty,
-				Price = ManualPrice
+				Price = ManualPrice,
+                CustomerId = SelectedCustomer.Id
 			};
 
 			TrackLine(line);
@@ -418,15 +443,27 @@ namespace PresentationWpf.ViewModels
                 return;
             }
 
-            if (ManualMode == true && SelectedCustomer == null)
+            if (SelectedCustomer == null)
             {
                 MessageBox.Show("Выберите клиента.");
                 return;
             }
 
-            if (SelectedReturnReason == null)
+            if (Lines.Any(line => !string.IsNullOrEmpty(line.CustomerId) && line.CustomerId != SelectedCustomer.Id))
             {
-                MessageBox.Show("Выберите причину возврата.");
+                MessageBox.Show("Все позиции возврата должны принадлежать выбранному клиенту.", "Возврат",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var hasReason = SelectedReturnReason != null && ReturnReasons.Contains(SelectedReturnReason);
+            var hasRefundMethod = !string.IsNullOrWhiteSpace(RefundMethod) && RefundMethods.Contains(RefundMethod);
+            if (!hasReason || !hasRefundMethod)
+            {
+                ShowReturnOptionsRequiredMessage(!hasReason && !hasRefundMethod
+                    ? "Необходимо выбрать причину возврата и способ возврата средств."
+                    : !hasReason ? "Необходимо выбрать причину возврата."
+                    : "Необходимо выбрать способ возврата средств.");
                 return;
             }
 
@@ -542,7 +579,7 @@ namespace PresentationWpf.ViewModels
                     SelectedCustomer = null;
                     SelectedSearchHit = null;
                     SelectedReturnReason = null;
-                    RefundMethod = null!;
+                    RefundMethod = "";
                     Comment = null!;
                     RecalcTotals();
 
@@ -562,6 +599,9 @@ namespace PresentationWpf.ViewModels
             }
         }
 
+
+        protected virtual void ShowReturnOptionsRequiredMessage(string message) => MessageBox.Show(
+            message, "Оформление возврата", MessageBoxButton.OK, MessageBoxImage.Warning);
 
         [RelayCommand]
 		private void RemoveLine(ReturnLineRow? line)
@@ -667,11 +707,28 @@ namespace PresentationWpf.ViewModels
 
         
 
-        [ObservableProperty]
 		private CustomerLite? selectedCustomer;
 
-		partial void OnSelectedCustomerChanged(CustomerLite? value)
+        public CustomerLite? SelectedCustomer
+        {
+            get => selectedCustomer;
+            set
+            {
+                if (selectedCustomer == value) return;
+                if (!CanSelectCustomer && selectedCustomer?.Id != value?.Id)
+                {
+                    OnPropertyChanged();
+                    return;
+                }
+                if (SetProperty(ref selectedCustomer, value)) OnSelectedCustomerChanged(value);
+            }
+        }
+
+		private void OnSelectedCustomerChanged(CustomerLite? value)
 		{
+            OnPropertyChanged(nameof(CanSearchOrders));
+            _ = LoadOrdersAsync();
+			if (value is null) SearchText = "";
 			if (value is null) return;
 
 			// Recalculate prices for all products

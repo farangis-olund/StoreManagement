@@ -14,6 +14,9 @@ internal sealed class UnpaidDeliveryTests(Func<DatabaseContext> createContext)
         row.PaymentId = 42;
         row.Paid = 20.5m;
         Check(row.DocumentNumber == "42" && row.Paid == 20.5m, "Existing receipts must retain their number and amount.");
+        row.ReceiptNumber = "ПЛ-3H3KLC";
+        Check(row.DocumentNumber == "ПЛ-3H3KLC" && row.PaymentId == 42,
+            "The public receipt number must be displayed without replacing the internal payment identity.");
         Console.WriteLine("PASS: unpaid order display falls back to invoice only when no receipt exists");
     }
 

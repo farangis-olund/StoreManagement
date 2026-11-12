@@ -168,6 +168,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
                     Date = e.Date,
                     Number = e.OrderId,
                     PaymentId = e.PaymentId,
+                    ReceiptNumber = e.ReceiptNumber,
                     CustomerId = e.CustomerId,
                     FullName = e.FullName,
                     Address = e.Address,
@@ -271,7 +272,8 @@ public partial class DeliveryOrdersViewModel : ObservableObject
             Address = o.Address,
             CustomerName = o.FullName,
             Phone = o.Phone, 
-            InvoiceNumber = o.PaymentId.HasValue ? $"{o.Invoice} / Квит. {o.PaymentId}" : o.Invoice
+            InvoiceNumber = o.Invoice,
+            ReceiptNumber = o.ReceiptNumber
         }).ToList();
 
         var doc = new DeliveryNoteDocument(orgName, courierName, date, rate, invoiceNumber, lines);
@@ -326,7 +328,8 @@ public partial class DeliveryOrdersViewModel : ObservableObject
             FullName = o.FullName,
             Address = o.Address,
             City = o.City,
-            Invoice = o.PaymentId.HasValue ? $"{o.Invoice} / Квит. {o.PaymentId}" : o.Invoice,
+            Invoice = o.Invoice,
+            ReceiptNumber = o.ReceiptNumber,
             Sale = o.Sale,
             Phone = o.Phone,
             Amount = o.Amount,
@@ -379,6 +382,7 @@ public partial class DeliveryOrderModel : ObservableObject
     public DateTime Date { get; set; }
     public string Number { get; set; } = "";
     public int? PaymentId { get; set; }
+    public string ReceiptNumber { get; set; } = "";
     public string CustomerId { get; set; } = "";
     public string FullName { get; set; } = "";
     public string Phone { get; set; } = "";

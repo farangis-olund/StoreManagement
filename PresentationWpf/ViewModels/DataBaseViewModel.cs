@@ -10,17 +10,37 @@ using System.Windows;
 using System.Linq.Expressions;
 using System.Globalization;
 using System.Reflection;
+using Infrastructure.Constants;
+using Infrastructure.Security;
+using PresentationWpf.Services;
+using System.ComponentModel;
 namespace PresentationWpf.ViewModels;
 
 public partial class DataBaseViewModel : ObservableObject
 {
     private readonly DatabaseContext _db;
+    private readonly AdminAccessPolicy _access;
+    public bool CanAccess => _access.CanOpen(PermissionCatalog.AdminDatabase);
 
-    public DataBaseViewModel(DatabaseContext db)
+    public DataBaseViewModel(DatabaseContext db, PermissionService permissions)
     {
         _db = db;
+        _access = new AdminAccessPolicy(permissions);
+        PropertyChangedEventManager.AddHandler(permissions, (_, _) => RefreshPermissions(), nameof(PermissionService.CurrentPermissions));
+        if (CanAccess) LoadTableNames();
+    }
 
-        LoadTableNames();
+    private void RefreshPermissions()
+    {
+        OnPropertyChanged(nameof(CanAccess));
+        AddCommand.NotifyCanExecuteChanged(); UpdateCommand.NotifyCanExecuteChanged();
+        DeleteCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged();
+        if (!CanAccess)
+        {
+            SelectedRow = null!; SelectedTable = null!; SelectedTableName = null!;
+            TableData.Clear(); TablesA_G.Clear(); TablesD_K.Clear(); TablesL_P.Clear(); TablesR_Ya.Clear();
+        }
+        else LoadTableNames();
     }
 
 
@@ -176,6 +196,7 @@ public partial class DataBaseViewModel : ObservableObject
 
     private void LoadTable()
     {
+        if (!CanAccess) return;
         HasDummyRow = false;
 
         var prop = _db.GetType().GetProperty(SelectedTableName);
@@ -206,9 +227,10 @@ public partial class DataBaseViewModel : ObservableObject
     private object selectedRow;
 
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAccess))]
     private void Delete()
     {
+        if (!CanAccess) return;
         if (HasDummyRow) return;
         if (SelectedRow == null) return;
 
@@ -218,7 +240,7 @@ public partial class DataBaseViewModel : ObservableObject
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
-        if (result != MessageBoxResult.Yes)
+        if (result != MessageBoxResult.Yes || !CanAccess)
             return;
 
         _db.Remove(SelectedRow);
@@ -230,9 +252,10 @@ public partial class DataBaseViewModel : ObservableObject
         LoadTable();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAccess))]
     private void Update()
     {
+        if (!CanAccess) return;
         if (SelectedRow == null)
             return;
 
@@ -242,7 +265,7 @@ public partial class DataBaseViewModel : ObservableObject
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (result != MessageBoxResult.Yes || !CanAccess)
             return;
 
         try
@@ -303,9 +326,10 @@ public partial class DataBaseViewModel : ObservableObject
             System.Diagnostics.Debug.WriteLine(ex);
         }
     }
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAccess))]
     private void Refresh()
     {
+        if (!CanAccess) return;
         // Block refresh if dummy row is visible (table empty case)
         if (HasDummyRow)
             return;
@@ -319,6 +343,7 @@ public partial class DataBaseViewModel : ObservableObject
 
     public object CreateNewRow()
     {
+        _access.EnsureCanOpen(PermissionCatalog.AdminDatabase);
         var prop = _db.GetType().GetProperty(SelectedTableName);
         var entityType = prop.PropertyType.GetGenericArguments()[0];
 
@@ -338,9 +363,10 @@ public partial class DataBaseViewModel : ObservableObject
     }
 
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAccess))]
     private void Add()
     {
+        if (!CanAccess) return;
         if (string.IsNullOrWhiteSpace(SelectedTableName))
             return;
 

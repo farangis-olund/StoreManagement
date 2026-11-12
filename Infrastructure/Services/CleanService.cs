@@ -1,19 +1,26 @@
 ﻿using Infrastructure.Contexts;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Constants;
+using Infrastructure.Security;
 
 namespace Infrastructure.Services;
 
 public class CleanService
 {
     private readonly IDbContextFactory<DatabaseContext> _dbFactory;
+    private readonly OfficialMonthlyPlanService? _monthlyPlans;
+    private readonly AdminAccessPolicy _access;
 
-    public CleanService(IDbContextFactory<DatabaseContext> dbFactory)
+    public CleanService(IDbContextFactory<DatabaseContext> dbFactory, AdminAccessPolicy access, OfficialMonthlyPlanService? monthlyPlans = null)
     {
         _dbFactory = dbFactory;
+        _monthlyPlans = monthlyPlans;
+        _access = access;
     }
 
     public async Task DeleteAllAsync()
     {
+        _access.EnsureCanOpen(PermissionCatalog.AdminCleanup);
         await using var db = await _dbFactory.CreateDbContextAsync();
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
 
@@ -31,6 +38,8 @@ public class CleanService
         await db.Orders.ExecuteDeleteAsync();
         await db.StoreExchanges.ExecuteDeleteAsync();
 
+        _access.EnsureCanOpen(PermissionCatalog.AdminCleanup);
         await transaction.CommitAsync();
+        _monthlyPlans?.NotifyChanged();
     }
 }

@@ -7,7 +7,7 @@ using System.Diagnostics;
 
 namespace PresentationWpf.Services;
 
-public class UserSessionService
+public class UserSessionService : Infrastructure.Security.ICurrentUserContext
 {
     private readonly DatabaseContext _context;
     private readonly OrganizationInfoService _organizationInfoService;
@@ -32,6 +32,7 @@ public class UserSessionService
     public double ExchangeRate { get; private set; }
     public double CustomerDiscountPercentage { get; private set; }
     public bool IsLoggedIn { get; private set; }
+    public event EventHandler? UserChanged;
 
     // ✅ Unified login + session initialization
     public async Task<bool> LoginAsync(string username, string password)
@@ -41,7 +42,7 @@ public class UserSessionService
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 throw new ArgumentException("Логин или пароль не указаны");
 
-            var user = await _context.Users.SingleOrDefaultAsync(u => u.UserName == username);
+            var user = await _context.Users.AsNoTracking().SingleOrDefaultAsync(u => u.UserName == username);
             if (user == null || user.Password != password)
                 return false;
 
@@ -51,6 +52,7 @@ public class UserSessionService
             LastName = user.LastName;
             UserName = user.UserName;
             IsLoggedIn = true;
+            UserChanged?.Invoke(this, EventArgs.Empty);
 
             // Load organization and rates
             await InitializeEnvironmentAsync();
@@ -95,6 +97,7 @@ public class UserSessionService
         LastName = string.Empty;
         UserName = string.Empty;
         IsLoggedIn = false;
+        UserChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public event Action<double>? ExchangeRateChanged;
@@ -140,6 +143,7 @@ public class UserSessionService
         FirstName = user.FirstName;
         LastName = user.LastName;
         UserName = user.UserName;
+        UserChanged?.Invoke(this, EventArgs.Empty);
 
         // при необходимости здесь можно добавить ещё что-то,
         // например, обновление скидки, роли и т.п.

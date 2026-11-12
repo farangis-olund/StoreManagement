@@ -9,6 +9,7 @@ public class SalesManager
 	public string FullName { get; set; } = null!;               // ФИО
 	public string? Address { get; set; }                        // Адрес
 	public string? Contacts { get; set; }                       // Контакты
+    public int? UserId { get; set; }
 
 	// Computed property: Id + FullName
 	public string DisplayText => $"{Id} - {FullName}";
@@ -19,6 +20,7 @@ public class SalesManager
 			Id = e.Id,
 			FullName = e.FullName,
 			Address = e.Address,
-			Contacts = e.Contacts
+			Contacts = e.Contacts,
+            UserId = e.UserId
 		};
 }

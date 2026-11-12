@@ -32,6 +32,7 @@ namespace PresentationWpf.ViewModels
         private readonly ExportHelper _export;
         private readonly IServiceProvider _sp;
         private readonly OrganizationInfoService _orgService;
+        private readonly PdfPrinter _pdfPrinter;
 
         private readonly ReturnsDayReportService _returnsDayReportService;
 
@@ -47,7 +48,8 @@ namespace PresentationWpf.ViewModels
             StockUpdateLogRepository logRepo,
             ProductService productService,
             ExportHelper export,
-            IServiceProvider sp, OrganizationInfoService orgService, ReturnsDayReportService returnsDayReportService
+            IServiceProvider sp, OrganizationInfoService orgService, ReturnsDayReportService returnsDayReportService,
+            PdfPrinter pdfPrinter
             )
         {
             _orderService = orderService;
@@ -57,6 +59,7 @@ namespace PresentationWpf.ViewModels
             _sp = sp;
             _orgService = orgService;
             _returnsDayReportService = returnsDayReportService;
+            _pdfPrinter = pdfPrinter;
          
 
             _ = LoadDatesAsync();
@@ -212,56 +215,63 @@ namespace PresentationWpf.ViewModels
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            string storeInfo = await _orgService.GetShopDisplayAsync();
-
-            var dt = ToDataTable(Rows); // your helper with RU headers
-
-            // 1️⃣ Build Report ViewModel
-            var reportVm = _sp.GetRequiredService<ReportViewModel>();
-            reportVm.Initialize(dt, SelectedDate, "Обновление товаров", storeInfo);
-
-            // 2️⃣ Generate PDF report document
-            var document = new Documents.ReportDocument(reportVm);
-
-            string folder = Path.Combine(Path.GetTempPath(), "Reports");
-            Directory.CreateDirectory(folder);
-
-            string filePath = Path.Combine(folder, $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
-            document.GeneratePdf(filePath);
-            PrintPdfSilent(filePath);
-            
-            // 3️⃣ Show in PDF preview window
-            var preview = new DocumentPreviewView(filePath);
-            var window = new Window
-            {
-                Title = reportVm.Title,
-                Content = preview,
-                
-                Owner = Application.Current.MainWindow,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Width = 900,
-                Height = 900,
-                ResizeMode = ResizeMode.CanResize,
-                ShowInTaskbar = false
-            };
-
-            window.Show();
-
+            if (SelectedDate is null || IsBusy) return;
+            var reportDate = SelectedDate.Value.Date;
+            var dt = ToDataTable(Rows);
+            IsBusy = true;
+            RaiseCanExecutes();
             try
             {
-                await _returnsDayReportService.PrintReturnsDayReportAsync();
-                await _returnsDayReportService.ShowReturnsDayReportAsync();
-               
+                var storeInfo = await _orgService.GetShopDisplayAsync() ?? "";
+                var reportVm = _sp.GetRequiredService<ReportViewModel>();
+                reportVm.Initialize(dt, reportDate, "Обновление товаров", storeInfo);
+
+                var document = new Documents.ReportDocument(reportVm);
+                var folder = Path.Combine(Path.GetTempPath(), "Reports");
+                Directory.CreateDirectory(folder);
+                var filePath = Path.Combine(folder, $"Report_{reportDate:yyyyMMdd}_{Guid.NewGuid():N}.pdf");
+                document.GeneratePdf(filePath);
+
+                var preview = new DocumentPreviewView(filePath);
+                var window = new Window
+                {
+                    Title = reportVm.Title,
+                    Content = preview,
+                    Owner = Application.Current.MainWindow,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Width = 900,
+                    Height = 900,
+                    ResizeMode = ResizeMode.CanResize,
+                    ShowInTaskbar = false
+                };
+                window.Show();
+
+                if (!_pdfPrinter.TryPrint(filePath, out var printError))
+                    MessageBox.Show($"Отчёт сформирован и открыт, но автоматическая печать не выполнена.\n\n{printError}\n\n" +
+                        "Можно повторить печать из окна просмотра отчёта.", "Печать отчёта",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                try
+                {
+                    await _returnsDayReportService.PrintReturnsDayReportAsync(reportDate);
+                    await _returnsDayReportService.ShowReturnsDayReportAsync(reportDate);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при формировании отчёта о возвратах: {ex.GetBaseException().Message}",
+                        "Отчёт о возвратах", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Ошибка при формировании отчета: {ex.Message}",
-                    "Печать",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                MessageBox.Show($"Не удалось сформировать или открыть отчёт: {ex.GetBaseException().Message}",
+                    "Отчёт", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-
+            finally
+            {
+                IsBusy = false;
+                RaiseCanExecutes();
+            }
         }
 
         [RelayCommand]
@@ -282,15 +292,6 @@ namespace PresentationWpf.ViewModels
                     MessageBoxImage.Error);
             }
         }
-        private void PrintPdfSilent(string filePath)
-        {
-            using var document = PdfiumViewer.PdfDocument.Load(filePath);
-            using var printDocument = document.CreatePrintDocument();
-
-            printDocument.PrintController = new System.Drawing.Printing.StandardPrintController();
-            printDocument.Print();
-        }
-
         [RelayCommand] private void Close() => RequestClose?.Invoke();
 
         private bool CanRunActions() => SelectedDate is not null && Rows.Count > 0 && !IsBusy;

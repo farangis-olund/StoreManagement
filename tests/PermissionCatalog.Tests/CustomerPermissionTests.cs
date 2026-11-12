@@ -106,7 +106,7 @@ internal sealed class CustomerPermissionTests(Func<DatabaseContext> createContex
         var factory = new TestContextFactory(createContext);
         var service = new CustomerService(new CustomerRepository(factory), factory,
             new PriceLevelRepository(factory), new SalesManagerRepository(factory),
-            NullLogger<CustomerService>.Instance, policy);
+            NullLogger<CustomerService>.Instance, policy, new CustomerAccessPolicy(grants, new TestUserContext()));
         await using (var db = createContext())
         {
             db.PriceLevels.Add(new PriceLevelEntity { Level = "test-level", PriceType = "Test" });
@@ -184,7 +184,7 @@ internal sealed class CustomerPermissionTests(Func<DatabaseContext> createContex
         grants.Keys.Add(CustomerPermissionCatalog.Debt.Edit);
 
         await using var coefficientContext = createContext();
-        var coefficients = new CoefficientService(coefficientContext, factory, policy);
+        var coefficients = new CoefficientService(coefficientContext, factory, policy, new CustomerAccessPolicy(grants, new TestUserContext()));
         await coefficients.GetOrCreateAsync();
         grants.Keys.Remove(CustomerPermissionCatalog.Coefficients.Delete);
         await DeniedAsync(() => coefficients.CalculateForCustomerAsync(id));

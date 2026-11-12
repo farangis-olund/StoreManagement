@@ -23,6 +23,7 @@ public class OrderService
 	private readonly IDbContextFactory<DatabaseContext> _dbFactory;
 	private readonly ProductService _productService;
     private readonly IPermissionChecker _permissions;
+    private readonly OfficialMonthlyPlanService? _monthlyPlans;
 
 	// Allowed characters for the random part
 	private static readonly char[] _chars =
@@ -30,7 +31,7 @@ public class OrderService
 	public OrderService(OrderRepository orderRepository,
 								OrderDetailRepository orderDetailRepository,
 								ILogger<OrderService> logger, ProductService productService, IDbContextFactory<DatabaseContext> dbFactory,
-                                IPermissionChecker permissions)
+                                IPermissionChecker permissions, OfficialMonthlyPlanService? monthlyPlans = null)
 	{
 		_orderRepository = orderRepository;
 		_orderDetailRepository = orderDetailRepository;
@@ -38,6 +39,7 @@ public class OrderService
 		_dbFactory = dbFactory;
 		_productService = productService;
         _permissions = permissions;
+        _monthlyPlans = monthlyPlans;
 
 	}
 
@@ -105,6 +107,7 @@ public class OrderService
 
             // 3️⃣ Start transaction
             await using var tx = await db.Database.BeginTransactionAsync();
+            if (_monthlyPlans != null) await _monthlyPlans.ApplyToNewOrderAsync(db, orderEntity);
 
             // 3a) Deduct stock ONLY if not DirectFromStock
             if (!orderEntity.DirectFromStock)
@@ -133,6 +136,7 @@ public class OrderService
 
             // 3c) Commit the lot
             await tx.CommitAsync();
+            _monthlyPlans?.NotifyChanged();
             return orderEntity;
         }
         catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
@@ -151,6 +155,7 @@ public class OrderService
                 d.OrderId = orderEntity.Id;
 
             await using var tx = await retryDb.Database.BeginTransactionAsync();
+            if (_monthlyPlans != null) await _monthlyPlans.ApplyToNewOrderAsync(retryDb, orderEntity);
 
             var items = orderEntity.OrderDetails
                                    .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
@@ -169,8 +174,10 @@ public class OrderService
             await retryDb.SaveChangesAsync();
 
             await tx.CommitAsync();
+            _monthlyPlans?.NotifyChanged();
             return orderEntity;
         }
+        catch (OfficialMonthlyPlanLimitException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in AddOrderAsync");
@@ -180,6 +187,7 @@ public class OrderService
 
     private static bool IsUniqueKeyViolation(Exception ex)
 	{
+        if (ex.GetBaseException() is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }) return true;
 		// SQL Server: 2601/2627; SQLite: "UNIQUE constraint failed"; PostgreSQL: 23505
 		var msg = ex.GetBaseException().Message;
 		return msg.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
@@ -229,6 +237,7 @@ public class OrderService
 				}
 			}
 
+			_monthlyPlans?.NotifyChanged();
 			return orderEntity;
 		}
 		catch (Exception ex)
@@ -244,6 +253,7 @@ public class OrderService
 		try
 		{
 			await _orderRepository.RemoveAsync(pp => pp.Id == orderEntity.Id);
+			_monthlyPlans?.NotifyChanged();
 			return true;
 		}
 		catch (Exception ex)
@@ -265,6 +275,7 @@ public class OrderService
 				return false!;
 			}
 			await _orderDetailRepository.RemoveAsync(pp => pp.OrderId == orderEntity.Id && pp.ArticleNumber == article);
+			_monthlyPlans?.NotifyChanged();
 			return true;
 		}
 		catch (Exception ex)
@@ -337,6 +348,7 @@ public class OrderService
 				.Select(p => new CustomerPaymentDto
 				{
 					Id = p.Id,
+					ReceiptNumber = p.ReceiptNumber ?? p.Id.ToString(),
 					Date = p.Date,
 					Amount = p.Amount,
 					OrderId = p.OrderId
@@ -363,44 +375,71 @@ public class OrderService
 	CancellationToken ct = default,
     string? courierId = null)
 	{
-		await using var db = await _dbFactory.CreateDbContextAsync();
-		try
-		{
-			if (amount <= 0) return null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(ct);
+            try
+            {
+                if (amount <= 0) return null;
+                // Do the candidate check before Serializable to avoid holding number-range read locks.
+                var receiptNumber = await GenerateUniquePaymentReceiptNumberAsync(db, ct);
+                await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+                var order = string.IsNullOrWhiteSpace(orderId) ? null
+                    : await db.Orders.SingleOrDefaultAsync(o => o.Id == orderId && o.CustomerId == customerId, ct);
+                if (!string.IsNullOrWhiteSpace(orderId) && order == null) return null;
+                var isBarter = order?.IsBarter == true;
+                if (!isBarter && (string.IsNullOrWhiteSpace(courierId) ||
+                    !await db.Couriers.AnyAsync(c => c.Id == courierId, ct))) return null;
+                // A settled invoice must never hide a later, independently collected receipt.
+                if (order?.IsPaid == true && !isBarter) orderId = null;
 
-            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-            var order = string.IsNullOrWhiteSpace(orderId) ? null
-                : await db.Orders.SingleOrDefaultAsync(o => o.Id == orderId && o.CustomerId == customerId, ct);
-            if (!string.IsNullOrWhiteSpace(orderId) && order == null) return null;
-            var isBarter = order?.IsBarter == true;
-            if (!isBarter && (string.IsNullOrWhiteSpace(courierId) ||
-                !await db.Couriers.AnyAsync(c => c.Id == courierId, ct))) return null;
-            // A settled invoice must never hide a later, independently collected receipt.
-            if (order?.IsPaid == true && !isBarter) orderId = null;
+                var payment = new CustomerPaymentEntity
+                {
+                    ReceiptNumber = receiptNumber,
+                    CustomerId = customerId,
+                    Date = date ?? DateTime.Today,
+                    Amount = amount,
+                    OrderId = orderId,
+                    AmountInWords = amountInWords,
+                    CourierId = isBarter ? null : courierId,
+                    IsDeliveryConfirmed = isBarter,
+                    Rate = (decimal)rate
+                };
 
-			var p = new CustomerPaymentEntity
-			{
-				CustomerId = customerId,
-				Date = (date ?? DateTime.Today),
-				Amount = amount,
-				OrderId = orderId,
-				AmountInWords = amountInWords,
-                CourierId = isBarter ? null : courierId,
-                IsDeliveryConfirmed = isBarter,
-                Rate = (decimal)rate
-			};
-
-			db.Set<CustomerPaymentEntity>().Add(p);
-			await db.SaveChangesAsync(ct);
-			await transaction.CommitAsync(ct);
-			return p;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "AddPaymentAsync failed for customer {CustomerId}", customerId);
-			return null;
-		}
+                db.Payments.Add(payment);
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return payment;
+            }
+            catch (DbUpdateException ex) when (attempt < 2 && IsUniqueKeyViolation(ex))
+            {
+                // The unique index also protects simultaneous writers; retry in a fresh transaction.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AddPaymentAsync failed for customer {CustomerId}", customerId);
+                return null;
+            }
+        }
+        return null;
 	}
+
+    protected virtual string CreatePaymentReceiptNumber()
+    {
+        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var suffix = new char[6];
+        for (var i = 0; i < suffix.Length; i++)
+            suffix[i] = alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)];
+        return "ПЛ-" + new string(suffix);
+    }
+
+    private async Task<string> GenerateUniquePaymentReceiptNumberAsync(DatabaseContext db, CancellationToken ct)
+    {
+        string number;
+        do { number = CreatePaymentReceiptNumber(); }
+        while (await db.Payments.AnyAsync(p => p.ReceiptNumber == number, ct));
+        return number;
+    }
 
     
     public async Task<string?> GetTodayOrderIdForCustomerAsync(string customerId, CancellationToken ct = default)
@@ -458,8 +497,8 @@ public class OrderService
 	}
 }
 
-public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
-	DateTime? from, DateTime? to, CancellationToken ct = default)
+public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
+	DateTime? from, DateTime? to, CancellationToken ct = default, string? customerId = null)
 {
 		await using var db = await _dbFactory.CreateDbContextAsync();
 		try
@@ -470,6 +509,9 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
 			.Include(o => o.OrderDetails)
 			.Where(o => !o.IsBarter)
 			.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(customerId))
+            query = query.Where(o => o.CustomerId == customerId);
 
 		if (from.HasValue)
 			query = query.Where(o => o.Date >= from.Value);
@@ -581,6 +623,7 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
             {
                 OrderId = p.OrderId ?? "",
                 PaymentId = p.Id,
+                ReceiptNumber = p.ReceiptNumber ?? p.Id.ToString(),
                 Date = p.Date,
                 Rate = p.Rate,
                 CustomerId = p.CustomerId,
@@ -822,7 +865,8 @@ public async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 Date = p.Date,
                 CustomerId = p.CustomerId,
                 Paid = p.Amount,
-                PaymentId = p.Id
+                PaymentId = p.Id,
+                ReceiptNumber = p.ReceiptNumber ?? p.Id.ToString()
             }).ToListAsync(ct);
 
         var orders = await db.Orders.AsNoTracking()

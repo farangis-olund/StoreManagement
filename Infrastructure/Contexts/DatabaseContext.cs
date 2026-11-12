@@ -12,6 +12,8 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
     public DbSet<GroupEntity> Groups { get; set; }
     public DbSet<ProductEntity> Products { get; set; }
     public DbSet<CustomerEntity> Customers { get; set; }
+    public DbSet<OfficialMonthlyPlanEntity> OfficialMonthlyPlans { get; set; }
+    public DbSet<OfficialMonthlyPlanSettingsEntity> OfficialMonthlyPlanSettings { get; set; }
 
     public DbSet<UserEntity> Users { get; set; }
     public DbSet<RoleEntity> Roles { get; set; }
@@ -52,6 +54,35 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureProductRequests(modelBuilder);
+        modelBuilder.Entity<UserEntity>().Property(u => u.IsManager).HasDefaultValue(false);
+        modelBuilder.Entity<SalesManagerEntity>().HasOne(m => m.User).WithOne(u => u.SalesManager)
+            .HasForeignKey<SalesManagerEntity>(m => m.UserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<OfficialMonthlyPlanSettingsEntity>(entity =>
+        {
+            entity.ToTable("OfficialMonthlyPlanSettings", table =>
+            {
+                table.HasCheckConstraint("CK_OfficialMonthlyPlanSettings_Id", "[Id] = 1");
+                table.HasCheckConstraint("CK_OfficialMonthlyPlanSettings_Threshold", "[NonOfficialThreshold] >= 0");
+            });
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.NonOfficialThreshold).HasPrecision(18, 2);
+            entity.HasData(new OfficialMonthlyPlanSettingsEntity { Id = 1, NonOfficialThreshold = 0 });
+        });
+        modelBuilder.Entity<OfficialMonthlyPlanEntity>(entity =>
+        {
+            entity.ToTable("OfficialMonthlyPlans", table =>
+            {
+                table.HasCheckConstraint("CK_OfficialMonthlyPlans_Amount", "[Amount] > 0");
+                table.HasCheckConstraint("CK_OfficialMonthlyPlans_Month", "DAY([Month]) = 1");
+            });
+            entity.HasKey(x => new { x.CustomerId, x.Month });
+            entity.Property(x => x.CustomerId).HasMaxLength(450);
+            entity.Property(x => x.Month).HasColumnType("date");
+            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.HasIndex(x => x.Month);
+            entity.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         // Global decimal precision
         foreach (var property in modelBuilder.Model
@@ -121,6 +152,8 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
         {
             b.ToTable("Payments");
             b.HasKey(x => x.Id);
+            b.Property(p => p.ReceiptNumber).HasMaxLength(9);
+            b.HasIndex(p => p.ReceiptNumber).IsUnique().HasFilter("[ReceiptNumber] IS NOT NULL");
 
             b.HasOne(p => p.Courier).WithMany().HasForeignKey(p => p.CourierId)
                 .OnDelete(DeleteBehavior.Restrict);

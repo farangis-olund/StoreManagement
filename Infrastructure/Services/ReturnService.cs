@@ -13,6 +13,7 @@ public class ReturnService
 	private readonly ReturnRepository _returnRepository;
 	private readonly DatabaseContext _db;
 	private readonly ILogger<ReturnService> _logger;
+    private readonly OfficialMonthlyPlanService? _monthlyPlans;
 
 	private static readonly char[] _chars =
 		"ABDEFGHIJLMNOPQRTUVWXYZ0123456789".ToCharArray();
@@ -20,11 +21,12 @@ public class ReturnService
 	public ReturnService(
 		ReturnRepository returnRepository,
 		DatabaseContext db,
-		ILogger<ReturnService> logger)
+		ILogger<ReturnService> logger, OfficialMonthlyPlanService? monthlyPlans = null)
 	{
 		_returnRepository = returnRepository;
 		_db = db;
 		_logger = logger;
+        _monthlyPlans = monthlyPlans;
 	}
 
 	/// <summary>
@@ -58,7 +60,7 @@ public class ReturnService
     /// <summary>
     /// Добавить возврат вместе с деталями.
     /// </summary>
-    public async Task<ReturnEntity?> AddReturnAsync(ReturnEntity returnEntity)
+    public virtual async Task<ReturnEntity?> AddReturnAsync(ReturnEntity returnEntity)
     {
         try
         {
@@ -122,6 +124,7 @@ public class ReturnService
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
+            _monthlyPlans?.NotifyChanged();
 
             return saved;
         }
@@ -178,6 +181,7 @@ public class ReturnService
 		try
 		{
 			await _returnRepository.RemoveAsync(r => r.Id == id);
+			_monthlyPlans?.NotifyChanged();
 			return true;
 		}
 		catch (Exception ex)

@@ -58,31 +58,38 @@
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                     Content="Организация"
+                    Visibility="{Binding CanViewOrganization, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                     Command="{Binding OpenOrganizationCommand}"/>
 
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                     Content="Управление ролями"
+                    Visibility="{Binding CanViewRoles, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                     Command="{Binding OpenRoleCommand}"/>
             
             <Button Style="{StaticResource LinkButtonStyle}" 
                  Content="Доставщики"
+                 Visibility="{Binding CanViewCouriers, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Command="{Binding OpenCourierCommand}"/>
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                  Content="Сборщики"
+                 Visibility="{Binding CanViewPickers, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Command="{Binding OpenAssignPickerCommand}"/>
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                  Content="Менеджеры"
+                 Visibility="{Binding CanViewManagers, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Command="{Binding OpenManagerCommand}"/>
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                  Content="Уровни цен клиента"
+                 Visibility="{Binding CanViewPriceLevels, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Command="{Binding OpenLevelCommand}"/>
 
             <Button Style="{StaticResource LinkButtonStyle}" 
                     Content="Назначение валюты"
+                    Visibility="{Binding CanViewCurrency, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                     Command="{Binding OpenCurrencyCommand}"/>
         </StackPanel>
 

@@ -19,7 +19,9 @@ public class CustomerService
 	private readonly SalesManagerRepository _salesManagerRepository;
     private readonly IDbContextFactory<DatabaseContext> _dbFactory;
     private readonly CustomerFieldPermissionPolicy _fieldPermissions;
-    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger, CustomerFieldPermissionPolicy fieldPermissions)
+    private readonly OfficialMonthlyPlanService? _monthlyPlans;
+    private readonly CustomerAccessPolicy _access;
+    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger, CustomerFieldPermissionPolicy fieldPermissions, CustomerAccessPolicy access, OfficialMonthlyPlanService? monthlyPlans = null)
 	{
 		_customerRepository = customerRepository;
 		_logger = logger;
@@ -27,6 +29,8 @@ public class CustomerService
 		_salesManagerRepository = salesManagerRepository;
 		_dbFactory = dbFactory;
         _fieldPermissions = fieldPermissions;
+        _monthlyPlans = monthlyPlans;
+        _access = access;
 	}
 
 	public async Task<CustomerEntity> AddCustomerAsync(CustomerEntity customer)
@@ -35,6 +39,8 @@ public class CustomerService
 		{
             await using var db = await _dbFactory.CreateDbContextAsync();
             await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            if (!string.IsNullOrWhiteSpace(customer.Id)) await _access.EnsureAccessAsync(db, customer.Id);
+            await _access.EnsureManagerAssignmentAsync(db, customer.SalesManagerId);
             var existing = string.IsNullOrWhiteSpace(customer.Id) ? null
                 : await db.Customers.FirstOrDefaultAsync(c => c.Id == customer.Id);
             if (existing == null && !string.IsNullOrWhiteSpace(customer.Id))
@@ -59,8 +65,11 @@ public class CustomerService
             if (!links.Any(link => link.ManagerId == customer.SalesManagerId))
                 db.ManagerCustomers.Add(new ManagerCustomerEntity { CustomerId = customer.Id, ManagerId = customer.SalesManagerId! });
 
+            if (existing != null) await _access.EnsureAccessAsync(db, customer.Id);
+            await _access.EnsureManagerAssignmentAsync(db, customer.SalesManagerId);
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
+            _monthlyPlans?.NotifyChanged();
             return existing ?? customer;
 		}
         catch (Exception ex) when (ex is UnauthorizedAccessException or ArgumentException or InvalidOperationException)
@@ -136,6 +145,17 @@ public class CustomerService
 		}
 	}
 
+    public async Task<IEnumerable<CustomerEntity>> GetCustomersForEditorAsync()
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var all = _access.CanViewAll;
+        var userId = _access.UserId;
+        var rows = await _access.Customers(db).AsNoTracking().Include(c => c.PriceLevel).Include(c => c.Payments).ToListAsync();
+        if (all != _access.CanViewAll || userId != _access.UserId)
+            throw new UnauthorizedAccessException("Права доступа изменились. Повторно откройте клиентов.");
+        return rows;
+    }
+
     public Task<CustomerEntity> UpdateCustomerAsync(CustomerEntity customer) =>
         string.IsNullOrWhiteSpace(customer.Id) ? Task.FromResult<CustomerEntity>(null!) : AddCustomerAsync(customer);
 
@@ -155,19 +175,43 @@ public class CustomerService
 
 	public async Task<bool> DeleteCustomerAsync(CustomerEntity customer)
 	{
+        _fieldPermissions.EnsureCanDeleteCustomer();
+        if (string.IsNullOrWhiteSpace(customer.Id))
+            throw new ArgumentException("Выберите сохранённого клиента для удаления.");
 		try
 		{
-			var existingCustomer = await _customerRepository.GetOneAsync(b => b.Id == customer.Id);
-			if (existingCustomer != null)
-			{
-				await _customerRepository.RemoveAsync(customer);
-				return true;
-			}
-			else
-			{
-				return false;
-			}
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            await _access.EnsureAccessAsync(db, customer.Id);
+            var existingCustomer = await db.Customers.SingleOrDefaultAsync(c => c.Id == customer.Id);
+            if (existingCustomer == null) return false;
+
+            var linked = new List<string>();
+            if (await db.Orders.AnyAsync(o => o.CustomerId == customer.Id)) linked.Add("заказы");
+            if (await db.Payments.AnyAsync(p => p.CustomerId == customer.Id)) linked.Add("платежи");
+            if (await db.Returns.AnyAsync(r => r.CustomerId == customer.Id)) linked.Add("возвраты");
+            if (await db.OfficialMonthlyPlans.AnyAsync(p => p.CustomerId == customer.Id)) linked.Add("месячные планы");
+            if (await db.ProductRequests.AnyAsync(r => r.CustomerId == customer.Id)) linked.Add("заявки на товары");
+            if (linked.Count > 0)
+                throw new InvalidOperationException("Нельзя удалить клиента: с ним связаны " + string.Join(", ", linked) + ".");
+
+            await _access.EnsureAccessAsync(db, customer.Id);
+            _fieldPermissions.EnsureCanDeleteCustomer();
+            db.Customers.Remove(existingCustomer);
+            await db.SaveChangesAsync();
+            _fieldPermissions.EnsureCanDeleteCustomer();
+            await transaction.CommitAsync();
+            _monthlyPlans?.NotifyChanged();
+            return true;
 		}
+        catch (Exception ex) when (ex is UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            throw;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 547 })
+        {
+            throw new InvalidOperationException("Нельзя удалить клиента: в базе есть связанные с ним данные.", ex);
+        }
 		catch (Exception ex)
 		{
 			_logger.LogError($"Error deleting customer: {ex.Message}");
@@ -198,17 +242,8 @@ public class CustomerService
 
 	public async Task<IEnumerable<SalesManagerEntity>> GetAllSalesManagersAsync()
 	{
-		try
-		{
-			var result = await _salesManagerRepository.GetAllAsync();
-			return result ?? Enumerable.Empty<SalesManagerEntity>();
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError($"Error getting sales managers: {ex.Message}");
-			Debug.WriteLine($"Error getting sales managers: {ex.Message}");
-			return Enumerable.Empty<SalesManagerEntity>();
-		}
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        return await _access.Managers(db).AsNoTracking().OrderBy(m => m.FullName).ToListAsync();
 	}
 
     /// <summary>

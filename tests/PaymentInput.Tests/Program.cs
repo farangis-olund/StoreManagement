@@ -10,6 +10,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--pdf-probe") return PdfPrintProbe.Run(args[1]);
         if (args.Contains("--product-requests")) return ProductRequestUiTests.Run();
         try
         {

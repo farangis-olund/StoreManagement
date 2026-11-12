@@ -3,6 +3,8 @@ using Infrastructure.Entities;
 using Infrastructure.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Infrastructure.Constants;
+using Infrastructure.Security;
 
 internal sealed class CleanServiceTests(Func<DatabaseContext> createContext)
 {
@@ -26,7 +28,9 @@ internal sealed class CleanServiceTests(Func<DatabaseContext> createContext)
         Assert(foreignKeyBlocked, "Expected the original courier-payment foreign key failure.");
         Console.WriteLine("PASS: reproduced cleanup failure caused by courier payments referencing orders");
 
-        var service = new CleanService(new TestContextFactory(createContext));
+        var grants = new TestPermissions();
+        grants.Keys.UnionWith([PermissionCatalog.Admin, PermissionCatalog.AdminCleanup]);
+        var service = new CleanService(new TestContextFactory(createContext), new AdminAccessPolicy(grants));
         // Fail after several deletes to verify that the entire cleanup rolls back.
         await db.Database.ExecuteSqlRawAsync("""
             CREATE TRIGGER [RejectTestCleanup] ON [Orders] AFTER DELETE AS

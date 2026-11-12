@@ -42,13 +42,26 @@ internal static class ProductRequestUiTests
                 attribute.Value += ";assembly=PresentationWpf";
             app.Resources = (ResourceDictionary)XamlReader.Parse(resources.ToString());
             CheckProductRequestsMenu();
+            AdminPermissionUiTests.Run();
+            UserManagerUiTests.Run();
+            RetailManagerUiTests.Run();
+            OfficialMonthlyPlanUiTests.Run();
             CheckRetailSearch();
             CheckRetail();
+            CheckDeliverySelection();
+            RetailCustomerSelectionUiTests.Run();
+            ReturnSearchUiTests.Run();
+            ReturnEntryUiTests.Run();
+            RetailLimitUiTests.Run();
+            RetailMonthlyPlanLimitUiTests.Run();
             CheckRequestNoticeReset();
             CheckWelcomeNavigation();
             CheckDraftForm();
             CheckJournal();
             CheckPrinting();
+            DeliveryReportPdfTests.Run();
+            PdfPrinterTests.Run();
+            ProductRequestExcelTests.Run();
             Console.WriteLine("PASS: permission-controlled sidebar menu, exact article and keyword search, Retail request controls, stock rules, home link navigation, draft form, journal details, bulk-action availability and multi-page printing");
             return 0;
         }
@@ -159,6 +172,7 @@ internal static class ProductRequestUiTests
         typeof(RetailViewModel).GetField("_selectedCustomer", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(vm, new Customer { Id = "C1", FullName = "Клиент" });
         typeof(RetailViewModel).GetField("_customerBalance", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(vm, 0m);
+        vm.AvailableRestriction = 10000m;
         Check(vm.AddToChartCommand.CanExecute(stock) && !vm.AddToChartCommand.CanExecute(zero), "Stock-sensitive add rule is incorrect.");
         vm.FilterText = "ZERO";
         vm.RequestQuantity = "-4";
@@ -168,6 +182,104 @@ internal static class ProductRequestUiTests
         Render(view, "retail-requests.png");
         Layout(view, 1700);
         Render(view, "retail-requests-wide.png");
+    }
+
+    private static void CheckDeliverySelection()
+    {
+        // Keep customer loading pending so these checks never connect to a working database.
+        var factory = new DelayedRequestFactory();
+        var permissions = new PermissionService();
+        permissions.SetPermissions([Infrastructure.Constants.PermissionCatalog.OrdersBarter]);
+        var customers = new CustomerService(null!, factory, null!, null!, null!, null!, null!);
+        var vm = new RetailViewModel(null!, null!, null!, customers, null!, null!, null!, null!, null!, null!,
+            new CustomerFinanceService(factory), permissions, null!);
+        var first = new Customer { Id = "C1", FullName = "Первый клиент" };
+        var second = new Customer { Id = "C2", FullName = "Второй клиент" };
+        vm.AllCustomers.Add(first);
+        vm.AllCustomers.Add(second);
+        var courier = new Courier { Id = "D1", FullName = "Доставщик", Active = true };
+        var storekeeper = new Storekeeper { Id = "S1", FullName = "Сборщик", Active = true };
+        vm.CourierList.Add(courier);
+        vm.StorekeeperList.Add(storekeeper);
+        var view = new RetailView { DataContext = vm };
+        Layout(view);
+        ComboBox Selection(string property) => Descendants<ComboBox>(view).First(x =>
+            x.GetBindingExpression(ComboBox.SelectedItemProperty)?.ParentBinding.Path.Path == property);
+        var courierInput = Selection(nameof(vm.SelectedCourier));
+        var storekeeperInput = Selection(nameof(vm.SelectedStorekeeper));
+        var customerInput = Selection(nameof(vm.SelectedCustomer));
+        var save = Descendants<Button>(view).Single(x =>
+            x.GetBindingExpression(Button.CommandProperty)?.ParentBinding.Path.Path == nameof(vm.SaveOrderCommand));
+        void FinanceReady()
+        {
+            typeof(RetailViewModel).GetField("_customerBalance", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(vm, 0m);
+            vm.AvailableRestriction = 10000m;
+            vm.SaveOrderCommand.NotifyCanExecuteChanged();
+            Layout(view);
+        }
+        void SelectDelivery()
+        {
+            courierInput.SelectedItem = courier;
+            storekeeperInput.SelectedItem = storekeeper;
+            Layout(view);
+        }
+        void CheckCleared(string action)
+        {
+            Layout(view);
+            Check(vm.SelectedCourier == null && vm.SelectedStorekeeper == null &&
+                courierInput.SelectedItem == null && storekeeperInput.SelectedItem == null &&
+                courierInput.Text == "" && storekeeperInput.Text == "",
+                action + " must clear delivery objects and their displayed values.");
+            Check(!vm.SaveOrderCommand.CanExecute(null) && !save.IsEnabled,
+                action + " must block an ordinary order until delivery is selected again.");
+        }
+
+        customerInput.SelectedItem = first;
+        FinanceReady();
+        Check(!vm.SaveOrderCommand.CanExecute(null), "An ordinary order needs both delivery selections.");
+        courierInput.SelectedItem = courier;
+        Check(!vm.SaveOrderCommand.CanExecute(null), "Selecting only a courier must not enable saving.");
+        storekeeperInput.SelectedItem = storekeeper;
+        Layout(view);
+        Check(vm.SaveOrderCommand.CanExecute(null) && save.IsEnabled, "Valid delivery selections must enable saving.");
+
+        customerInput.SelectedItem = second;
+        Check(vm.SelectedCustomer == second, "The customer input must update the actual selected customer.");
+        FinanceReady();
+        CheckCleared("Changing the customer");
+        SelectDelivery();
+        courierInput.Text = "";
+        Layout(view);
+        Check(vm.SelectedCourier == null && !vm.SaveOrderCommand.CanExecute(null) && !save.IsEnabled,
+            "Clearing the courier input must clear its object and disable saving.");
+        SelectDelivery();
+        storekeeperInput.Text = "";
+        Layout(view);
+        Check(vm.SelectedStorekeeper == null && !vm.SaveOrderCommand.CanExecute(null) && !save.IsEnabled,
+            "Clearing the storekeeper input must clear its object and disable saving.");
+
+        SelectDelivery();
+        vm.SelectedCustomer = null;
+        CheckCleared("Clearing the customer");
+        // ResetState must also clear delivery if the customer was already null.
+        SelectDelivery();
+        vm.ResetState();
+        CheckCleared("Reopening Orders");
+        customerInput.SelectedItem = first;
+        FinanceReady();
+        CheckCleared("Selecting a customer after reopening Orders");
+        SelectDelivery();
+        vm.SelectedCourier = new Courier { Id = courier.Id, FullName = courier.FullName };
+        Check(!vm.SaveOrderCommand.CanExecute(null), "A stale courier object outside the current list must not allow saving.");
+        vm.SelectedCourier = courier;
+        vm.SelectedStorekeeper = new Storekeeper { Id = storekeeper.Id, FullName = storekeeper.FullName };
+        Check(!vm.SaveOrderCommand.CanExecute(null), "A stale storekeeper object outside the current list must not allow saving.");
+
+        vm.SelectedCourier = null;
+        vm.SelectedStorekeeper = null;
+        typeof(RetailViewModel).GetField("_isBarter", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(vm, true);
+        Check(vm.SaveOrderCommand.CanExecute(null), "Authorized barter must retain its existing delivery exemption.");
+        Console.WriteLine("PASS: customer changes and reopening Orders clear delivery; empty or stale delivery cannot enable an ordinary order; barter remains supported");
     }
 
     private static void CheckRequestNoticeReset()
@@ -310,6 +422,11 @@ internal static class ProductRequestUiTests
         vm.ShowDetailsCommand.Execute(row);
         var view = new ProductRequestsView { DataContext = vm };
         Layout(view);
+        var export = (Button)view.FindName("ExportExcelButton");
+        var toolbar = (Panel)LogicalTreeHelper.GetParent(export);
+        Check(toolbar.Children[toolbar.Children.IndexOf(export) - 1] is Button { Content: "Печать" },
+            "Excel export must immediately follow Print.");
+        Check(export.IsEnabled, "Displayed new articles must be exportable.");
         Check(vm.Rows.Single().Quantity == 10 && vm.Details.Count == 2 && vm.IsNewArticles && !vm.CanDelete,
             "Journal summary and details disagree.");
         Render(view, "product-request-journal.png");
@@ -322,6 +439,7 @@ internal static class ProductRequestUiTests
         Check(markDisplayed.Visibility == Visibility.Visible && markDisplayed.IsEnabled &&
             vm.MarkDisplayedProcessedCommand.CanExecute(null), "New articles must offer bulk processing.");
         vm.IsBusy = true;
+        Check(!vm.CanExportExcel, "Export must be blocked while loading requests.");
         Check(!vm.MarkDisplayedProcessedCommand.CanExecute(null), "Bulk processing must be disabled while busy.");
         vm.IsBusy = false;
         // Even direct execution must be guarded for the protected tab.
@@ -330,11 +448,13 @@ internal static class ProductRequestUiTests
         {
             vm.SelectedTab = tab;
             Layout(view);
+            Check(!export.IsEnabled, "Export must be disabled for an empty tab.");
             Check(deleteDisplayed.Visibility == Visibility.Visible && !deleteDisplayed.IsEnabled,
                 "Bulk deletion must be visible but disabled for an empty stock-request tab.");
             vm.Rows.Add(row);
             vm.ShowDetailsCommand.Execute(row);
             Layout(view);
+            Check(export.IsEnabled, "Both stock-request tabs must allow exporting displayed rows.");
             Check(markDisplayed.Visibility == Visibility.Collapsed && !vm.MarkDisplayedProcessedCommand.CanExecute(null),
                 "Bulk processing must be unavailable on both stock-request tabs.");
             vm.MarkDisplayedProcessedCommand.ExecuteAsync(null).GetAwaiter().GetResult();

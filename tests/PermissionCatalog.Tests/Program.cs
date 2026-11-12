@@ -36,6 +36,9 @@ internal sealed class PermissionCatalogTests
             CatalogHasUniqueKeys();
             Console.WriteLine("PASS: catalogue keys and constants agree");
             CustomerPermissionTests.CheckPolicy();
+            CustomerDeletionTests.CheckAuthorization().GetAwaiter().GetResult();
+            AdminPermissionTests.CheckPolicyAsync().GetAwaiter().GetResult();
+            RetailManagerTests.CheckAuthorizationAsync().GetAwaiter().GetResult();
             OrderPermissionTests.RunAsync().GetAwaiter().GetResult();
             AvailableRestrictionTests.CheckCalculation();
             OrderAllowanceTests.Run();
@@ -56,6 +59,7 @@ internal sealed class PermissionCatalogTests
                 context.Database.EnsureCreated();
 
             new DeliveryPaymentMigrationTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            new PaymentReceiptNumberTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
 
             var tests = new (string Name, Action Run)[]
             {
@@ -76,6 +80,10 @@ internal sealed class PermissionCatalogTests
 
             Console.WriteLine("All 7 permission catalogue checks passed.");
             new CustomerPermissionTests(CreateCustomerContext).CheckServices().GetAwaiter().GetResult();
+            CustomerDeletionTests.RunAsync(CreateCustomerContext).GetAwaiter().GetResult();
+            new AdminPermissionTests(CreateCustomerContext).CheckMigrationAsync().GetAwaiter().GetResult();
+            new UserManagerTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            new RetailManagerTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
             CheckPermissionReloadAsync().GetAwaiter().GetResult();
             new AvailableRestrictionTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
             new UnpaidDeliveryTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
@@ -307,6 +315,10 @@ internal sealed class PermissionTestContext(DbContextOptions<PermissionTestConte
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // This catalogue-only context intentionally excludes the application's relationship graph.
+        foreach (var type in typeof(UserEntity).Assembly.GetTypes().Where(t => t.Namespace == typeof(UserEntity).Namespace &&
+            t != typeof(PermissionEntity) && t != typeof(RoleEntity) && t != typeof(RolePermissionEntity)))
+            modelBuilder.Ignore(type);
         modelBuilder.Entity<PermissionEntity>().ToTable("Permissions", "dbo");
         modelBuilder.Entity<RoleEntity>().Ignore(p => p.UserRoles);
     }

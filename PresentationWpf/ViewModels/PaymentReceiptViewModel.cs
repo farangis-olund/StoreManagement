@@ -28,7 +28,7 @@ public partial class PaymentReceiptViewModel : ObservableObject
 
 	// payment
 	[ObservableProperty] private DateTime paymentDate = DateTime.Now;
-	[ObservableProperty] private int paymentNumber;
+	[ObservableProperty] private string paymentNumber = "";
 	[ObservableProperty] private decimal debt;
 	[ObservableProperty] private decimal paid;
 	[ObservableProperty] private decimal balance;
@@ -79,7 +79,7 @@ public partial class PaymentReceiptViewModel : ObservableObject
 		CustomerPhone = customer.MobilePhone ?? "";
 
 		PaymentDate = dto.Date;
-		PaymentNumber = dto.Id;
+		PaymentNumber = dto.ReceiptNumber;
 		Paid = dto.Amount;
 		Debt = debtBefore;
 		Balance = balanceAfter;

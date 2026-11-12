@@ -22,6 +22,13 @@ public sealed class CustomerFieldPermissionPolicy(IPermissionChecker permissions
 
     public bool CanCreateCustomer => CustomerPermissionCatalog.Fields.Where(p => p.IsRequired).All(p => CanAdd(p.Field));
 
+    public bool CanDeleteCustomer => permissions.Has(PermissionCatalog.Customers) && permissions.Has(PermissionCatalog.CustomersDelete);
+
+    public void EnsureCanDeleteCustomer()
+    {
+        if (!CanDeleteCustomer) throw new UnauthorizedAccessException("Нет права на удаление клиента.");
+    }
+
     public void EnsureCanSave(CustomerEntity? original, CustomerEntity edited)
     {
         if (!permissions.Has(PermissionCatalog.Customers))

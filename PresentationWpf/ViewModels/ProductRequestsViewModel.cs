@@ -17,6 +17,7 @@ public partial class ProductRequestsViewModel : ObservableObject
         _service = service;
         Rows.CollectionChanged += (_, _) =>
         {
+            OnPropertyChanged(nameof(CanExportExcel));
             DeleteDisplayedCommand.NotifyCanExecuteChanged();
             MarkDisplayedProcessedCommand.NotifyCanExecuteChanged();
         };
@@ -33,6 +34,7 @@ public partial class ProductRequestsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DeleteDisplayedCommand))]
     [NotifyCanExecuteChangedFor(nameof(MarkDisplayedProcessedCommand))]
+    [NotifyPropertyChangedFor(nameof(CanExportExcel))]
     private bool _isBusy;
     [ObservableProperty] private string _message = "";
     [ObservableProperty] private string _detailTitle = "";
@@ -42,6 +44,7 @@ public partial class ProductRequestsViewModel : ObservableObject
     public bool IsOutOfStock => SelectedTab == 1;
     public bool IsNewArticles => SelectedTab == 2;
     public bool CanDelete => !IsNewArticles;
+    public bool CanExportExcel => !IsBusy && Rows.Count > 0;
     public string Title => SelectedTab switch
     {
         0 => "Недостаточный остаток", 1 => "Нет в наличии", _ => "Новые артикулы"

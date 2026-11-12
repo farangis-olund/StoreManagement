@@ -84,7 +84,7 @@
 
 
     <!-- ==================================== MAIN LAYOUT ==================================== -->
-    <Grid>
+    <Grid IsEnabled="{Binding CanAccess}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220"/>
             <!-- Левое меню -->

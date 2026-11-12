@@ -5,6 +5,7 @@ public class OrderWithPaymentsDto
 {
     public string OrderId { get; set; } = "";
     public int? PaymentId { get; set; }
+    public string ReceiptNumber { get; set; } = "";
     public decimal Rate { get; set; }
     public DateTime Date { get; set; }
 

@@ -35,6 +35,7 @@ public partial class RetailViewModel : ObservableObject
 	private readonly CustomerFinanceService _financeService;
     private readonly PermissionService _permissionService;
     private bool _isAdjustingProductLimit;
+    private bool _isSavingOrder;
 	public RetailViewModel(ProductService productService, 
 							UserSessionService userSessionService, 
 							OrderService orderService, 
@@ -47,7 +48,8 @@ public partial class RetailViewModel : ObservableObject
 							DialogService dialogService,
 							CustomerFinanceService financeService,
                             PermissionService permissionService,
-                            ProductRequestService productRequestService)
+                            ProductRequestService productRequestService, OfficialMonthlyPlanService? monthlyPlanService = null,
+                            RetailManagerService? retailManagerService = null)
 	{
 		_productService = productService;
 		_orderService = orderService;
@@ -62,6 +64,10 @@ public partial class RetailViewModel : ObservableObject
 		_financeService = financeService;
         _permissionService = permissionService;
         _productRequestService = productRequestService;
+        _retailManagerService = retailManagerService;
+        if (userSessionService != null && retailManagerService != null)
+            WeakEventManager<UserSessionService, EventArgs>.AddHandler(userSessionService, nameof(UserSessionService.UserChanged), OnRetailUserChanged);
+        InitializeMonthlyPlans(monthlyPlanService);
         PropertyChangedEventManager.AddHandler(_permissionService, OnOrderPermissionsChanged,
             nameof(PermissionService.CurrentPermissions));
 
@@ -88,6 +94,8 @@ public partial class RetailViewModel : ObservableObject
             }
 
 			UpdateTotalSum();
+            EnforceBuyLimit();
+            ClearCartCommand.NotifyCanExecuteChanged();
 		};
 
 		CustomersView = CollectionViewSource.GetDefaultView(AllCustomers);
@@ -115,7 +123,6 @@ public partial class RetailViewModel : ObservableObject
 	[ObservableProperty]
 	private string _user = null!;
 
-	[ObservableProperty]
 	private Customer? _selectedCustomer = null!;
 
     [ObservableProperty]
@@ -126,11 +133,18 @@ public partial class RetailViewModel : ObservableObject
     private int _restrictionRequestVersion;
     private decimal? _customerBalance;
 
-    private bool IsCustomerFinanceReady => SelectedCustomer != null && _customerBalance.HasValue;
+    private bool IsCustomerFinanceReady => IsRetailManagerContextReady && SelectedCustomer != null && _customerBalance.HasValue && AvailableRestriction.HasValue;
     private CustomerOrderAllowance? OrderAllowance => IsCustomerFinanceReady
         ? new CustomerOrderAllowance(SelectedCustomer!.BuyLimit, _customerBalance!.Value,
-            _permissionService.Has(PermissionCatalog.OrdersExceedBuyLimit))
+            _permissionService.Has(PermissionCatalog.OrdersExceedBuyLimit), AvailableRestriction)
         : null;
+
+    partial void OnAvailableRestrictionChanged(decimal? value)
+    {
+        EnforceBuyLimit();
+        AddToChartCommand.NotifyCanExecuteChanged();
+        SaveOrderCommand.NotifyCanExecuteChanged();
+    }
 
     public bool IsOnlyOfficialCustomer =>
         _permissionService.Has(PermissionCatalog.OnlyOfficialCustomer) ||
@@ -145,14 +159,22 @@ public partial class RetailViewModel : ObservableObject
 
     private void OnOrderPermissionsChanged(object? sender, PropertyChangedEventArgs e)
     {
+        RefreshRetailManagerPermissions();
+        RefreshMonthlyPlanPermissions();
         OnPropertyChanged(nameof(CanUseBarter));
         OnPropertyChanged(nameof(CanUseDirectFromStock));
         if (!CanUseBarter) IsBarter = false;
         if (!CanUseDirectFromStock) DirectFromStock = false;
+        EnforceBuyLimit();
         SaveOrderCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanSaveOrder() => IsCustomerFinanceReady && !IsOrderBlockedByUnpaidPaymentLimit && !HasPendingProductRequests &&
+    private bool HasValidCourier => SelectedCourier != null && CourierList.Contains(SelectedCourier);
+    private bool HasValidStorekeeper => SelectedStorekeeper != null && StorekeeperList.Contains(SelectedStorekeeper);
+
+    private bool CanSaveOrder() => IsCustomerFinanceReady && IsOfficialPlanReady && !IsOrderBlockedByUnpaidPaymentLimit && !HasPendingProductRequests &&
+        !IsBuyLimitExceeded(TotalSum) && !IsMonthlyPlanLimitExceeded(TotalSum) &&
+        (IsBarter || (HasValidCourier && HasValidStorekeeper)) &&
         (!IsBarter || CanUseBarter) && (!DirectFromStock || CanUseDirectFromStock);
 
     partial void OnIsOrderBlockedByUnpaidPaymentLimitChanged(bool value)
@@ -172,9 +194,6 @@ public partial class RetailViewModel : ObservableObject
     [ObservableProperty]
     private bool _officialOrder = true;
 
-    [ObservableProperty]
-    private bool _showOfficialOrder;
-
 	[ObservableProperty]
 	private double _exchangeRate = 1;
 
@@ -189,8 +208,11 @@ public partial class RetailViewModel : ObservableObject
 	public ICollectionView CustomersView { get; private set; } = null!;
 
 	[ObservableProperty]
+	[NotifyCanExecuteChangedFor(nameof(SaveOrderCommand))]
 	private ObservableCollection<Courier> _courierList = [];
-	[ObservableProperty] private Courier _selectedCourier = null!;
+	[ObservableProperty]
+	[NotifyCanExecuteChangedFor(nameof(SaveOrderCommand))]
+	private Courier? _selectedCourier;
 
 	[ObservableProperty]
 	private ObservableCollection<SalesManager> _salesManagerList = [];
@@ -201,12 +223,15 @@ public partial class RetailViewModel : ObservableObject
 		get => _selectedSalesManager;
 		set
 		{
-			if (_selectedSalesManager == value) return;
-			_selectedSalesManager = value;
-			OnPropertyChanged();
-			RebuildTerritories();
-			_ = LoadInactiveCustomersAsync();
-			CustomersView.Refresh();    
+            if (!CanChooseSalesManager || (value != null && !SalesManagerList.Contains(value)))
+            {
+                OnPropertyChanged(nameof(SelectedSalesManager));
+                return;
+            }
+            if (_selectedSalesManager != value && SelectedCustomer != null &&
+                value != null && SelectedCustomer.SalesManagerId != value.Id &&
+                !CanChangeCustomer(null, nameof(SelectedSalesManager))) return;
+            SetSalesManagerCore(value);
 		}
 	}
 
@@ -214,11 +239,13 @@ public partial class RetailViewModel : ObservableObject
 	public string? SelectedTerritory
 	{
 		get => _selectedTerritory;
-		set { if (_selectedTerritory == value) return; 
+		set { if (_selectedTerritory == value) return;
+            if (!_isChangingManager && SelectedCustomer != null && !string.IsNullOrWhiteSpace(value) &&
+                !string.Equals(SelectedCustomer.Territory, value, StringComparison.OrdinalIgnoreCase) &&
+                !CanChangeCustomer(null, nameof(SelectedTerritory))) return;
 			_selectedTerritory = value; 
 			OnPropertyChanged(); 
-			CustomersView.Refresh();
-			_ = LoadInactiveCustomersAsync();
+            if (!_isChangingManager) RetailFiltersChanged();
 		}
 
 	}
@@ -226,8 +253,11 @@ public partial class RetailViewModel : ObservableObject
 	public ListCollectionView CustomersForManager { get; private set; } = null!;
 
 	[ObservableProperty]
+	[NotifyCanExecuteChangedFor(nameof(SaveOrderCommand))]
 	private ObservableCollection<Storekeeper> _storekeeperList = [];
-	[ObservableProperty] private Storekeeper _selectedStorekeeper = null!;
+	[ObservableProperty]
+	[NotifyCanExecuteChangedFor(nameof(SaveOrderCommand))]
+	private Storekeeper? _selectedStorekeeper;
 
 	private ObservableCollection<TerritoryOption> _territoryOptions = [];
 	public ObservableCollection<TerritoryOption> TerritoryOptions
@@ -343,6 +373,9 @@ public partial class RetailViewModel : ObservableObject
 
 	public async Task InitializeAsync()
 	{
+        var initialization = ++_retailInitializationVersion;
+        var userId = _userSessionService.UserId;
+        if (_retailManagerService != null) ClearRetailManagerContext();
 		User = _userSessionService.FirstName + " " + _userSessionService.LastName;
 
         // 1) Make sure rate is valid (avoid multiplying by 0)
@@ -353,6 +386,7 @@ public partial class RetailViewModel : ObservableObject
 
         // 2) Get products (DTOs) and convert to ProductModel using your implicit operator
         var productDtos = await _productService.GetAllProductAsync(); 
+        if (initialization != _retailInitializationVersion || userId != _userSessionService.UserId) return;
 		foreach (var dto in productDtos)
 		{
 			var pm = (ProductModel)dto;     
@@ -365,25 +399,21 @@ public partial class RetailViewModel : ObservableObject
 		ProductListView.Filter = FilterProducts;
         ApplyFilter();
 		// 3) Customers (source collection)
-		var customersEntity = await _customerService.GetAllCustomersAsync();
-		AllCustomers = new ObservableCollection<Customer>(
-			customersEntity.Select(e => (Customer)e));
-
-		// 3a) View over customers (bind UI to this!)
-		CustomersView = CollectionViewSource.GetDefaultView(AllCustomers);
-		CustomersView.Filter = CustomerFilter;    // <- uses SelectedSalesManager / SelectedTerritory
-
-		// Optional: start with “all territories” option preloaded
-		TerritoryOptions = new ObservableCollection<TerritoryOption>
-	{
-		new TerritoryOption { Value = null, Display = "Все территории" }
-	};
-		SelectedTerritory = null;                 
-		SelectedSalesManager = null;             
+        if (_retailManagerService != null) await RefreshManagerContextAsync();
+        else
+        {
+            var customersEntity = await _customerService.GetAllCustomersAsync();
+            AllCustomers = new ObservableCollection<Customer>(customersEntity.Select(e => (Customer)e));
+            CustomersView = CollectionViewSource.GetDefaultView(AllCustomers);
+            CustomersView.Filter = CustomerFilter;
+            SetSalesManagerCore(null);
+        }
+        if (initialization != _retailInitializationVersion || userId != _userSessionService.UserId) return;
 
         // 4) Other lookups — only Active = true
 
         var couriers = await _courierRepo.GetAllAsync();
+        if (initialization != _retailInitializationVersion || userId != _userSessionService.UserId) return;
         CourierList = new ObservableCollection<Courier>(
             couriers
                 .Where(e => e.Active)
@@ -391,20 +421,19 @@ public partial class RetailViewModel : ObservableObject
         );
 
         var storekeepers = await _storekeeperRepo.GetAllAsync();
+        if (initialization != _retailInitializationVersion || userId != _userSessionService.UserId) return;
         StorekeeperList = new ObservableCollection<Storekeeper>(
             storekeepers
                 .Where(e => e.Active)
                 .Select(e => (Storekeeper)e)
         );
 
-        var salesManagers = await _salesManagerRepo.GetAllAsync();
-        SalesManagerList = new ObservableCollection<SalesManager>(
-            salesManagers
-                .Where(e => e.Active)
-                .Select(e => (SalesManager)e)
-        );
-
-
+        if (_retailManagerService == null)
+        {
+            var salesManagers = await _salesManagerRepo.GetAllAsync();
+            SalesManagerList = new ObservableCollection<SalesManager>(salesManagers.Where(e => e.Active).Select(e => (SalesManager)e));
+        }
+        await RefreshMonthlyPlanStateAsync();
     }
 
 
@@ -446,14 +475,16 @@ public partial class RetailViewModel : ObservableObject
 		}
 	}
 
-	partial void OnSelectedCustomerChanged(Customer? value)
+	private void OnSelectedCustomerChanged(Customer? value)
 	{
+        SelectedCourier = null;
+        SelectedStorekeeper = null;
         _manualRequestId = Guid.NewGuid();
         _customerBalance = null;
         AddToChartCommand.NotifyCanExecuteChanged();
         SaveOrderCommand.NotifyCanExecuteChanged();
-        ShowOfficialOrder = value?.OfficialCustomer == true;
-        OfficialOrder = ShowOfficialOrder;
+        OfficialOrder = value?.OfficialCustomer == true;
+        _ = RefreshMonthlyPlanStateAsync();
 
 		ApplyCustomerLevelPrice();
 
@@ -510,8 +541,8 @@ public partial class RetailViewModel : ObservableObject
             var finance = await _financeService.GetFinanceInfoAsync(customer.Id, orderId: null!);
             if (requestVersion == _restrictionRequestVersion && SelectedCustomer == customer)
             {
-                AvailableRestriction = finance.AvailableRestriction;
                 _customerBalance = finance.Balance;
+                AvailableRestriction = finance.AvailableRestriction;
                 AddToChartCommand.NotifyCanExecuteChanged();
                 SaveOrderCommand.NotifyCanExecuteChanged();
                 return true;
@@ -642,7 +673,7 @@ public partial class RetailViewModel : ObservableObject
 
     public event Action OnProductAdded;
 
-    private bool CanAddToChart(ProductModel? product) => IsCustomerFinanceReady && product?.Quentity > 0;
+    private bool CanAddToChart(ProductModel? product) => IsCustomerFinanceReady && IsOfficialPlanReady && product?.Quentity > 0;
 
 	[RelayCommand(CanExecute = nameof(CanAddToChart))]
     private void AddToChart(ProductModel product)
@@ -666,6 +697,11 @@ public partial class RetailViewModel : ObservableObject
         }
 
         // ❗ Product quantity check
+        if (!IsOfficialPlanReady)
+        {
+            MessageBox.Show("Дождитесь проверки месячного плана клиента.", "Месячный план", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         if (product.Quentity == null || product.Quentity == 0)
         {
             MessageBox.Show(
@@ -694,6 +730,11 @@ public partial class RetailViewModel : ObservableObject
             ShowBuyLimitReachedMessage();
             return;
         }
+        if (ActiveOfficialOrderLimit.HasValue && TotalSum >= ActiveOfficialOrderLimit.Value)
+        {
+            ShowMonthlyPlanLimitReachedMessage();
+            return;
+        }
 
         product.OrderQuentity = 0;
 
@@ -714,6 +755,19 @@ public partial class RetailViewModel : ObservableObject
 	}
 
     public event Action<ProductModel>? OnInvalidQuantityFound;
+
+    private bool CanClearCart() => SelectedProductList.Count > 0 && !_isSavingOrder;
+
+    [RelayCommand(CanExecute = nameof(CanClearCart))]
+    private void ClearCart()
+    {
+        if (!CanClearCart() || !ConfirmCartClear()) return;
+        SelectedProductList.Clear();
+    }
+
+    protected virtual bool ConfirmCartClear() => MessageBox.Show(
+        "Вы действительно хотите очистить корзину?", "Очистка корзины",
+        MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
 
 
     [RelayCommand(CanExecute = nameof(CanSaveOrder))]
@@ -744,6 +798,8 @@ public partial class RetailViewModel : ObservableObject
                 return;
         }
 
+        _isSavingOrder = true;
+        ClearCartCommand.NotifyCanExecuteChanged();
         try
         {
             if (SelectedProductList == null || !SelectedProductList.Any())
@@ -759,17 +815,27 @@ public partial class RetailViewModel : ObservableObject
             }
 
             var customerForOrder = SelectedCustomer;
+            var userForOrder = _userSessionService?.UserId ?? 0;
+            if (_retailManagerService != null)
+            {
+                await _retailManagerService.EnsureCustomerAccessAsync(customerForOrder.Id);
+                if (!IsRetailManagerContextReady || !CustomerFilter(customerForOrder) || SelectedCustomer != customerForOrder) return;
+            }
             if (!await RefreshAvailableRestrictionAsync(customerForOrder) || SelectedCustomer != customerForOrder)
                 return;
+            if (!await RefreshMonthlyPlanStateAsync(enforceCart: false) || SelectedCustomer != customerForOrder)
+                return;
 
-            var unpaidPaymentLimit = SelectedCustomer.UnpaidPaymentLimit ?? 0;
+            var unpaidPaymentLimit = customerForOrder.UnpaidPaymentLimit ?? 0;
             if (unpaidPaymentLimit > 0)
             {
-                var unpaidPaymentTotal = await _orderService.GetUnpaidPaymentTotalAsync(SelectedCustomer.Id);
+                var unpaidPaymentTotal = await _orderService.GetUnpaidPaymentTotalAsync(customerForOrder.Id);
+                if (SelectedCustomer != customerForOrder)
+                    return;
                 if (unpaidPaymentTotal >= unpaidPaymentLimit)
                 {
                     MessageBox.Show(
-                        $"У клиента {SelectedCustomer.FullName} сумма неоплаченных платежей {unpaidPaymentTotal:N2}.\n" +
+                        $"У клиента {customerForOrder.FullName} сумма неоплаченных платежей {unpaidPaymentTotal:N2}.\n" +
                         $"Лимит для этого клиента: {unpaidPaymentLimit:N2}.\n" +
                         "Сначала нужно закрыть неоплаченные платежи, затем можно оформить новый заказ.",
                         "Лимит неоплаченных платежей достигнут",
@@ -832,16 +898,22 @@ public partial class RetailViewModel : ObservableObject
             // Only validate courier/storekeeper if NOT barter
             if (!IsBarter)
             {
-                if (SelectedCourier == null)
+                if (!HasValidCourier)
                 {
                     MessageBox.Show("Для оформление заказа, сперва укажите доставщика.", "Ошибка");
                     return;
                 }
-                if (SelectedStorekeeper == null)
+                if (!HasValidStorekeeper)
                 {
                     MessageBox.Show("Для оформление заказа, сперва укажите складчика.", "Ошибка");
                     return;
                 }
+            }
+
+            if (IsMonthlyPlanLimitExceeded(totalSum))
+            {
+                EnforceMonthlyPlanLimit();
+                return;
             }
 
             var orderEntity = new OrderEntity
@@ -849,7 +921,7 @@ public partial class RetailViewModel : ObservableObject
                 Date = DateTime.Now,
                 Rate = ExchangeRate,
                 UserId = _userSessionService.UserId,
-                CustomerId = SelectedCustomer.Id,
+                CustomerId = customerForOrder.Id,
                 WithoutInvoice = IsSellingWithoutInvoice,
                 DirectFromStock = DirectFromStock,
                 OfficialOrder = OfficialOrder,
@@ -871,6 +943,12 @@ public partial class RetailViewModel : ObservableObject
                 orderEntity.StorekeeperId = SelectedStorekeeper!.Id;
             }
 
+            if (_retailManagerService != null)
+            {
+                await _retailManagerService.EnsureCustomerAccessAsync(customerForOrder.Id);
+                if (!IsRetailManagerContextReady || _userSessionService.UserId != userForOrder ||
+                    SelectedCustomer != customerForOrder || !CustomerFilter(customerForOrder)) return;
+            }
             var result = await _orderService.AddOrderAsync(orderEntity);
 
             if (result == null)
@@ -945,6 +1023,13 @@ public partial class RetailViewModel : ObservableObject
                 }
             }
             await RefreshAvailableRestrictionAsync(SelectedCustomer);
+            await RefreshMonthlyPlanStateAsync();
+        }
+        catch (OfficialMonthlyPlanLimitException ex)
+        {
+            await RefreshMonthlyPlanStateAsync(enforceCart: false);
+            EnforceMonthlyPlanLimit(showMessage: false);
+            MessageBox.Show(ex.Message, "Месячный план", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
@@ -954,6 +1039,8 @@ public partial class RetailViewModel : ObservableObject
         {
             // ✅ Always reset barter mode after saving (even on error)
             IsBarter = false;
+            _isSavingOrder = false;
+            ClearCartCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -964,13 +1051,14 @@ public partial class RetailViewModel : ObservableObject
 		{
 			UpdateTotalSum();
             if (sender is ProductModel product)
-                EnforceBuyLimitForProduct(product);
+                EnforceBuyLimit(product);
 		}
 	}
 
 	public void UpdateTotalSum()
 	{
 		TotalSum = SelectedProductList.Sum(p => p.Total);
+        SaveOrderCommand.NotifyCanExecuteChanged();
 	}
 
     private bool IsBuyLimitActive()
@@ -988,52 +1076,67 @@ public partial class RetailViewModel : ObservableObject
         return OrderAllowance?.IsExceeded(total) == true;
     }
 
-    private void EnforceBuyLimitForProduct(ProductModel product)
+    private void EnforceBuyLimit(ProductModel? changedProduct = null)
     {
-        if (_isAdjustingProductLimit || !IsBuyLimitExceeded(TotalSum))
-            return;
+        if (_isAdjustingProductLimit) return;
+        if (IsBuyLimitExceeded(TotalSum))
+        {
+            ReduceCartToLimit(GetMaximumOrderTotal(), changedProduct);
+            ShowBuyLimitReachedMessage();
+        }
+        EnforceMonthlyPlanLimit(changedProduct);
+    }
 
-        var limit = GetMaximumOrderTotal();
-        var totalWithoutProduct = SelectedProductList
-            .Where(p => p != product)
-            .Sum(p => p.Total);
-
-        var availableForProduct = Math.Max(0m, limit - totalWithoutProduct);
-        var unitPrice = product.OrderQuentity > 0
-            ? product.Total / product.OrderQuentity
-            : product.EffectivePriceSom ?? 0m;
-
-        var allowedQuantity = unitPrice > 0
-            ? (int)Math.Floor(availableForProduct / unitPrice)
-            : 0;
-
+    private bool ReduceCartToLimit(decimal limit, ProductModel? changedProduct = null)
+    {
+        if (_isAdjustingProductLimit || TotalSum <= limit) return false;
         _isAdjustingProductLimit = true;
         try
         {
-            product.OrderQuentity = allowedQuantity;
-            UpdateTotalSum();
+            // Reduce the edited row first; after a limit change, reduce the newest rows first.
+            var products = SelectedProductList.Reverse();
+            if (changedProduct != null)
+                products = new[] { changedProduct }.Concat(products.Where(p => p != changedProduct));
+            foreach (var product in products)
+            {
+                if (TotalSum <= limit) break;
+                if (product.OrderQuentity <= 0 || product.Total <= 0) continue;
+
+                var availableForProduct = Math.Max(0m, limit - (TotalSum - product.Total));
+                var unitPrice = product.Total / product.OrderQuentity;
+                product.OrderQuentity = (int)Math.Min(product.OrderQuentity, Math.Floor(availableForProduct / unitPrice));
+                UpdateTotalSum();
+                // A rounded line total can slightly change the inferred unit price.
+                while (product.OrderQuentity > 0 && product.Total > availableForProduct)
+                {
+                    product.OrderQuentity--;
+                    UpdateTotalSum();
+                }
+            }
         }
         finally
         {
             _isAdjustingProductLimit = false;
         }
 
-        ShowBuyLimitReachedMessage();
+        return true;
     }
 
-    private void ShowBuyLimitReachedMessage()
+    protected virtual void ShowBuyLimitReachedMessage()
     {
         var allowance = OrderAllowance;
         if (allowance?.MaximumTotal == null) return;
 
         MessageBox.Show(
-            $"Лимит суммы заказа: {allowance.BuyLimit:N2}\n" +
-            $"Предоплата клиента: {allowance.Prepayment:N2}\n" +
-            $"Допустимая сумма с предоплатой: {allowance.MaximumTotal:N2}\n" +
+            "Вы не можете превышать допустимую сумму заказа.\n\n" +
+            $"Доступное ограничение клиента: {allowance.AvailableRestriction:N2}\n" +
+            (allowance.BuyLimit is > 0
+                ? $"Лимит суммы заказа с предоплатой: {allowance.BuyLimit.Value + allowance.Prepayment:N2}\n"
+                : "") +
+            $"Максимальная сумма заказа: {allowance.MaximumTotal:N2}\n" +
             $"Сумма в корзине: {TotalSum:N2}\n" +
-            $"Осталось предоплаты: {allowance.RemainingPrepayment(TotalSum):N2}\n" +
             $"Можно добавить еще на сумму: {allowance.Remaining(TotalSum):N2}\n\n" +
-            "Чтобы добавить товар сверх этой суммы, удалите другой товар или уменьшите количество в заказе.",
+            "Для продажи сверх ограничения требуется соответствующее право.",
             "Лимит суммы заказа достигнут",
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
@@ -1097,11 +1200,10 @@ public partial class RetailViewModel : ObservableObject
         if (IsOnlyOfficialCustomer && !c.OfficialCustomer)
             return false;
 
-		// If no manager selected -> show everyone
-		if (SelectedSalesManager == null) return true;
+        if (!IsRetailManagerContextReady) return false;
 
 		// Manager selected -> filter by manager (and optionally by territory)
-		bool byManager = c.SalesManagerId == SelectedSalesManager.Id;
+		bool byManager = SelectedSalesManager == null || c.SalesManagerId == SelectedSalesManager.Id;
 		bool byTerritory = string.IsNullOrWhiteSpace(SelectedTerritory)
 						   || string.Equals(c.Territory, SelectedTerritory, StringComparison.OrdinalIgnoreCase);
 
@@ -1114,10 +1216,9 @@ public partial class RetailViewModel : ObservableObject
 		TerritoryOptions.Clear();
 		TerritoryOptions.Add(new TerritoryOption { Value = null, Display = "Все территории" });
 
-		if (SelectedSalesManager != null)
-		{
 			var terrs = AllCustomers
-				.Where(c => c.SalesManagerId == SelectedSalesManager.Id)
+				.Where(c => (SelectedSalesManager == null || c.SalesManagerId == SelectedSalesManager.Id) &&
+                    (!IsOnlyOfficialCustomer || c.OfficialCustomer))
 				.Select(c => c.Territory)
 				.Where(t => !string.IsNullOrWhiteSpace(t))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1125,7 +1226,6 @@ public partial class RetailViewModel : ObservableObject
 
 			foreach (var t in terrs)
 				TerritoryOptions.Add(new TerritoryOption { Value = t, Display = t! });
-		}
 
 		// reset selection so "Все территории" is active after manager change
 		SelectedTerritory = null;
@@ -1184,13 +1284,21 @@ public partial class RetailViewModel : ObservableObject
 	public async Task SelectCustomerByIdAsync(string customerId)
 	{
 		if (string.IsNullOrWhiteSpace(customerId)) return;
+        if (!CanChangeCustomer(customerId, nameof(SelectedCustomer))) return;
+        if (_retailManagerService != null)
+        {
+            if (!IsRetailManagerContextReady) return;
+            var allowed = AllCustomers.FirstOrDefault(c => c.Id == customerId && CustomerFilter(c));
+            if (allowed != null) SelectedCustomer = allowed;
+            return;
+        }
 
 		// ensure list is ready
 		if (AllCustomers == null || AllCustomers.Count == 0)
 			await InitializeAsync();
 
 		var existing = AllCustomers.FirstOrDefault(c => c.Id == customerId);
-		if (existing != null)
+		if (existing != null && CustomerFilter(existing))
 		{
 			SelectedCustomer = existing;   // ⬅ вот тут реально выбирается клиент
 			return;
@@ -1239,39 +1347,32 @@ public partial class RetailViewModel : ObservableObject
     //	InactivePlannedCount = InactivePlannedCustomers.Count;
     //}
 
-    private async Task LoadInactiveCustomersAsync()
+    private async Task<bool> LoadInactiveCustomersAsync()
     {
-        InactiveDebtCustomers.Clear();
-        InactivePlannedCustomers.Clear();
-
-        InactiveDebtCount = 0;
-        InactivePlannedCount = 0;
-
-        string? managerId = SelectedSalesManager?.Id;
-        string? territory = SelectedTerritory;
-        string? customerId = SelectedCustomer?.Id;
-
-        var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(
-            managerId,
-            territory,
-            customerId
-        );
-
-        foreach (var c in debtList)
-            InactiveDebtCustomers.Add(c);
-
-        InactiveDebtCount = InactiveDebtCustomers.Count;
-
-        var plannedList = await _financeService.NeaktivNeZakupAsync(
-            managerId,
-            territory,
-            customerId
-        );
-
-        foreach (var c in plannedList)
-            InactivePlannedCustomers.Add(c);
-
-        InactivePlannedCount = InactivePlannedCustomers.Count;
+        var version = ++_inactiveRequestVersion;
+        var scopeVersion = _managerScopeVersion;
+        var userId = _userSessionService?.UserId;
+        var managerId = SelectedSalesManager?.Id;
+        var territory = SelectedTerritory;
+        var customer = SelectedCustomer;
+        ClearInactiveCustomers();
+        if (!IsRetailManagerContextReady || _financeService == null || AllCustomers.Count == 0) return false;
+        try
+        {
+            var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(managerId, territory, customer?.Id);
+            var plannedList = await _financeService.NeaktivNeZakupAsync(managerId, territory, customer?.Id);
+            if (version != _inactiveRequestVersion || scopeVersion != _managerScopeVersion || userId != _userSessionService?.UserId ||
+                managerId != SelectedSalesManager?.Id || territory != SelectedTerritory || customer != SelectedCustomer ||
+                !IsRetailManagerContextReady) return false;
+            var visible = AllCustomers.Where(c => CustomerFilter(c) && (customer == null || c.Id == customer.Id)).Select(c => c.Id).ToHashSet();
+            foreach (var row in debtList.Where(c => visible.Contains(c.CustomerId))) InactiveDebtCustomers.Add(row);
+            foreach (var row in plannedList.Where(c => visible.Contains(c.CustomerId))) InactivePlannedCustomers.Add(row);
+            InactiveDebtCount = InactiveDebtCustomers.Count; InactivePlannedCount = InactivePlannedCustomers.Count;
+            RequiredPurchase = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == customer?.Id)?.Shortfall ?? 0;
+            PlannedPurchase = InactivePlannedCustomers.FirstOrDefault(c => c.CustomerId == customer?.Id)?.Shortfall ?? 0;
+            return true;
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); return false; }
     }
 
     private async Task LoadInactiveForSelectedCustomerAsync(Customer? value)
@@ -1283,7 +1384,7 @@ public partial class RetailViewModel : ObservableObject
             return;
         }
 
-        await LoadInactiveCustomersAsync();
+        if (!await LoadInactiveCustomersAsync() || SelectedCustomer != value) return;
 
         var debtInfo = InactiveDebtCustomers
             .FirstOrDefault(c => c.CustomerId == value.Id);
@@ -1320,6 +1421,7 @@ public partial class RetailViewModel : ObservableObject
 		set
 		{
 			if (_selectedRequiredPurchaseCombo == value) return;
+            if (value != null && !CanChangeCustomer(value.CustomerId, nameof(SelectedRequiredPurchaseCombo))) return;
 			_selectedRequiredPurchaseCombo = value;
 			OnPropertyChanged();
 
@@ -1343,6 +1445,7 @@ public partial class RetailViewModel : ObservableObject
 		set
 		{
 			if (_selectedPlannedPurchaseCombo == value) return;
+            if (value != null && !CanChangeCustomer(value.CustomerId, nameof(SelectedPlannedPurchaseCombo))) return;
 			_selectedPlannedPurchaseCombo = value;
 			OnPropertyChanged();
 
@@ -1448,15 +1551,18 @@ public partial class RetailViewModel : ObservableObject
     public void ResetState()
     {
         ResetProductRequestEntry();
+        SelectedProductList.Clear();
         SelectedCustomer = null;
+        SelectedCourier = null;
+        SelectedStorekeeper = null;
         FilterText = "";
         SearchAllWords = true;
-        SelectedProductList.Clear();
-        SelectedSalesManager = null;
+        SetSalesManagerCore(SalesManagerList.FirstOrDefault(m => m.Id == _retailManagerState?.OwnManagerId));
         SelectedTerritory = null;
 
         RequiredPurchase = 0;
         PlannedPurchase = 0;
+        RetailFiltersChanged();
     }
 
 }

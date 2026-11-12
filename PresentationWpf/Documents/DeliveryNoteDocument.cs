@@ -77,11 +77,12 @@ namespace PresentationWpf.Documents
                             cols.RelativeColumn(2);   // ФИО получателя
                             cols.RelativeColumn(1.5f); // Тел
                             cols.RelativeColumn(1.2f); // № Накладная
+                            cols.RelativeColumn(1.2f); // № Квитанции
                             cols.RelativeColumn(1.0f); // Место
                         });
 
                         // Header
-                        string[] headers = { "Город", "Адрес", "ФИО получателя", "Тел.", "№ Накладная", "Место" };
+                        string[] headers = { "Город", "Адрес", "ФИО получателя", "Тел.", "№ Накладная", "№ Квитанции", "Место" };
 
                         table.Header(header =>
                         {
@@ -121,6 +122,7 @@ namespace PresentationWpf.Documents
                             Cell(line.CustomerName);
                             Cell(line.Phone);
                             Cell(line.InvoiceNumber);
+                            Cell(line.ReceiptNumber);
                             Cell(""); // 👈 Empty “Место” column
                         }
                     });
@@ -158,5 +160,6 @@ namespace PresentationWpf.Documents
         public string CustomerName { get; set; } = "";
         public string Phone { get; set; } = "";
         public string InvoiceNumber { get; set; } = "";
+        public string ReceiptNumber { get; set; } = "";
     }
 }

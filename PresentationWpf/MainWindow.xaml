@@ -289,8 +289,19 @@
                     </StackPanel>
                 </RadioButton>
                 
+                <RadioButton x:Name="MonthlyPlansMenuItem" GroupName="Sidebar"
+                    Visibility="{Binding CanOpenMonthlyPlans, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
+                    Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left" Width="180"
+                    Background="Transparent" Command="{Binding NavigateToMonthlyPlansCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Calendar" Style="{StaticResource CustomTextBlockStyle}" FontSize="18" Margin="10,0,0,0"/>
+                        <TextBlock Text="Месячные планы" Style="{StaticResource CustomTextBlockStyle}" FontSize="16"
+                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </RadioButton>
                 <!-- Separator  -->
-                <Border Style="{StaticResource SidebarSeparatorStyle}"/>
+                <Border Style="{StaticResource SidebarSeparatorStyle}"
+                        Visibility="{Binding ShowInventorySeparator, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
                 
                 <RadioButton GroupName="Sidebar" 
                               Visibility="{Binding CanViewInventory, Converter={StaticResource BoolToVisibilityConverter}}"
@@ -322,7 +333,8 @@
                 </RadioButton>
 
                 <!-- Separator  -->
-                <Border Style="{StaticResource SidebarSeparatorStyle}"/>
+                <Border Style="{StaticResource SidebarSeparatorStyle}"
+                        Visibility="{Binding ShowReportsSeparator, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
                 
                 <RadioButton GroupName="Sidebar"
                               Visibility="{Binding CanViewReports, Converter={StaticResource BoolToVisibilityConverter}}" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToReportsCommand}"  Margin="0,0,0,0">
@@ -349,7 +361,8 @@
                 </RadioButton>
 
                 <!-- Separator  -->
-                <Border Style="{StaticResource SidebarSeparatorStyle}"/>
+                <Border Style="{StaticResource SidebarSeparatorStyle}"
+                        Visibility="{Binding ShowSettingsSeparator, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
                 
                 <RadioButton GroupName="Sidebar"
                               Visibility="{Binding CanViewSettings, Converter={StaticResource BoolToVisibilityConverter}}" Height="50" Style="{StaticResource SidebarButtonStyle}" HorizontalContentAlignment="Left"  Width="180" Background="Transparent" Command="{Binding NavigateToProductsListCommand}"  Margin="0,0,0,0">
@@ -453,6 +466,9 @@
                 </DataTemplate>
                 <DataTemplate DataType="{x:Type viewmodels:ProductRequestsViewModel}">
                     <views:ProductRequestsView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type viewmodels:OfficialMonthlyPlansViewModel}">
+                    <views:OfficialMonthlyPlansView/>
                 </DataTemplate>
 
                 <DataTemplate DataType="{x:Type viewmodels:ReturnInvoiceViewModel}">

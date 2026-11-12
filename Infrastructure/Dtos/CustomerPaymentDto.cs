@@ -3,6 +3,7 @@
 public sealed class CustomerPaymentDto
 {
 	public int Id { get; init; }                  // № платежа
+    public string ReceiptNumber { get; init; } = "";
 	public DateTime Date { get; init; }           // Дата
 	public decimal Amount { get; init; }          // Сумма
 	public string? OrderId { get; init; }         // № накладной (optional)

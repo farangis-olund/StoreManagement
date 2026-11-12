@@ -11,7 +11,7 @@ SQL Server update/range locks prevent overlapping synchronizations from insertin
 the same permissions twice. Existing duplicate rows are retained to protect grants.
 
 The permission catalogue screen is read-only. Role assignment checkboxes remain
-editable. New permissions are not automatically granted to any role. In particular,
+editable. The catalogue synchronizer never grants new permissions to roles. In particular,
 `OnlyOfficialCustomer` is a restriction, not an ordinary access grant.
 
 ## Add a permission
@@ -30,6 +30,35 @@ to receive new definitions; this is not a remote configuration service.
 
 No new schema migration or manual `Update-Database` is needed for catalogue entries.
 Existing pending schema migrations still run through the normal startup path.
+
+## Administration tabs
+
+`Admin` opens the Administration module; it does not bypass individual tab rights.
+The existing `Admin.Brand` controls Brands and companies. Separate keys control
+Managers (`Admin.Managers`), Coefficients (`Admin.Coefficients`), Bonuses
+(`Admin.Bonuses`), Users (`Admin.Users`), References (`Admin.References`),
+Database (`Admin.Database`) and Cleanup (`Admin.Cleanup`).
+
+Reference links require both `Admin` and `Admin.References`, plus one of
+`Admin.References.Organization`, `.Roles`, `.Couriers`, `.Pickers`, `.Managers`,
+`.PriceLevels` or `.Currency`. The top-level Managers tab manages assignments;
+the reference Managers directory remains read-only.
+
+Tabs and links without their permissions are collapsed. Navigation commands check
+the same permissions internally, including when invoked directly. Saving role
+permissions refreshes the open menus and closes content whose grant was revoked.
+Reopening Administration reloads current role grants from the database. There is
+no bypass based on the role's name. Database editing/pasting is also guarded, and
+CleanService requires Admin + Cleanup before opening a context and before commit.
+
+One-time data migration `20261110030000_AddAdminTabPermissions` preserves the old
+access of roles already assigned `Admin` by granting only newly introduced tab
+and reference keys to those roles. It does not grant `Admin.Brand`, restore
+already known unchecked keys, or grant anything to roles without `Admin`.
+This keeps existing administrators able to reach the role editor after upgrading.
+Subsequent migrations/catalogue synchronizations never restore revoked grants.
+New roles receive only permissions explicitly assigned through the role editor.
+The migration changes no business tables and its rollback retains role settings.
 
 ## Customer field permissions
 
@@ -70,7 +99,79 @@ overwrite other unsaved form fields. These permissions cover the customer editor
 existing admin bulk coefficient operations and automatic order/payment calculations
 remain separate workflows.
 
+## Customer deletion
+
+Client record operations are also limited by the manager scope described below;
+the deletion grant alone does not expose other managers' clients.
+
+`Customers.Delete` (Клиенты.Удаление клиента) is separate from field-clearing
+permissions. Assign it explicitly to the intended roles together with `Customers`.
+The styled Delete button appears in the Customers toolbar only with both grants
+and is enabled only for a saved, selected client. It asks for confirmation with
+the client's code and name. Permission-cache changes update the open toolbar.
+
+CustomerService checks the current permission before accessing the database and
+again before committing. It loads the saved client in a fresh transaction. Clients
+with orders, payments, returns, monthly plans or product requests cannot be deleted;
+the editor identifies the linked records. Successful deletion removes manager
+assignments and clears the selected card. A failed deletion keeps the card and list.
+No schema migration or automatic role grant is needed for this permission.
+
+## Manager users and client scope
+
+`Customers.ViewAll` (Клиенты.Просмотр всех клиентов), together with `Customers`,
+allows access to all clients in the Clients editor. Grant it explicitly to the
+intended roles, including administrators: startup adds the permission to the
+catalogue without assigning it to any role.
+
+Without ViewAll, an active manager user sees only customers whose
+`Customers.SalesManagerId` points to that user's linked manager. Ordinary users
+without ViewAll see an empty list. The existing official-client-only filter still
+applies when enabled. The manager selector and creation, editing, deletion and
+individual coefficient calculation enforce the same scope. Unscoped sales,
+reporting and administrator assignment queries retain their existing behavior.
+
+Migration `20261110020000_LinkUserManagers` adds `Users.IsManager`, `Users.Address`
+and a nullable, unique `SalesManagers.UserId`. It preserves existing managers and
+their assignments. Enabling «Менеджер» and saving a user automatically creates
+that user's manager record if none is linked yet. The user form has no manager
+selector, and existing unrelated records are never linked by matching names.
+
+UserService saves the user, role and manager profile in one transaction. Name,
+address and phone synchronize to manager name, address and contacts. Removing the Manager
+flag deactivates the same record; re-enabling restores it and its assignments.
+The Managers directory is read-only, and assignment screens cannot edit profile
+fields. Deleting a user preserves an inactive, detached manager and is blocked
+when that user has sales history.
+
+Permission-cache changes clear and reload an open client editor. Each service
+operation uses a fresh context and current user-to-manager linkage, so changed
+assignments or the Manager flag do not rely on an old entity cached at login.
+
 ## Order options
+
+`Orders.ViewAllManagers` (Заказы.Просмотр всех менеджеров), together with `Orders`,
+allows choosing any active manager in the order form. It is added to the catalogue
+without automatic grants, including to administrator roles. Without this grant,
+the selector is locked and contains only the active manager linked through
+`SalesManagers.UserId` to the logged-in user. Names and login text are not used
+to match manager records. The user's own manager remains the initial choice even
+when the all-manager permission is present.
+
+RetailManagerService loads a fresh scoped manager/customer snapshot. Clients,
+routes, required/planned purchase panels and their counts follow the selected
+manager. A manager change clears an incompatible client, cart and delivery
+selection. Reset/reopening restores the current user's own manager. A revoked
+all-manager grant immediately restores the fixed own scope; logout/account changes
+clear old data, and delayed responses cannot replace a newer user or filter.
+Before checkout, the form also validates current customer access against the database.
+
+For a seller without an active manager, existing `Customers.ViewAll` access still
+allows the full client list; it does not unlock the manager selector. Without
+either an active own manager or a full-client/all-manager grant, the order form
+shows no clients. The Clients editor retains its independent access policy.
+Monthly-plan totals retain their existing permissions and global calculation.
+The existing UserId database relation is reused; this feature adds no schema fields.
 
 `Orders.Barter` (Заказы.Бартер) and `Orders.DirectFromStock`
 (Заказы.Заказ прямо со склада) are separate permissions. Startup synchronization

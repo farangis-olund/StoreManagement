@@ -3,6 +3,7 @@
 public class CustomerPaymentEntity
 {
 	public int Id { get; set; }                 // № Платежа (Long Integer)
+    public string? ReceiptNumber { get; set; }
 	public DateTime Date { get; set; }          // Дата
 	public string CustomerId { get; set; } = null!;   // Код клиента (FK -> Customer)
 	public decimal Amount { get; set; }         // Сумма платена

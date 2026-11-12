@@ -26,43 +26,51 @@
           
           
             <RadioButton Content="Бренды и фирмы"
+                 Visibility="{Binding CanViewBrands, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsBrandsSelected}"
                  Command="{Binding OpenBrandsCommand}"/>
 
             <RadioButton Content="Менеджеры"
+                  Visibility="{Binding CanViewManagers, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                   Style="{StaticResource AdminTopButtonStyle}"
                   IsChecked="{Binding IsManagersSelected}"
                   Command="{Binding OpenManagersCommand}"/>
 
 
             <RadioButton Content="Коэффициенты"
+                 Visibility="{Binding CanViewCoefficients, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsCoefficientsSelected}"
                  Command="{Binding OpenCoefficientsCommand}"/>
 
             <RadioButton Content="Бонусы"
+                 Visibility="{Binding CanViewBonuses, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsBonusesSelected}"
                  Command="{Binding OpenBonusesCommand}"/>
 
             <RadioButton Content="Пользователи"
+               Visibility="{Binding CanViewUsers, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                Style="{StaticResource AdminTopButtonStyle}"
                IsChecked="{Binding IsUsersSelected}"
                Command="{Binding OpenUsersCommand}"/>
 
 
             <RadioButton Content="Справочники"
+                 Visibility="{Binding CanViewReferences, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsReferencesSelected}"
                  Command="{Binding OpenReferencesCommand}"/>
 
             <RadioButton Content="База данных"
+              Visibility="{Binding CanViewDatabase, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
               Style="{StaticResource AdminTopButtonStyle}"
               IsChecked="{Binding IsDBSelected}"
               Command="{Binding OpenDBCommand}"/>
 
             <RadioButton Content="Очистка базы"
+              Visibility="{Binding CanCleanDatabase, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
               Style="{StaticResource AdminTopButtonStyle}"
               Background="DarkRed"
               IsChecked="{Binding IsDeleteDataSelected}"

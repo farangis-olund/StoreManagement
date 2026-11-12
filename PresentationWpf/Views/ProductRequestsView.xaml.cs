@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using Microsoft.Win32;
 using PresentationWpf.ViewModels;
 using PresentationWpf.Services;
 
@@ -32,6 +33,36 @@ public partial class ProductRequestsView : UserControl
         catch (Exception ex)
         {
             MessageBox.Show(ex.GetBaseException().Message, "Ошибка печати", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ExportExcel_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ProductRequestsViewModel vm || !vm.CanExportExcel) return;
+        var rows = RequestsGrid.Items.OfType<Infrastructure.Dtos.ProductRequestSummary>().ToArray();
+        var title = vm.Title;
+        var filters = vm.FilterDescription;
+        try
+        {
+            var dialog = new SaveFileDialog
+            {
+                Title = "Экспорт заявок на товары",
+                FileName = $"Заявки на товары — {title} — {DateTime.Now:yyyy-MM-dd}.xlsx",
+                Filter = "Файл Excel (*.xlsx)|*.xlsx",
+                DefaultExt = ".xlsx",
+                AddExtension = true,
+                OverwritePrompt = true
+            };
+            if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+            using var workbook = ProductRequestExcelExport.Create(title, filters, rows);
+            workbook.SaveAs(dialog.FileName);
+            MessageBox.Show("Заявки сохранены в файл Excel.", "Экспорт в Excel",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Не удалось сохранить файл Excel.\n{ex.GetBaseException().Message}",
+                "Ошибка экспорта", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

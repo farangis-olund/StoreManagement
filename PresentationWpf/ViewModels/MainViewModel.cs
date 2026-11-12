@@ -42,11 +42,22 @@ public partial class MainViewModel : ObservableObject
     public bool CanViewCustomers => PermissionService.Has(PermissionCatalog.Customers);
     public bool CanViewInventory => PermissionService.Has(PermissionCatalog.Inventory);
     public bool CanViewProductRequests => PermissionService.Has(PermissionCatalog.ProductRequests);
+    public bool CanOpenMonthlyPlans => PermissionService.Has(PermissionCatalog.OfficialMonthlyPlansView) ||
+        PermissionService.Has(PermissionCatalog.OfficialMonthlyPlansManage);
     public bool CanViewExpenses => PermissionService.Has(PermissionCatalog.Expenses);
     public bool CanViewReports => PermissionService.Has(PermissionCatalog.Reports);
     public bool CanViewStatistics => PermissionService.Has(PermissionCatalog.Statistics);
     public bool CanViewAdmin => PermissionService.Has(PermissionCatalog.Admin);
     public bool CanViewSettings => PermissionService.Has(PermissionCatalog.Settings);
+
+    private bool HasSalesMenuItems => CanViewOrders || CanViewReturns || CanViewCustomers || CanOpenMonthlyPlans;
+    private bool HasInventoryMenuItems => CanViewInventory || CanViewProductRequests || CanViewExpenses;
+    private bool HasReportsMenuItems => CanViewReports || CanViewStatistics || CanViewAdmin;
+
+    // A separator starts a visible group only when another visible group precedes it.
+    public bool ShowInventorySeparator => HasSalesMenuItems && HasInventoryMenuItems;
+    public bool ShowReportsSeparator => (HasSalesMenuItems || HasInventoryMenuItems) && HasReportsMenuItems;
+    public bool ShowSettingsSeparator => (HasSalesMenuItems || HasInventoryMenuItems || HasReportsMenuItems) && CanViewSettings;
 
     public void RefreshPermissions()
     {
@@ -55,13 +66,23 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CanViewCustomers));
         OnPropertyChanged(nameof(CanViewInventory));
         OnPropertyChanged(nameof(CanViewProductRequests));
+        OnPropertyChanged(nameof(CanOpenMonthlyPlans));
+        NavigateToMonthlyPlansCommand.NotifyCanExecuteChanged();
         NavigateToProductRequestsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanViewExpenses));
         OnPropertyChanged(nameof(CanViewReports));
         OnPropertyChanged(nameof(CanViewStatistics));
         OnPropertyChanged(nameof(CanViewAdmin));
+        NavigateToAdminCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanViewSettings));
+        OnPropertyChanged(nameof(ShowInventorySeparator));
+        OnPropertyChanged(nameof(ShowReportsSeparator));
+        OnPropertyChanged(nameof(ShowSettingsSeparator));
         if (CurrentViewModel is ProductRequestsViewModel && !CanViewProductRequests)
+            GoHome();
+        if (CurrentViewModel is OfficialMonthlyPlansViewModel && !CanOpenMonthlyPlans)
+            GoHome();
+        if (CurrentViewModel is AdminViewModel && !CanViewAdmin)
             GoHome();
     }
 
@@ -134,11 +155,32 @@ public partial class MainViewModel : ObservableObject
         CurrentViewModel = _serviceProvider.GetRequiredService<ProductRequestsViewModel>();
     }
 
-	[RelayCommand]
-	private void NavigateToAdmin()
+    [RelayCommand(CanExecute = nameof(CanOpenMonthlyPlans))]
+    private async Task NavigateToMonthlyPlans()
+    {
+        try { await _permissionRefresher.RefreshAsync(); }
+        catch (Exception)
+        {
+            MessageBox.Show("Не удалось обновить права доступа. Проверьте подключение к базе данных.",
+                "Права доступа", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!CanOpenMonthlyPlans) { GoHome(); return; }
+        CurrentViewModel = _serviceProvider.GetRequiredService<OfficialMonthlyPlansViewModel>();
+    }
+
+	[RelayCommand(CanExecute = nameof(CanViewAdmin))]
+	private async Task NavigateToAdmin()
 	{
-		var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-		mainViewModel.CurrentViewModel = _serviceProvider.GetRequiredService<AdminViewModel>();
+        if (!CanViewAdmin) return;
+        try { await _permissionRefresher.RefreshAsync(); }
+        catch (Exception)
+        {
+            MessageBox.Show("Не удалось обновить права доступа. Проверьте подключение к базе данных.",
+                "Права доступа", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (CanViewAdmin) CurrentViewModel = _serviceProvider.GetRequiredService<AdminViewModel>();
 	}
 
 

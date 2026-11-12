@@ -21,6 +21,9 @@ public partial class CustomerViewModel : ObservableObject
     private readonly CustomerFieldPermissionPolicy _fieldPermissions;
     private CustomerEntity? _originalCustomer;
     private bool _isLoading;
+    private bool _hasLoaded;
+    private bool _reloadRequested;
+    private int _accessVersion;
     public PermissionService PermissionService { get; }
     public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService, PermissionService permissionService, CustomerFieldPermissionPolicy fieldPermissions)
 	{
@@ -29,14 +32,20 @@ public partial class CustomerViewModel : ObservableObject
         _fieldPermissions = fieldPermissions;
         PermissionService = permissionService;
         PropertyChangedEventManager.AddHandler(PermissionService,
-            (_, _) => RefreshPermissions(), nameof(PermissionService.CurrentPermissions));
+            (_, _) => OnPermissionsChanged(), nameof(PermissionService.CurrentPermissions));
 	}
 
 	[ObservableProperty]
 	private ObservableCollection<Customer> customers = [];
 
 	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(IsCustomerSelected))]
+	[NotifyCanExecuteChangedFor(nameof(SaveCustomerCommand))]
 	private Customer? selectedCustomer;
+
+    public bool IsCustomerSelected => SelectedCustomer != null;
+    public bool CanDeleteCustomer => _fieldPermissions.CanDeleteCustomer;
+    private bool CanDeleteSelectedCustomer() => CanDeleteCustomer && !string.IsNullOrWhiteSpace(SelectedCustomer?.Id);
 	
 	[ObservableProperty]
 	public ObservableCollection<PriceLevelEntity> priceLevels = [];
@@ -55,27 +64,57 @@ public partial class CustomerViewModel : ObservableObject
 
 	public async Task LoadDataAsync()
 	{
+        _reloadRequested = true;
         if (_isLoading)
             return;
 
         _isLoading = true;
+        _hasLoaded = true;
         try
         {
-            await LoadPriceLevelsAsync();
-            await LoadSalesManagersAsync();
-            await LoadCustomersAsync();
+            do
+            {
+                _reloadRequested = false;
+                SelectedCustomer = null;
+                Customers.Clear();
+                SalesManagers.Clear();
+                UpdateDistinctLists();
+                try
+                {
+                    if (!PermissionService.Has(PermissionCatalog.Customers)) continue;
+                    await LoadPriceLevelsAsync();
+                    await LoadSalesManagersAsync();
+                    await LoadCustomersAsync();
+                }
+                catch (UnauthorizedAccessException) { Customers.Clear(); SalesManagers.Clear(); }
+            } while (_reloadRequested);
+        }
+        catch (Exception ex)
+        {
+            Customers.Clear(); SalesManagers.Clear();
+            MessageBox.Show($"Не удалось загрузить клиентов: {ex.Message}", "Клиенты", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
             _isLoading = false;
+            CreateCustomerCommand.NotifyCanExecuteChanged();
         }
 	}
+
+    private void OnPermissionsChanged()
+    {
+        _accessVersion++;
+        RefreshPermissions();
+        if (_hasLoaded) _ = LoadDataAsync();
+    }
 
 	private async Task LoadCustomersAsync()
 	{
         Customers.Clear();
 
-		var customerList = await _customerService.GetAllCustomersAsync(); 
+        var version = _accessVersion;
+		var customerList = await _customerService.GetCustomersForEditorAsync();
+        if (version != _accessVersion) return;
 
 		foreach (var customer in customerList.Where(c => !IsOnlyOfficialCustomer || c.OfficialCustomer))
 		{
@@ -93,7 +132,9 @@ public partial class CustomerViewModel : ObservableObject
 
 	private async Task LoadSalesManagersAsync()
 	{
+        var version = _accessVersion;
 		var managers = await _customerService.GetAllSalesManagersAsync();
+        if (version != _accessVersion) return;
 		SalesManagers = new ObservableCollection<SalesManagerEntity>(managers);
 	}
 
@@ -102,12 +143,13 @@ public partial class CustomerViewModel : ObservableObject
 	private void CreateCustomer()
 	{
         if (!CanCreateCustomer()) return;
-		SelectedCustomer = new Customer { ContractDate = null };
+		SelectedCustomer = new Customer { ContractDate = null,
+            SalesManagerId = !PermissionService.Has(PermissionCatalog.CustomersViewAll) ? SalesManagers.SingleOrDefault()?.Id : null };
         MessageBox.Show("Заполните все обязательные поля, затем нажмите на кнопу Сохранить.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
 
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsCustomerSelected))]
     private async Task SaveCustomerAsync()
     {
         if (SelectedCustomer is null)
@@ -147,26 +189,8 @@ public partial class CustomerViewModel : ObservableObject
             return;
         }
 
-        var updated = await _customerService.GetCustomerByIdAsync(savedCustomer.Id);
-
-        if (updated is not null)
-            savedCustomer = updated;
-
-        var existingCustomer = Customers.FirstOrDefault(c => c.Id == savedCustomer.Id);
-
-        if (existingCustomer is null)
-        {
-            Customers.Add(savedCustomer);
-        }
-        else
-        {
-            var index = Customers.IndexOf(existingCustomer);
-            Customers[index] = savedCustomer;
-        }
-
-        SelectedCustomer = savedCustomer;
-
-        UpdateDistinctLists();
+        await LoadDataAsync();
+        SelectedCustomer = Customers.FirstOrDefault(c => c.Id == savedCustomer.Id);
 
         MessageBox.Show(
             "Клиент успешно сохранён.",
@@ -198,7 +222,7 @@ public partial class CustomerViewModel : ObservableObject
         _fieldPermissions.CanEnterValue(field, originalValue) ||
         (!CustomerFieldPermissionPolicy.IsEmpty(field, originalValue) && _fieldPermissions.CanDelete(field));
 
-    private bool CanCreateCustomer() => _fieldPermissions.CanCreateCustomer;
+    private bool CanCreateCustomer() => _fieldPermissions.CanCreateCustomer && !_isLoading && SalesManagers.Count > 0;
 
     private CustomerFieldAccess Access(CustomerField field)
     {
@@ -230,7 +254,9 @@ public partial class CustomerViewModel : ObservableObject
         OnPropertyChanged(nameof(CanInputRepaymentCoefficient));
         OnPropertyChanged(nameof(CanInputPlannedPurchaseCoefficient));
         OnPropertyChanged(nameof(CustomerDisplayMemberPath));
+        OnPropertyChanged(nameof(CanDeleteCustomer));
         CreateCustomerCommand.NotifyCanExecuteChanged();
+        DeleteCustomerCommand.NotifyCanExecuteChanged();
         CalculateCoefficientsForCustomerCommand.NotifyCanExecuteChanged();
     }
 
@@ -276,22 +302,40 @@ public partial class CustomerViewModel : ObservableObject
     }
 
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanDeleteSelectedCustomer))]
 	private async Task DeleteCustomerAsync()
 	{
-		if (SelectedCustomer is null)
-			return;
+		if (!CanDeleteSelectedCustomer() || SelectedCustomer is not { } customer) return;
+        var target = (CustomerEntity)customer;
+        if (MessageBox.Show($"Удалить клиента {target.Id} — {target.FullName}?", "Удаление клиента",
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
 
-		await _customerService.DeleteCustomerAsync(SelectedCustomer);
+        try
+        {
+            if (!await _customerService.DeleteCustomerAsync(target))
+            {
+                MessageBox.Show("Не удалось удалить клиента. Обновите список и повторите попытку.", "Удаление клиента",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            MessageBox.Show(ex.Message, "Удаление клиента", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        catch (Exception)
+        {
+            MessageBox.Show("Не удалось удалить клиента. Проверьте подключение к базе данных.", "Удаление клиента",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
 
-		var customerToRemove = Customers.FirstOrDefault(c => c.Id == SelectedCustomer.Id);
-		if (customerToRemove is not null)
-		{
-			Customers.Remove(customerToRemove);
-			MessageBox.Show("Клиент успешно удалён.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-		} 
-
-		SelectedCustomer = null;
+        var customerToRemove = Customers.FirstOrDefault(c => c.Id == target.Id);
+        if (customerToRemove != null) Customers.Remove(customerToRemove);
+        if (SelectedCustomer?.Id == target.Id) SelectedCustomer = null;
+        UpdateDistinctLists();
+        MessageBox.Show("Клиент успешно удалён.", "Удаление клиента", MessageBoxButton.OK, MessageBoxImage.Information);
 	}
 
 	private void UpdateDistinctLists()

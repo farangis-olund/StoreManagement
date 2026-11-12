@@ -53,6 +53,28 @@ internal static class OrderAllowanceTests
         Check(CurrentAllowance(-1999).IsExceeded(2500) && CurrentAllowance(0).IsExceeded(501),
             "Revoking the permission must restore the order limit.");
         Console.WriteLine("PASS: explicit order-limit override, default denial, retained customer limit, and live revocation");
+
+        foreach (var buyLimit in new decimal?[] { null, 0, -1, 500 })
+        {
+            var displayed = new CustomerOrderAllowance(buyLimit, 0, AvailableRestriction: 50);
+            Check(displayed.MaximumTotal == 50 && !displayed.IsExceeded(50) && displayed.IsExceeded(50.01m),
+                "The displayed restriction must be enforced even without a separate order limit.");
+        }
+        var smallerOrderLimit = new CustomerOrderAllowance(30, 0, AvailableRestriction: 50);
+        Check(smallerOrderLimit.MaximumTotal == 30, "The smaller of the two limits must apply.");
+        var prepaidRestriction = new CustomerOrderAllowance(500, -100, AvailableRestriction: 150);
+        Check(prepaidRestriction.MaximumTotal == 150 && prepaidRestriction.IsExceeded(150.01m),
+            "The displayed restriction already includes prepayment; it must not be added a second time.");
+        foreach (var available in new[] { 0m, -50m })
+        {
+            var exhausted = new CustomerOrderAllowance(null, 0, AvailableRestriction: available);
+            Check(exhausted.MaximumTotal == 0 && exhausted.IsExceeded(.01m),
+                "Zero or negative available restriction must prevent further sales.");
+        }
+        var overrideRestriction = new CustomerOrderAllowance(30, 0, true, AvailableRestriction: 50);
+        Check(overrideRestriction.MaximumTotal == null && !overrideRestriction.IsExceeded(1000),
+            "The explicit override must bypass both limits.");
+        Console.WriteLine("PASS: displayed restriction, optional order limit, no double-counted prepayment, exhausted credit and override");
     }
 
     private static void Check(bool condition, string message)
