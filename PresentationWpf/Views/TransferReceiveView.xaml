@@ -42,14 +42,14 @@
                     Style="{StaticResource TabButton}"
                     Width="260" Height="45"
                     FontWeight="Bold"
-                    Background="#C2E6ED"
+                    Background="#99B4D1"
                     Command="{Binding SelectIncomingCommand}"
                     Margin="0,0"/>
             <ToggleButton Content="РАСХОД"
                     Style="{StaticResource TabButton}"
                     Width="260" Height="45"
                     FontWeight="Bold"
-                    Background="#8EBACD"
+                    Background="#FFFAF0"
                     Command="{Binding SelectOutgoingCommand}"
                     Margin="5,0"/>
         </StackPanel>
@@ -67,6 +67,8 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
+
+                <Border Grid.Row="1" Grid.RowSpan="2" Background="#ABABAB" IsHitTestVisible="False"/>
 
                 <!-- === Controls === -->
                 <Grid Grid.Row="0" Margin="0,0,0,10">
@@ -144,6 +146,7 @@
 
                 <!-- === DataGrid === -->
                 <DataGrid Grid.Row="1"
+                          Background="#ABABAB"
                           ItemsSource="{Binding Products}"
                            CanUserDeleteRows="True"
                           Style="{StaticResource SummaryGrid}"  RowHeight="28"    IsReadOnly="False">

@@ -24,6 +24,13 @@ public sealed class CustomerFieldPermissionPolicy(IPermissionChecker permissions
 
     public bool CanDeleteCustomer => permissions.Has(PermissionCatalog.Customers) && permissions.Has(PermissionCatalog.CustomersDelete);
 
+    public bool CanViewBalance => permissions.Has(PermissionCatalog.Customers) && permissions.Has(PermissionCatalog.CustomersBalanceView);
+
+    public void EnsureCanViewBalance()
+    {
+        if (!CanViewBalance) throw new UnauthorizedAccessException("Нет права на просмотр остатка клиента.");
+    }
+
     public void EnsureCanDeleteCustomer()
     {
         if (!CanDeleteCustomer) throw new UnauthorizedAccessException("Нет права на удаление клиента.");

@@ -1,5 +1,6 @@
 ﻿using Infrastructure.Dtos;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace PresentationWpf.Dtos;
 
@@ -32,6 +33,34 @@ public class ProductModel : INotifyPropertyChanged
 	private decimal _total;
 	private double _exchangeRate = 1;
 	private decimal? _barterPriceSom;
+    private bool _isBarterPriceMode;
+    public bool IsBarterPriceMode
+    {
+        get => _isBarterPriceMode;
+        set
+        {
+            if (_isBarterPriceMode == value) return;
+            _isBarterPriceMode = value;
+            OnPropertyChanged(nameof(IsBarterPriceMode));
+            OnPropertyChanged(nameof(EffectivePriceSom));
+            UpdateTotal();
+        }
+    }
+    private string _barterPriceText = "";
+    public string BarterPriceText
+    {
+        get => _barterPriceText;
+        set
+        {
+            if (_barterPriceText == value) return;
+            _barterPriceText = value;
+            OnPropertyChanged(nameof(BarterPriceText));
+            var valid = decimal.TryParse(value?.Trim().Replace(',', '.'),
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture, out var price) && price >= 0;
+            SetBarterPriceValue(valid ? price : null);
+        }
+    }
 	public decimal? CustomerPriceSom =>
 	CustomerPrice.HasValue ? Math.Round(CustomerPrice.Value, 2) : (decimal?)null;
 	public decimal? BarterPriceSom
@@ -39,19 +68,29 @@ public class ProductModel : INotifyPropertyChanged
 		get => _barterPriceSom;
 		set
 		{
-			if (_barterPriceSom != value)
-			{
-				_barterPriceSom = value;
-				OnPropertyChanged(nameof(BarterPriceSom));
-				OnPropertyChanged(nameof(EffectivePriceSom));
-				UpdateTotal();
-			}
+            SetBarterPriceValue(value);
+            var text = _barterPriceSom?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
+            if (_barterPriceText != text)
+            {
+                _barterPriceText = text;
+                OnPropertyChanged(nameof(BarterPriceText));
+            }
 		}
 	}
 
+    private void SetBarterPriceValue(decimal? value)
+    {
+        var rounded = value.HasValue ? Math.Round(value.Value, 2, MidpointRounding.AwayFromZero) : (decimal?)null;
+        if (_barterPriceSom == rounded) return;
+        _barterPriceSom = rounded;
+        OnPropertyChanged(nameof(BarterPriceSom));
+        OnPropertyChanged(nameof(EffectivePriceSom));
+        UpdateTotal();
+    }
+
 	// What the UI uses for display & totals
 	public decimal? EffectivePriceSom =>
-		BarterPriceSom ?? CustomerPriceSom;
+		IsBarterPriceMode ? BarterPriceSom : BarterPriceSom ?? CustomerPriceSom;
 
 	public void ClearBarterPrice() => BarterPriceSom = null;
 
@@ -165,7 +204,7 @@ public class ProductModel : INotifyPropertyChanged
 	{
 		var unit = EffectivePriceSom ?? 0m;
 		var line = OrderQuentity * unit;
-		if (CustomerDiscountPercentage > 0)
+		if (!IsBarterPriceMode && !BarterPriceSom.HasValue && CustomerDiscountPercentage > 0)
 		{
 			var factor = 1m - (decimal)(CustomerDiscountPercentage / 100.0);
 			if (factor < 0m) factor = 0m;

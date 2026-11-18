@@ -9,6 +9,10 @@
              d:DesignHeight="600" d:DesignWidth="1000">
 
     <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="250"/>  <!-- left panel -->
             <ColumnDefinition Width="*"/>  <!-- right panel -->
@@ -55,6 +59,7 @@
             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="Доставщик:" VerticalAlignment="Top" Margin="0,0,5,0"/>
                 <ComboBox ItemsSource="{Binding Couriers}"
+                  IsEnabled="{Binding CanView}"
                   Height="30"
                   FontSize="14"
                   VerticalAlignment="Center"
@@ -108,9 +113,9 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                    <Button Content="Обновить"  Style="{StaticResource GrayButton}"  Command="{Binding UpdateCommand}" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Печать"  Style="{StaticResource GrayButton}"  Command="{Binding PrintCommand}" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Отчёт"  Style="{StaticResource GrayButton}"  Command="{Binding ReportCommand}" Width="100"/>
+                    <Button Content="Обновить" Visibility="{Binding CanUpdate, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}" Style="{StaticResource GrayButton}" Command="{Binding UpdateCommand}" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Печать" Visibility="{Binding CanPrint, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}" Style="{StaticResource GrayButton}" Command="{Binding PrintCommand}" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Отчёт" Visibility="{Binding CanReport, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}" Style="{StaticResource GrayButton}" Command="{Binding ReportCommand}" Width="100"/>
                 </StackPanel>
             </DockPanel>
 
@@ -119,9 +124,10 @@
                       ItemsSource="{Binding OrdersForSelectedDate}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
+                      CanUserDeleteRows="False"
                       SelectionMode="Extended"
                       Style="{StaticResource SummaryGrid}"
-                      IsReadOnly="False">
+                      IsReadOnly="{Binding IsReadOnly}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Код кл." Binding="{Binding CustomerId}" Width="80" IsReadOnly="True" ElementStyle="{StaticResource TextCellStyle}"/>
                     <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="*" MinWidth="100" IsReadOnly="True"/>
@@ -135,6 +141,7 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsPaid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  IsEnabled="{Binding DataContext.CanUpdate, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                   VerticalAlignment="Center"
                                   HorizontalAlignment="Center"/>
                             </DataTemplate>
@@ -146,5 +153,6 @@
 
             
         </Grid>
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Message}" TextWrapping="Wrap" Margin="0,4,0,0"/>
     </Grid>
 </UserControl>

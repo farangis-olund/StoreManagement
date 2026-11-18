@@ -5,6 +5,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.ComponentModel;
+using System.Windows.Media;
 
 
 namespace PresentationWpf.Views;
@@ -47,13 +49,82 @@ namespace PresentationWpf.Views;
     private void RetailView_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.OldValue is RetailViewModel previous)
+        {
             previous.CustomerSelectionRejected -= Vm_CustomerSelectionRejected;
+            previous.PropertyChanged -= Vm_CartSettingsChanged;
+        }
         if (e.NewValue is RetailViewModel vm)
         {
             vm.CustomerSelectionRejected += Vm_CustomerSelectionRejected;
+            vm.PropertyChanged += Vm_CartSettingsChanged;
             vm.OnProductAdded -= Vm_OnProductAdded; // remove previous (safety)
             vm.OnProductAdded += Vm_OnProductAdded;
         }
+        UpdateCartColumns();
+    }
+
+    private void Vm_CartSettingsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RetailViewModel.IsBarter)) UpdateCartColumns();
+    }
+
+    private void UpdateCartColumns()
+    {
+        var barter = DataContext is RetailViewModel { IsBarter: true };
+        CartStockQuantityColumn.Visibility = barter ? Visibility.Collapsed : Visibility.Visible;
+        CartOrderQuantityColumn.DisplayIndex = barter ? 6 : 7;
+        CartPriceColumn.DisplayIndex = barter ? 7 : 6;
+        CartPriceColumn.IsReadOnly = !barter;
+    }
+
+    private void CartGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || DataContext is not RetailViewModel { IsBarter: true } ||
+            CartGrid.CurrentCell.Item is not ProductModel product) return;
+        var column = CartGrid.CurrentColumn;
+        if (column != CartOrderQuantityColumn && column != CartPriceColumn) return;
+
+        e.Handled = true;
+        if (FindVisualChild<TextBox>(column.GetCellContent(product)) is { } editor)
+        {
+            editor.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+            if (Validation.GetHasError(editor)) return;
+        }
+        if (column == CartPriceColumn && product.BarterPriceSom is not >= 0) return;
+        if (!CartGrid.CommitEdit(DataGridEditingUnit.Cell, true) ||
+            !CartGrid.CommitEdit(DataGridEditingUnit.Row, true)) return;
+
+        if (column == CartOrderQuantityColumn)
+            FocusCartEditor(product, CartPriceColumn);
+        else
+        {
+            var nextIndex = CartGrid.Items.IndexOf(product) + 1;
+            if (nextIndex < CartGrid.Items.Count && CartGrid.Items[nextIndex] is ProductModel next)
+                FocusCartEditor(next, CartOrderQuantityColumn);
+        }
+    }
+
+    private void FocusCartEditor(ProductModel product, DataGridColumn column)
+    {
+        CartGrid.SelectedItem = product;
+        CartGrid.CurrentCell = new DataGridCellInfo(product, column);
+        CartGrid.ScrollIntoView(product, column);
+        CartGrid.UpdateLayout();
+        CartGrid.Focus();
+        if (!CartGrid.BeginEdit()) return;
+        CartGrid.UpdateLayout();
+        var editor = FindVisualChild<TextBox>(column.GetCellContent(product));
+        editor?.Focus();
+        editor?.SelectAll();
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject? parent) where T : DependencyObject
+    {
+        if (parent is T result) return result;
+        if (parent == null) return null;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+            if (FindVisualChild<T>(VisualTreeHelper.GetChild(parent, index)) is { } child) return child;
+        return null;
     }
 
     private void Vm_CustomerSelectionRejected()

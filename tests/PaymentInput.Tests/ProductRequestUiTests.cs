@@ -46,6 +46,8 @@ internal static class ProductRequestUiTests
             UserManagerUiTests.Run();
             RetailManagerUiTests.Run();
             OfficialMonthlyPlanUiTests.Run();
+            StoreExchangeReportUiTests.Run();
+            WarehousePlaceImportUiTests.Run();
             CheckRetailSearch();
             CheckRetail();
             CheckDeliverySelection();
@@ -54,12 +56,18 @@ internal static class ProductRequestUiTests
             ReturnEntryUiTests.Run();
             RetailLimitUiTests.Run();
             RetailMonthlyPlanLimitUiTests.Run();
+            RetailBarterUiTests.Run();
+            BarterHistoryUiTests.Run();
+            BarterInvoicePdfTests.Run();
+            PendingOrdersUiTests.Run();
+            OrderOperationsUiTests.Run();
             CheckRequestNoticeReset();
             CheckWelcomeNavigation();
             CheckDraftForm();
             CheckJournal();
             CheckPrinting();
             DeliveryReportPdfTests.Run();
+            ReconciliationReportPdfTests.Run();
             PdfPrinterTests.Run();
             ProductRequestExcelTests.Run();
             Console.WriteLine("PASS: permission-controlled sidebar menu, exact article and keyword search, Retail request controls, stock rules, home link navigation, draft form, journal details, bulk-action availability and multi-page printing");

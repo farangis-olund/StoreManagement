@@ -46,6 +46,7 @@ public class OrderRepository : Repo<DatabaseContext, OrderEntity>
 			.Include(o => o.Courier)
 			.Include(c => c.Customer)
 			.Include(o => o.Storekeeper)
+			.Include(o => o.User)
 			.FirstOrDefaultAsync(predicate);
 
 		if (entity == null && createIfNotFound != null)

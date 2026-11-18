@@ -181,6 +181,27 @@ namespace PresentationWpf.Documents
                         $"Всего наименований: {_vm.RowCount}   Итого: {_vm.TotalSum:N2}   {_vm.TotalSumInWords}"
                     ).FontSize(10);
 
+                    content.Item().PaddingTop(6).Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn();
+                            columns.RelativeColumn();
+                            columns.RelativeColumn();
+                            columns.RelativeColumn();
+                        });
+                        table.Header(header =>
+                        {
+                            foreach (var title in new[] { "Итоги бартера", "Старый долг", "Оплачено", "Остаток" })
+                                header.Cell().Border(0.25f).BorderColor(Colors.Grey.Medium)
+                                    .Background(Colors.Grey.Lighten3).Padding(2).MinHeight(14).AlignMiddle()
+                                    .Text(title).Bold().FontSize(10).FontColor(Colors.Grey.Darken3);
+                        });
+                        foreach (var amount in new[] { _vm.CurrentSale, _vm.OldDebt, _vm.CurrentPayment, _vm.Balance })
+                            table.Cell().Border(0.25f).BorderColor(Colors.Grey.Medium)
+                                .AlignCenter().MinHeight(14).AlignMiddle().PaddingVertical(2).PaddingHorizontal(3)
+                                .Text(amount.ToString("N2")).FontSize(10).FontColor(Colors.Grey.Darken3);
+                    });
 
                 });
 

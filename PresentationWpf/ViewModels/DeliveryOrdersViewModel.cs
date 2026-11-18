@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Dtos;
 using Infrastructure.Repositories;
@@ -23,7 +23,8 @@ public partial class DeliveryOrdersViewModel : ObservableObject
     public DeliveryOrdersViewModel(
         OrderService orderService,
         CourierRepository courierRepo,
-        UserSessionService userSession)
+        UserSessionService userSession,
+        PermissionService permissions)
     {
         _orderService = orderService;
         _courierRepo = courierRepo;
@@ -32,9 +33,8 @@ public partial class DeliveryOrdersViewModel : ObservableObject
         DeliverySessions = [];
         OrdersForSelectedDate = new ObservableCollection<DeliveryOrderModel>();
         Couriers = new ObservableCollection<Courier>();
+        InitializePermissions(permissions);
         _ = InitializeAsync();
-
-        DeliveryOrderModel.OrderChanged += () => RecalculateTotals();
     }
 
     // 🔹 Courier list + selected
@@ -78,6 +78,11 @@ public partial class DeliveryOrdersViewModel : ObservableObject
         {
             if (e.PropertyName is nameof(order.IsPaid) or nameof(order.Payment))
             {
+                if (!CanUpdate)
+                {
+                    order.IsPaid = order.OriginalIsPaid;
+                    return;
+                }
                 HasUnsavedChanges = true;
                 RecalculateTotals();
             }
@@ -87,20 +92,31 @@ public partial class DeliveryOrdersViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
-        // Load couriers
-        var courierEntities = await _courierRepo.GetAllAsync();
-        Couriers = new ObservableCollection<Courier>(
-            courierEntities.Select(e => (Courier)e));
+        if (!CanView) return;
+        var version = _accessVersion;
+        var userId = _userSession.UserId;
+        try
+        {
+            // Load couriers
+            var courierEntities = await _courierRepo.GetAllAsync();
+            if (version != _accessVersion || userId != _userSession.UserId || !CanView) return;
+            Couriers = new ObservableCollection<Courier>(
+                courierEntities.Select(e => (Courier)e));
 
-        // Default exchange rate
-        var rate = _userSession.ExchangeRate;
-        ExchangeRate = rate > 0 ? rate : 1;
+            // Default exchange rate
+            var rate = _userSession.ExchangeRate;
+            ExchangeRate = rate > 0 ? rate : 1;
+        }
+        catch (Exception)
+        {
+            if (version == _accessVersion) Message = "Не удалось загрузить доставщиков. Повторно откройте доставку заказов.";
+        }
     }
 
     // 🔹 When courier changes, reload sessions
     partial void OnSelectedCourierChanged(Courier? value)
     {
-        if (value != null)
+        if (CanView && value != null)
             _ = LoadSessionsForCourierAsync(value.Id);
     }
 
@@ -109,13 +125,11 @@ public partial class DeliveryOrdersViewModel : ObservableObject
     {
         OrdersForSelectedDate.Clear();
 
-        if (value is null)
+        if (value is null || !CanView)
             return;
 
         foreach (var o in value.Orders)
         {
-            // attach events for current session orders too
-            AttachOrderEvents(o);
             OrdersForSelectedDate.Add(o);
         }
 
@@ -137,65 +151,75 @@ public partial class DeliveryOrdersViewModel : ObservableObject
         DeliverySessions.Clear();
         SelectedSession = null;
         OrdersForSelectedDate.Clear();
+        if (!CanView) return;
+        var userId = _userSession.UserId;
 
-        // 🔹 Load all orders for this courier
-        var allOrders = await _orderService.GetOrdersByCourierAsync(courierId);
-        if (version != _deliveryLoadVersion || SelectedCourier?.Id != courierId) return;
-
-        // 🔹 Only unpaid orders
-        var unpaid = allOrders.Where(o => !o.IsPaid).ToList();
-
-        // 🔹 Group by order date
-        foreach (var group in unpaid.GroupBy(o => o.Date.Date))
+        try
         {
-            var sessionDate = group.Key;
+            // 🔹 Load all orders for this courier
+            var allOrders = await _orderService.GetOrdersByCourierAsync(courierId);
+            if (version != _deliveryLoadVersion || SelectedCourier?.Id != courierId || userId != _userSession.UserId || !CanView) return;
 
-            // 📦 Create the delivery session
-            var session = new DeliverySessionModel
-            {
-                Date = sessionDate,
-                Orders = new ObservableCollection<DeliveryOrderModel>()
-            };
+            // 🔹 Only unpaid orders
+            var unpaid = allOrders.Where(o => !o.IsPaid).ToList();
 
-            // 🔹 Loop through each order in this date group
-            foreach (var e in group)
+            // 🔹 Group by order date
+            foreach (var group in unpaid.GroupBy(o => o.Date.Date))
             {
-                // 💱 Get the exchange rate stored in Orders table for this order
-                var dailyRate = e.Rate;
-             
-                var order = new DeliveryOrderModel
+                var sessionDate = group.Key;
+
+                // 📦 Create the delivery session
+                var session = new DeliverySessionModel
                 {
-                    Date = e.Date,
-                    Number = e.OrderId,
-                    PaymentId = e.PaymentId,
-                    ReceiptNumber = e.ReceiptNumber,
-                    CustomerId = e.CustomerId,
-                    FullName = e.FullName,
-                    Address = e.Address,
-                    City = e.City,
-                    Invoice = e.OrderId,
-                    Sale = e.SaleAmount,
-                    Phone = e.Phone,
-
-                    // ✅ Use the actual rate stored in Orders table
-                    Amount = e.PaymentAmount * dailyRate,
-                    ExchangeRate = dailyRate,
-
-                    Payment = e.PaymentAmount,
-                    IsPaid = e.IsPaid,
-                    OriginalPayment = e.PaymentAmount,
-                    OriginalIsPaid = e.IsPaid
+                    Date = sessionDate,
+                    Orders = new ObservableCollection<DeliveryOrderModel>()
                 };
 
-                AttachOrderEvents(order);
-                session.Orders.Add(order);
+                // 🔹 Loop through each order in this date group
+                foreach (var e in group)
+                {
+                    // 💱 Get the exchange rate stored in Orders table for this order
+                    var dailyRate = e.Rate;
+
+                    var order = new DeliveryOrderModel
+                    {
+                        Date = e.Date,
+                        Number = e.OrderId,
+                        PaymentId = e.PaymentId,
+                        ReceiptNumber = e.ReceiptNumber,
+                        CustomerId = e.CustomerId,
+                        FullName = e.FullName,
+                        Address = e.Address,
+                        City = e.City,
+                        Invoice = e.OrderId,
+                        Sale = e.SaleAmount,
+                        Phone = e.Phone,
+
+                        // ✅ Use the actual rate stored in Orders table
+                        Amount = e.PaymentAmount * dailyRate,
+                        ExchangeRate = dailyRate,
+
+                        Payment = e.PaymentAmount,
+                        IsPaid = e.IsPaid,
+                        OriginalPayment = e.PaymentAmount,
+                        OriginalIsPaid = e.IsPaid
+                    };
+
+                    AttachOrderEvents(order);
+                    session.Orders.Add(order);
+                }
+
+                DeliverySessions.Add(session);
             }
 
-            DeliverySessions.Add(session);
+            SelectedSession = DeliverySessions.FirstOrDefault();
+            HasUnsavedChanges = false;
+            RecalculateTotals();
         }
-
-        SelectedSession = DeliverySessions.FirstOrDefault();
-        RecalculateTotals();
+        catch (Exception)
+        {
+            if (version == _deliveryLoadVersion) Message = "Не удалось загрузить доставку. Повторно откройте список.";
+        }
     }
     private void RecalculateTotals()
     {
@@ -218,17 +242,19 @@ public partial class DeliveryOrdersViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanUpdate))]
     private async Task UpdateAsync()
     {
-        if (SelectedCourier == null)
+        if (!CanUpdate || SelectedCourier == null)
             return;
 
         var courierId = SelectedCourier.Id;
-        foreach (var session in DeliverySessions)
+        var userId = _userSession.UserId;
+        try
         {
-            foreach (var order in session.Orders.Where(o => o.IsPaid))
+            foreach (var order in DeliverySessions.SelectMany(s => s.Orders).Where(o => o.IsPaid).ToList())
             {
+                if (!CanUpdate || userId != _userSession.UserId || SelectedCourier?.Id != courierId) return;
                 if (!await _orderService.ConfirmDeliveryAsync(courierId, order.Number, order.PaymentId))
                 {
                     MessageBox.Show("Не удалось подтвердить оплату. Данные могли измениться; откройте список доставки снова.",
@@ -237,7 +263,9 @@ public partial class DeliveryOrdersViewModel : ObservableObject
                 }
             }
         }
+        catch (Exception ex) { Message = ex is UnauthorizedAccessException ? ex.Message : "Не удалось обновить доставку заказов."; return; }
 
+        if (!CanUpdate || userId != _userSession.UserId || SelectedCourier?.Id != courierId) return;
         HasUnsavedChanges = false; // ✅ now safe to close
         MessageBox.Show("Изменения успешно сохранены.", "Обновление");
         if (SelectedCourier == null)
@@ -245,9 +273,10 @@ public partial class DeliveryOrdersViewModel : ObservableObject
         await LoadSessionsForCourierAsync(SelectedCourier.Id);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanPrint))]
     private void Print()
     {
+        if (!CanPrint) return;
         if (SelectedCourier == null)
         {
             MessageBox.Show("Выберите доставщика!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -268,6 +297,7 @@ public partial class DeliveryOrdersViewModel : ObservableObject
 
         var lines = SelectedSession.Orders.Select(o => new DeliveryNoteLine
         {
+            CustomerId = o.CustomerId,
             City = o.City ?? "",
             Address = o.Address,
             CustomerName = o.FullName,
@@ -296,9 +326,10 @@ public partial class DeliveryOrdersViewModel : ObservableObject
     }
 
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanReport))]
     private void Report()
     {
+        if (!CanReport) return;
         if (SelectedCourier == null)
         {
             MessageBox.Show("Выберите курьера!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -377,8 +408,6 @@ public class DeliverySessionModel
 
 public partial class DeliveryOrderModel : ObservableObject
 {
-    public static event Action? OrderChanged; // 👈 add this line
-
     public DateTime Date { get; set; }
     public string Number { get; set; } = "";
     public int? PaymentId { get; set; }
@@ -408,6 +437,5 @@ public partial class DeliveryOrderModel : ObservableObject
     partial void OnIsPaidChanged(bool value)
     {
         OnPropertyChanged(nameof(PaymentInSom));
-        OrderChanged?.Invoke(); // 🔥 trigger global recalculation
     }
 }

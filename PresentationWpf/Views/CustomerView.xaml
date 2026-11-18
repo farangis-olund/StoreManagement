@@ -224,6 +224,15 @@
                         </DockPanel>
                     </StackPanel>
 
+                    <StackPanel x:Name="CustomerBalancePanel"
+                        Visibility="{Binding DataContext.CanViewBalance, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                        <TextBlock Text="Остаток"/>
+                        <TextBox x:Name="CustomerBalanceTextBox" Height="32" Margin="0,0,0,5" FontSize="14"
+                            VerticalContentAlignment="Center" Padding="5" IsReadOnly="True"
+                            ToolTip="{Binding DataContext.CustomerBalanceError, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Text="{Binding DataContext.CustomerBalance, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay, StringFormat={}{0:N2}, TargetNullValue=''}"/>
+                    </StackPanel>
+
                     <StackPanel Visibility="{Binding DataContext.RestrictionAccess.CanView, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
                         <TextBlock Text="Ограничение"/>
                         <DockPanel LastChildFill="True">

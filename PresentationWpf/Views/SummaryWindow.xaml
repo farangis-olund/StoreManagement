@@ -123,7 +123,7 @@
                             <!-- № Платежа -->
                             <DataGridTextColumn Width="*"
                                       Header="№ Накладной"
-                                      Binding="{Binding InvoiceNo}">
+                                      Binding="{Binding InvoiceDisplay}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CellText}"/>
                                 </DataGridTextColumn.ElementStyle>

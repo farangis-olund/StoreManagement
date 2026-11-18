@@ -57,7 +57,7 @@ public partial class TransferReceiveViewModel : ObservableObject
     [ObservableProperty] private string label1Text = "Описание: Ваш магазин временно берет товар у другого магазина.";
   
     [ObservableProperty]
-    private Brush contentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C2E6ED"));
+    private Brush contentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#99B4D1"));
 
 
     private string currentType = "получение_товара"; // default type = outgoing
@@ -112,7 +112,7 @@ public partial class TransferReceiveViewModel : ObservableObject
         IsContentVisible = true; // ✅ show content
         currentType = "получение_товара";
         Label1Text = "Описание: Ваш магазин временно берет товар у другого магазина.";
-        ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C2E6ED")); // light blue
+        ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#99B4D1")); // light blue
         Products.Clear();
         SelectedStore = null;
         return Task.CompletedTask;
@@ -125,7 +125,7 @@ public partial class TransferReceiveViewModel : ObservableObject
         IsContentVisible = true; // ✅ show content
         currentType = "передача_товара";
         Label1Text = "Описание: Ваш магазин передает товар другому магазину.";
-        ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8EBACD")); // light beige
+        ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFFAF0")); // light beige
         Products.Clear();
         SelectedStore = null;
         return Task.CompletedTask;

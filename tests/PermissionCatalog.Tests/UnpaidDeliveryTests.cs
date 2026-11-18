@@ -1,4 +1,5 @@
 using Infrastructure.Contexts;
+using Infrastructure.Constants;
 using Infrastructure.Entities;
 using Infrastructure.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -55,8 +56,11 @@ internal sealed class UnpaidDeliveryTests(Func<DatabaseContext> createContext)
             new CustomerPaymentEntity { Order = withPayment, Courier = courier, Customer = customer, Amount = 25, Date = DateTime.Today.AddDays(1), Rate = 11 },
             new CustomerPaymentEntity { Order = withoutCourier, Customer = customer, Amount = 5, Date = DateTime.Today });
         await db.SaveChangesAsync();
+        var permissions = new TestPermissions();
+        permissions.Keys.UnionWith([PermissionCatalog.Orders, PermissionCatalog.OrdersDelivery,
+            PermissionCatalog.OrdersDeliveryView, PermissionCatalog.OrdersDeliveryUpdate]);
         var service = new OrderService(null!, null!, NullLogger<OrderService>.Instance, null!,
-            new TestContextFactory(createContext), new TestPermissions());
+            new TestContextFactory(createContext), permissions, session: new TestUserContext { UserId = user.Id, IsLoggedIn = true });
 
         var rows = await service.GetUnpaidOrdersAsync(customer.Id);
         Check(rows.Select(r => r.Id).ToHashSet().SetEquals(new[] { noPayment.Id, zeroPayment.Id, withPayment.Id, withoutCourier.Id }),

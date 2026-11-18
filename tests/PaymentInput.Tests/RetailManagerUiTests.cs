@@ -31,6 +31,38 @@ internal static class RetailManagerUiTests
         Check(vm.SalesManagerList.Count == 1 && VisibleClients(vm).SequenceEqual(["A1", "A2"]) &&
             vm.InactiveDebtCustomers.All(c => c.CustomerId.StartsWith("A")) && vm.InactivePlannedCount == 2,
             "Customers and dependent panels did not follow the current manager.");
+        ComboBox PurchaseInput(string property) => Descendants<ComboBox>(view).Single(c =>
+            c.GetBindingExpression(ComboBox.SelectedItemProperty)?.ParentBinding.Path.Path == property);
+        var debtInput = PurchaseInput(nameof(vm.SelectedRequiredPurchaseCombo));
+        var plannedInput = PurchaseInput(nameof(vm.SelectedPlannedPurchaseCombo));
+        void CheckFullPurchaseLists(string[] expected)
+        {
+            Layout(view);
+            Check(debtInput.Items.Cast<InactiveCustomerDto>().Select(c => c.CustomerId).OrderBy(id => id).SequenceEqual(expected) &&
+                plannedInput.Items.Cast<InactiveCustomerDto>().Select(c => c.CustomerId).OrderBy(id => id).SequenceEqual(expected) &&
+                vm.InactiveDebtCount == expected.Length && vm.InactivePlannedCount == expected.Length,
+                "Selecting a customer narrowed a purchase list or its count instead of preserving the manager/route scope.");
+        }
+        CheckFullPurchaseLists(["A1", "A2"]);
+        debtInput.SelectedItem = vm.InactiveDebtCustomers.Single(c => c.CustomerId == "A1");
+        CheckFullPurchaseLists(["A1", "A2"]);
+        Check(vm.SelectedCustomer?.Id == "A1" && debtInput.SelectedItem == vm.SelectedRequiredPurchaseCombo &&
+            vm.SelectedRequiredPurchaseCombo?.CustomerId == "A1" && vm.RequiredPurchase == 10 && vm.PlannedPurchase == 20,
+            "Debt selection did not retain its selected item or update both customer indicators.");
+        plannedInput.SelectedItem = vm.InactivePlannedCustomers.Single(c => c.CustomerId == "A2");
+        CheckFullPurchaseLists(["A1", "A2"]);
+        Check(vm.SelectedCustomer?.Id == "A2" && vm.SelectedPlannedPurchaseCombo?.CustomerId == "A2" &&
+            debtInput.SelectedItem == null && vm.RequiredPurchase == 20 && vm.PlannedPurchase == 40,
+            "Planned-purchase selection did not switch customers, clear the other selection or update indicators.");
+        vm.SelectedCustomer = vm.AllCustomers.Single(c => c.Id == "A1");
+        CheckFullPurchaseLists(["A1", "A2"]);
+        Check(plannedInput.SelectedItem == null && vm.RequiredPurchase == 10 && vm.PlannedPurchase == 20,
+            "Direct customer selection retained another customer's purchase selection or amounts.");
+        vm.SelectedCustomer = null;
+        CheckFullPurchaseLists(["A1", "A2"]);
+        Check(vm.RequiredPurchase == 0 && vm.PlannedPurchase == 0 && debtInput.SelectedItem == null && plannedInput.SelectedItem == null,
+            "Clearing the customer must clear individual indicators while retaining both purchase lists.");
+        CheckReopenedPurchaseLists(view, vm, debtInput, plannedInput);
         vm.SelectedSalesManager = new() { Id = "M-B", FullName = "Other" };
         vm.SelectedSalesManager = null; Layout(view);
         Check(vm.SelectedSalesManager?.Id == "M-A" && combo.SelectedItem == vm.SelectedSalesManager, "Direct selection/clearing bypassed the manager lock.");
@@ -59,6 +91,10 @@ internal static class RetailManagerUiTests
             vm.InactiveDebtCustomers.Single().CustomerId == "B1", "Changing manager retained a foreign client/cart, delivery, route or inactive panel.");
         vm.SelectedSalesManager = vm.SalesManagerList.Single(m => m.Id == "M-A"); vm.SelectedTerritory = "North";
         Check(VisibleClients(vm).SequenceEqual(["A1"]) && vm.InactivePlannedCustomers.Single().CustomerId == "A1", "Route and inactive panels are inconsistent with the manager.");
+        debtInput.SelectedItem = vm.InactiveDebtCustomers.Single();
+        CheckFullPurchaseLists(["A1"]);
+        vm.SelectedTerritory = null;
+        CheckFullPurchaseLists(["A1", "A2"]);
         vm.SelectedSalesManager = vm.SalesManagerList.Single(m => m.Id == "M-B");
         vm.SelectedCustomer = vm.AllCustomers.Single(c => c.Id == "B1");
         vm.SelectedProductList.Add(new ProductModel { ArticleNumber = "REVOKED", OrderQuentity = 0 });
@@ -75,6 +111,15 @@ internal static class RetailManagerUiTests
         delayedDebt.SetResult([new("B1", "Old result", 0, 99)]); oldInactive.GetAwaiter().GetResult();
         Check(vm.InactiveDebtCustomers.All(c => c.CustomerId.StartsWith("A")), "A delayed result for the previous manager overwrote the current panel.");
 
+        var delayedCurrentDebt = new TaskCompletionSource<List<InactiveCustomerDto>>(); finance.DelayOther = delayedCurrentDebt;
+        vm.SelectedSalesManager = vm.SalesManagerList.Single(m => m.Id == "M-B");
+        var currentInactive = (Task)typeof(RetailViewModel).GetField("_inactiveRefreshTask", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!;
+        vm.SelectedCustomer = vm.AllCustomers.Single(c => c.Id == "B1");
+        delayedCurrentDebt.SetResult([new("B1", "Current result", 0, 77)]); currentInactive.GetAwaiter().GetResult();
+        CheckFullPurchaseLists(["B1"]);
+        Check(vm.RequiredPurchase == 77 && vm.PlannedPurchase == 60,
+            "Changing the customer during a pending scope load discarded the lists or applied stale customer amounts.");
+
         var delayedScope = new TaskCompletionSource<RetailManagerState>(); service.NextLoad = delayedScope;
         var oldScope = vm.RefreshManagerContextAsync();
         session.Logout(); Layout(view);
@@ -89,7 +134,49 @@ internal static class RetailManagerUiTests
         Check(vm.SelectedSalesManager == null && vm.AllCustomers.Count == 0 && !combo.IsEnabled, "Revoking Orders did not clear protected manager state.");
         Console.WriteLine("PASS: retail UserId auto-selection, locked manager field, explicit all-manager override, linked clients/routes/panels, reset/revocation and delayed results across login changes");
     }
+    private static void CheckReopenedPurchaseLists(RetailView view, RetailViewModel vm, ComboBox debtInput, ComboBox plannedInput)
+    {
+        var window = new Window
+        {
+            Content = view, Width = 1450, Height = 900, ShowActivated = false, ShowInTaskbar = false,
+            Left = -20000, Top = -20000, WindowStartupLocation = WindowStartupLocation.Manual
+        };
+        try
+        {
+            window.Show(); Layout(view);
+            foreach (var input in new[] { debtInput, plannedInput })
+            {
+                foreach (var id in new[] { "A1", "A2", "A1" })
+                {
+                    input.IsDropDownOpen = true; Layout(view);
+                    Check(input.IsDropDownOpen && input.Items.Cast<InactiveCustomerDto>().Select(c => c.CustomerId).OrderBy(c => c)
+                        .SequenceEqual(["A1", "A2"]), "Reopening a purchase dropdown hid the other customers.");
+                    input.SelectedItem = input.Items.Cast<InactiveCustomerDto>().Single(c => c.CustomerId == id);
+                    input.IsDropDownOpen = false; Layout(view);
+                    Check(vm.SelectedCustomer?.Id == id, "A purchase dropdown selected the wrong order customer.");
+                    input.IsDropDownOpen = true; Layout(view);
+                    Check(debtInput.Items.Count == 2 && plannedInput.Items.Count == 2 &&
+                        vm.InactiveDebtCount == 2 && vm.InactivePlannedCount == 2 &&
+                        vm.SelectedSalesManager?.Id == "M-A" && vm.SelectedTerritory == null,
+                        "Selecting and reopening a purchase dropdown narrowed either list or changed the manager/route.");
+                    input.IsDropDownOpen = false;
+                }
+            }
+            vm.SelectedCustomer = null;
+            Console.WriteLine("PASS: both loaded purchase dropdowns retain every manager/route customer after repeated selection, closing and reopening");
+        }
+        finally { window.Content = null; window.Close(); }
+    }
     private static string[] VisibleClients(RetailViewModel vm) => vm.CustomersView.Cast<Customer>().Select(c => c.Id).OrderBy(id => id).ToArray();
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            if (child is T typed) yield return typed;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
     private static void SetUser(UserSessionService session, int id)
     {
         typeof(UserSessionService).GetProperty(nameof(session.UserId))!.SetValue(session, id);
@@ -131,13 +218,15 @@ internal static class RetailManagerUiTests
     private sealed class Finance() : CustomerFinanceService(new PendingDatabase())
     {
         public TaskCompletionSource<List<InactiveCustomerDto>>? DelayOther;
-        private static List<InactiveCustomerDto> Rows() => Managers.Customers.Select(c => new InactiveCustomerDto(c.Id, c.FullName, 0, 10)).ToList();
+        private static List<InactiveCustomerDto> Rows(int multiplier = 1) => Managers.Customers.Select((c, index) =>
+            new InactiveCustomerDto(c.Id, c.FullName, 0, (index + 1) * 10 * multiplier)).ToList();
         public override Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(string? managerId = null, string? territory = null, string? customerId = null)
         {
             if (managerId == "M-B" && DelayOther is { } delay) { DelayOther = null; return delay.Task; }
-            return Task.FromResult(Rows());
+            return Task.FromResult(Rows().Where(c => customerId == null || c.CustomerId == customerId).ToList());
         }
-        public override Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(string? managerId = null, string? territory = null, string? customerId = null) => Task.FromResult(Rows());
+        public override Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(string? managerId = null, string? territory = null, string? customerId = null) =>
+            Task.FromResult(Rows(2).Where(c => customerId == null || c.CustomerId == customerId).ToList());
     }
     private sealed class PendingDatabase : IDbContextFactory<DatabaseContext>
     {

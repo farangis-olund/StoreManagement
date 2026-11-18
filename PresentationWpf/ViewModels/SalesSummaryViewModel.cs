@@ -233,27 +233,30 @@ public partial class SalesSummaryViewModel : ObservableObject
     [RelayCommand]
     private async Task ActSverkiAsync()
     {
-        if (SelectedClient == null)
+        var client = SelectedClient;
+        if (client == null)
         {
             MessageBox.Show("Выберите клиента");
             return;
         }
 
-        var info = await _financeService.GetFinanceInfoAsync(SelectedClient.Id);
-        var lastOrderDate = await _financeService.GetLastOrderDateAsync(SelectedClient.Id);
+        var info = await _financeService.GetFinanceInfoAsync(client.Id);
+        var lastOrderDate = await _financeService.GetLastOrderDateAsync(client.Id);
+        var details = await _financeService.GetReconciliationAsync(client.Id);
 
         var doc = new ReconciliationReportDocument(
-            SelectedClient,
+            client,
             info,
             lastOrderDate ?? DateTime.Today,
-            _userSession.OrganizationDisplayName
+            _userSession.OrganizationDisplayName,
+            details
         );
 
         var folder = Path.Combine(Path.GetTempPath(), "Reports");
         Directory.CreateDirectory(folder);
 
         var path = Path.Combine(folder,
-            $"ActSverki_{SelectedClient.Id}_{DateTime.Now:yyyyMMdd_HHmm}.pdf");
+            $"ActSverki_{client.Id}_{DateTime.Now:yyyyMMdd_HHmm}.pdf");
 
         doc.GeneratePdf(path);
 

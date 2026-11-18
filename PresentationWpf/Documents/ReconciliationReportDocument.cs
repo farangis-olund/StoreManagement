@@ -2,6 +2,8 @@
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Infrastructure.Dtos;
+using Infrastructure.Services;
+using System.Globalization;
 
 namespace PresentationWpf.Documents;
 
@@ -11,17 +13,20 @@ public sealed class ReconciliationReportDocument : IDocument
     private readonly CustomerFinanceInfo _info;
     private readonly string _orgName;
     private readonly DateTime _lastOrderDate;
+    private readonly List<ReconciliationRow> _rows;
 
     public ReconciliationReportDocument(
         Customer customer,
         CustomerFinanceInfo info,
         DateTime lastOrderDate,
-        string orgName)
+        string orgName,
+        IEnumerable<ReconciliationRow> rows)
     {
         _customer = customer;
         _info = info;
         _lastOrderDate = lastOrderDate;
         _orgName = orgName;
+        _rows = rows.OrderByDescending(r => r.Date).ToList();
     }
 
     public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -58,21 +63,44 @@ public sealed class ReconciliationReportDocument : IDocument
                 content.Spacing(12);
 
                 // ===== CLIENT INFO =====
-                content.Item().Table(t =>
+                content.Item().Row(row =>
                 {
-                    t.ColumnsDefinition(c =>
+                    row.RelativeItem().Table(t =>
                     {
-                        c.ConstantColumn(90);
-                        c.RelativeColumn();
-                        c.ConstantColumn(90);
-                        c.RelativeColumn();
+                        t.ColumnsDefinition(c =>
+                        {
+                            c.ConstantColumn(75);
+                            c.RelativeColumn();
+                        });
+
+                        Info(t, "ФИО:", _customer.FullName);
+                        Info(t, "Обл.:", _customer.Region);
+                        Info(t, "Город:", _customer.City);
+                        Info(t, "Адрес:", _customer.Address);
+                        Info(t, "Контакты:", _customer.MobilePhone);
                     });
 
-                    Info(t, "ФИО:", _customer.FullName);
-                    Info(t, "Обл.:", _customer.Region);
-                    Info(t, "Город:", _customer.City);
-                    Info(t, "Адрес:", _customer.Address);
-                    Info(t, "Контакты:", _customer.MobilePhone);
+                    row.ConstantItem(20);
+                    row.ConstantItem(220).Column(totals =>
+                    {
+                        totals.Item().Table(t =>
+                        {
+                            t.ColumnsDefinition(c =>
+                            {
+                                c.RelativeColumn();
+                                c.ConstantColumn(85);
+                            });
+
+                            Sum(t, "Продажа", _info.TotalSales);
+                            Sum(t, "Платежи", _info.PreviousPayments + _info.CurrentPayment);
+                            Sum(t, "Возврат", _info.TotalReturns);
+                            Sum(t, "Бартер", _rows.Sum(r => r.Barter));
+                            Sum(t, "Задолженность", _info.CustomerDebt);
+                            SumBold(t, "ОСТАТОК", _info.Balance);
+                        });
+                        totals.Item().PaddingTop(5).Text("Оплата бартера включена в платежи.")
+                            .FontSize(8).FontColor(Colors.Grey.Darken2);
+                    });
                 });
 
                 // ===== TITLE =====
@@ -83,52 +111,33 @@ public sealed class ReconciliationReportDocument : IDocument
                     .FontSize(16)
                     .Bold();
 
-                // ===== DATE TABLE (CENTERED) =====
-                content.Item().PaddingTop(10).Row(row =>
+                // ===== DAILY DETAILS, NEWEST FIRST =====
+                content.Item().PaddingTop(10).Table(t =>
                 {
-                    row.RelativeItem();
-                    row.ConstantItem(420).Table(t =>
+                    t.ColumnsDefinition(c =>
                     {
-                        t.ColumnsDefinition(c =>
-                        {
-                            c.ConstantColumn(105);
-                            c.ConstantColumn(105);
-                            c.ConstantColumn(105);
-                            c.ConstantColumn(105);
-                        });
-
-                        Header(t, "Дата");
-                        Header(t, "Продажа");
-                        Header(t, "Платеж");
-                        Header(t, "Возврат");
-
-                        Cell(t, _lastOrderDate.ToString("dd.MM.yyyy"));
-                        Cell(t, _info.TotalSales.ToString("N2"));
-                        Cell(t, (_info.PreviousPayments + _info.CurrentPayment).ToString("N2"));
-                        Cell(t, _info.TotalReturns.ToString("N2"));
+                        c.ConstantColumn(85);
+                        c.RelativeColumn();
+                        c.RelativeColumn();
+                        c.RelativeColumn();
+                        c.RelativeColumn();
                     });
-                    row.RelativeItem();
-                });
-
-                // ===== TOTALS TABLE (CENTERED) =====
-                content.Item().PaddingTop(14).Row(row =>
-                {
-                    row.RelativeItem();
-                    row.ConstantItem(320).Table(t =>
+                    t.Header(header =>
                     {
-                        t.ColumnsDefinition(c =>
+                        foreach (var title in new[] { "Дата", "Продажа", "Платеж", "Возврат", "Бартер" })
                         {
-                            c.RelativeColumn();
-                            c.ConstantColumn(120);
-                        });
-
-                        Sum(t, "Продажа", _info.TotalSales);
-                        Sum(t, "Платежи", _info.PreviousPayments + _info.CurrentPayment);
-                        Sum(t, "Возврат", _info.TotalReturns);
-                        Sum(t, "Задолжность", _info.CustomerDebt);
-                        SumBold(t, "ОСТАТОК", _info.Balance);
+                            header.Cell().Background(Colors.Grey.Lighten3).Element(CellStyle)
+                                .AlignCenter().Text(title).Bold();
+                        }
                     });
-                    row.RelativeItem();
+                    foreach (var detail in _rows)
+                    {
+                        t.Cell().Element(CellStyle).AlignCenter().Text(detail.Date.ToString("dd.MM.yyyy"));
+                        foreach (var amount in new[] { detail.Sales, detail.Payments, detail.Returns, detail.Barter })
+                            t.Cell().Element(CellStyle).AlignRight().Text(Money(amount));
+                    }
+                    if (_rows.Count == 0)
+                        t.Cell().ColumnSpan(5).Element(CellStyle).AlignCenter().Text("Нет операций");
                 });
 
                 // ===== SIGNATURES (CENTERED) =====
@@ -161,42 +170,23 @@ public sealed class ReconciliationReportDocument : IDocument
     {
         t.Cell().Text(label).Bold();
         t.Cell().Text(value ?? "");
-        t.Cell().Text("");
-        t.Cell().Text("");
     }
 
-    private static void Header(TableDescriptor t, string text)
-    {
-        t.Cell().Element(c => c
-            .Border(0.5f)
-            .Background(Colors.Grey.Lighten3)
-            .Padding(4)
-            .AlignCenter()
-            .AlignMiddle()
-            .Text(text)
-            .Bold());
-    }
+    private static IContainer CellStyle(IContainer container) => container
+        .Border(0.5f).BorderColor(Colors.Grey.Lighten1).Padding(5).AlignMiddle();
 
-    private static void Cell(TableDescriptor t, string text)
-    {
-        t.Cell().Element(c => c
-            .Border(0.5f)
-            .Padding(4)
-            .AlignCenter()
-            .AlignMiddle()
-            .Text(text));
-    }
+    private static string Money(decimal value) => value.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
 
     private static void Sum(TableDescriptor t, string label, decimal value)
     {
         t.Cell().Text(label);
-        t.Cell().AlignRight().Text(value.ToString("N2"));
+        t.Cell().AlignRight().Text(Money(value));
     }
 
     private static void SumBold(TableDescriptor t, string label, decimal value)
     {
         t.Cell().Text(label).Bold();
-        t.Cell().AlignRight().Text(value.ToString("N2")).Bold();
+        t.Cell().AlignRight().Text(Money(value)).Bold();
     }
 
     private static void SignatureBlock(IContainer container, string title)

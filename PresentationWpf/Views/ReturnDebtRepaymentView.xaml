@@ -38,14 +38,14 @@
             <ToggleButton Content="ПОЛУЧЕНИЕ ВОЗВРАТА"
                     Width="200" Height="45"
                     FontWeight="Bold"
-                    Background="#DFDFC0" 
+                    Background="#BDB76B"
                      Style="{StaticResource TabButton}"
                 Command="{Binding SelectReturnCommand}"
                     Margin="0,0"/>
             <ToggleButton Content="ПОГАЩЕНИЕ ДОЛГА"
                     Width="200" Height="45"
                     FontWeight="Bold"
-                    Background="#C1C19A" 
+                    Background="#708090"
                     Style="{StaticResource TabButton}"
                     Command="{Binding SelectRepaymentCommand}"
                     Margin="5,0"/>
@@ -183,6 +183,7 @@
 
                 <!-- === DataGrid section === -->
                 <DataGrid Grid.Row="1"
+                          Background="#ABABAB"
                           ItemsSource="{Binding Products}"
                           Style="{StaticResource SummaryGrid}"
                           RowHeight="28"

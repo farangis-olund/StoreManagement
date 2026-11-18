@@ -148,6 +148,11 @@ public class OfficialMonthlyPlanService(IDbContextFactory<DatabaseContext> facto
     // Called only for a new order, inside its save transaction. Never rewrites older orders.
     public async Task ApplyToNewOrderAsync(DatabaseContext db, OrderEntity order)
     {
+        if (order.IsBarter)
+        {
+            order.OfficialOrder = false;
+            return;
+        }
         if (!order.OfficialOrder || string.IsNullOrEmpty(order.CustomerId)) return;
         var month = MonthStart(order.Date);
         await EnsurePlansForMonthAsync(db, month);

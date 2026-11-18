@@ -69,7 +69,14 @@ public partial class SummaryViewModel : ObservableObject
     public ObservableCollection<UnpaidOrderDto> UnpaidOrders { get; } = new();
     public decimal CustomerBalance { get; private set; }
 
-	public class OrderRow { public DateTime Date { get; set; } public string InvoiceNo { get; set; } = ""; public decimal Amount { get; set; } }
+    public class OrderRow
+    {
+        public DateTime Date { get; set; }
+        public string InvoiceNo { get; set; } = "";
+        public bool IsBarter { get; set; }
+        public string InvoiceDisplay => IsBarter ? $"{InvoiceNo} — бартер" : InvoiceNo;
+        public decimal Amount { get; set; }
+    }
 	public class PaymentRow { public DateTime Date { get; set; } public string PaymentNo { get; set; } = ""; public decimal Amount { get; set; } public string? OrderId { get; set; } }
 
 	// Selection for grids
@@ -87,7 +94,7 @@ public partial class SummaryViewModel : ObservableObject
 		// Load orders
 		var orders = await _orderService.GetOrdersByCustomerAsync(CustomerId);
 		foreach (var o in orders)
-			Orders.Add(new OrderRow { Date = o.Date, InvoiceNo = o.Id, Amount = o.TotalAmount });
+			Orders.Add(new OrderRow { Date = o.Date, InvoiceNo = o.Id, IsBarter = o.IsBarter, Amount = o.TotalAmount });
 
 		// Load payments
 		var pays = await _orderService.GetPaymentsByCustomerAsync(CustomerId);
@@ -119,6 +126,13 @@ public partial class SummaryViewModel : ObservableObject
 	partial void OnSelectedOrderChanged(OrderRow? value)
 	{
 		if (value == null) return;
+        if (value.IsBarter)
+        {
+            PaymentAmount = 0m;
+            PaymentAmountText = "0";
+            PaymentOrderId = value.InvoiceNo;
+            return;
+        }
 
 		_ = LoadSuggestedPaymentAsync(value.InvoiceNo);
 	}
@@ -140,8 +154,8 @@ public partial class SummaryViewModel : ObservableObject
             return;
         }
 
-        // Mark as sent
-        if (!orderEntity.IsSent)
+        // Reprinting barter does not change its state or create another payment.
+        if (!orderEntity.IsBarter && !orderEntity.IsSent)
         {
             orderEntity.IsSent = true;
             await _orderService.UpdateOrderAsync(orderEntity);
@@ -155,10 +169,12 @@ public partial class SummaryViewModel : ObservableObject
 
             Date = orderEntity.Date,
             Rate = orderEntity.Rate,
+            IsBarter = orderEntity.IsBarter,
             SuminWords = orderEntity.SuminWords,
             CustomerFullName = orderEntity.Customer?.FullName,
 			CustomerRegion = orderEntity.Customer?.Region,
             CustomerAddress = orderEntity.Customer?.Address,
+            CustomerCity = orderEntity.Customer?.City,
             CustomerPhoneNumber = orderEntity.Customer?.MobilePhone,
             CustomerLevel = orderEntity.Customer?.PriceLevelId,
             UserFullName = $"{orderEntity.User?.FirstName} {orderEntity.User?.LastName}",
@@ -174,40 +190,43 @@ public partial class SummaryViewModel : ObservableObject
                 order.OrderDetails.Add(new OrderDetail
                 {
                     ArticleNumber = p.ArticleNumber,
-                    ProductName = p.Product.ProductName,
-                    BrandName = p.Product.Brand.BrandName,
-                    Marka = p.Product.Marka,
-                    Model = p.Product.Model,
+                    ProductName = p.Product?.ProductName,
+                    BrandName = p.Product?.Brand?.BrandName,
+                    Marka = p.Product?.Marka,
+                    Model = p.Product?.Model,
                     Quentity = p.Quentity,
                     Price = p.Price,
                     Total = p.Quentity * p.Price,
-                    WarehousePlace = p.Product.WarehousePlace
+                    WarehousePlace = p.Product?.WarehousePlace
                 });
             }
         }
 
-		// 3️⃣ Prepare Invoice ViewModel
+        await PreviewInvoiceAsync(order, orderEntity.Customer?.Territory, orderEntity.CourierId, orderEntity.StorekeeperId);
+    }
+
+    protected virtual async Task PreviewInvoiceAsync(CustomerOrder order, string? territory, string? courierId, string? storekeeperId)
+    {
 		var invoiceVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
 
         // --- Маршрут data
-        invoiceVm.CustomerTerritory = orderEntity.Customer?.Territory;
-        invoiceVm.CourierId = orderEntity.CourierId;
-        invoiceVm.StorekeeperId = orderEntity.StorekeeperId;
+        invoiceVm.CustomerTerritory = territory;
+        invoiceVm.CourierId = courierId;
+        invoiceVm.StorekeeperId = storekeeperId;
 
         _dataTransferService.SelectedOrder = order;
 		await invoiceVm.LoadInvoiceData();
 
 		// 4️⃣ Create the PDF with QuestPDF
-		var document = new InvoiceDocument(invoiceVm);
 		var pdfService = _serviceProvider.GetRequiredService<PdfService>();
-		var pdfBytes = pdfService.GeneratePdfBytes(ReportType.Invoice, invoiceVm);
+		var pdfBytes = pdfService.GeneratePdfBytes(order.IsBarter ? ReportType.BarterInvoice : ReportType.Invoice, invoiceVm);
 
 		var preview = new DocumentPreviewView();
 		preview.LoadPdf(pdfBytes); // you'll add this helper below
 
 		var window = new Window
 		{
-			Title = $"Просмотр накладной № {order.Id}",
+			Title = order.IsBarter ? $"Бартерный документ № {order.Id}" : $"Просмотр накладной № {order.Id}",
 			Content = preview,
 			Width = 900,
 			Height = 900,
@@ -345,6 +364,8 @@ public partial class SummaryViewModel : ObservableObject
 
     private async Task LoadSuggestedPaymentAsync(string orderId)
     {
+        var selection = SelectedOrder;
+        if (selection?.IsBarter == true) return;
         if (string.IsNullOrWhiteSpace(CustomerId))
             return;
 
@@ -363,6 +384,7 @@ public partial class SummaryViewModel : ObservableObject
 
         // 4) Load current order total
         var order = await _orderService.GetOrderAsync(orderId);
+        if (SelectedOrder != selection || order?.IsBarter == true) return;
         decimal currentOrderTotal = order?.OrderDetails?
             .Sum(d => (decimal)(d.Price * d.Quentity)) ?? 0m;
 
@@ -407,6 +429,7 @@ public partial class SummaryViewModel : ObservableObject
         // ------------------------------
 
         decimal suggested = await _financeService.EzhigodPogashenieAsync(CustomerId, orderId);
+        if (SelectedOrder != selection) return;
 
         if (suggested <= 0m)
             suggested = currentOrderTotal;

@@ -1,9 +1,11 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Infrastructure.Constants;
+using Infrastructure.Dtos;
 using Infrastructure.Services;
-using System;
+using PresentationWpf.Services;
 using System.Collections.ObjectModel;
-using System.Threading.Tasks;
+using System.ComponentModel;
 using System.Windows;
 
 namespace PresentationWpf.ViewModels;
@@ -11,75 +13,59 @@ namespace PresentationWpf.ViewModels;
 public partial class PendingOrdersViewModel : ObservableObject
 {
     private readonly OrderService _orderService;
+    private readonly PermissionService _permissions;
+    private readonly UserSessionService _session;
+    private int _loadVersion;
 
-    public PendingOrdersViewModel(OrderService orderService)
+    public PendingOrdersViewModel(OrderService orderService, PermissionService permissions, UserSessionService session)
     {
         _orderService = orderService;
-        PendingOrders = [];
+        _permissions = permissions;
+        _session = session;
+        PropertyChangedEventManager.AddHandler(permissions, OnPermissionsChanged, nameof(PermissionService.CurrentPermissions));
+        WeakEventManager<UserSessionService, EventArgs>.AddHandler(session, nameof(UserSessionService.UserChanged), OnUserChanged);
         _ = RefreshAsync();
     }
 
-    [ObservableProperty]
-    private ObservableCollection<PendingOrderModel> pendingOrders;
+    public ObservableCollection<PendingOrderDto> PendingOrders { get; } = [];
+    [ObservableProperty] private string? managerId;
+    [ObservableProperty] private PendingOrderDto? selectedOrder;
+    [ObservableProperty] private string message = "";
 
-    [ObservableProperty]
-    private PendingOrderModel? selectedOrder;
+    private void OnPermissionsChanged(object? sender, PropertyChangedEventArgs e) => _ = RefreshAsync();
+    private void OnUserChanged(object? sender, EventArgs e)
+    {
+        if (ManagerId != null) ManagerId = null;
+        else _ = RefreshAsync();
+    }
+
+    partial void OnManagerIdChanged(string? value) => _ = RefreshAsync();
 
     [RelayCommand]
     public async Task RefreshAsync()
     {
+        var version = ++_loadVersion;
+        var userId = _session.UserId;
+        var allManagers = _permissions.Has(PermissionCatalog.OrdersViewAllManagers);
+        var selectedManagerId = allManagers ? ManagerId : null;
         PendingOrders.Clear();
-        var orders = await _orderService.GetUnsentOrdersAsync();
+        SelectedOrder = null;
+        Message = "";
+        if (!_session.IsLoggedIn || !_permissions.Has(PermissionCatalog.Orders)) return;
 
-        foreach (var o in orders)
+        try
         {
-            PendingOrders.Add(new PendingOrderModel
-            {
-                Invoice = o.Invoice,
-                InvoiceNumber = o.InvoiceNumber,
-                Date = o.Date,
-                CustomerId = o.CustomerId,
-                IsSent = o.IsSent
-            });
+            var orders = await _orderService.GetUnsentOrdersAsync(selectedManagerId);
+            if (version != _loadVersion || !_session.IsLoggedIn || _session.UserId != userId ||
+                !_permissions.Has(PermissionCatalog.Orders) ||
+                allManagers != _permissions.Has(PermissionCatalog.OrdersViewAllManagers)) return;
+            foreach (var order in orders) PendingOrders.Add(order);
+            Message = PendingOrders.Count == 0 ? "Нет заказов в ожидании отправки." : "";
         }
-    }
-
-    [RelayCommand]
-    private async Task UpdateAsync()
-    {
-        // only update orders where user set IsSent = true
-        var updatedOrders = PendingOrders.Where(o => o.IsSent).ToList();
-
-        if (updatedOrders.Count == 0)
+        catch (Exception ex)
         {
-            MessageBox.Show("Нет изменений для сохранения.", "Обновление");
-            return;
+            if (version == _loadVersion) Message = ex is UnauthorizedAccessException ? ex.Message :
+                "Не удалось загрузить заказы. Повторно откройте список.";
         }
-
-        foreach (var order in updatedOrders)
-        {
-            await _orderService.UpdateSentStatusAsync(order.InvoiceNumber, true);
-        }
-
-        MessageBox.Show("Изменения успешно сохранены.", "Обновление");
-
-        // Refresh list after save (already sorted by date desc)
-        await RefreshAsync();
-    }
-
-}
-
-public class PendingOrderModel : ObservableObject
-{
-    public string Invoice { get; set; } = string.Empty;
-    public string InvoiceNumber { get; set; } = string.Empty;
-    public DateTime Date { get; set; }
-    public string CustomerId { get; set; } = string.Empty;
-
-    private bool _isSent;
-    public bool IsSent
-    {
-        get => _isSent;
-        set => SetProperty(ref _isSent, value);
     }
 }

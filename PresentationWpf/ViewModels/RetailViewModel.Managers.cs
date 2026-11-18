@@ -34,6 +34,7 @@ public partial class RetailViewModel
     private void NotifyManagerAccess()
     {
         OnPropertyChanged(nameof(CanChooseSalesManager)); OnPropertyChanged(nameof(ManagerSelectionHint));
+        OnPropertyChanged(nameof(CanChangeBarterMode));
         AddToChartCommand.NotifyCanExecuteChanged(); SaveOrderCommand.NotifyCanExecuteChanged();
     }
 

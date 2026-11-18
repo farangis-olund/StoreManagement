@@ -45,6 +45,7 @@ public partial class ReportsViewModel : ObservableObject
         _serviceProvider = serviceProvider;
         _returnsDayReportService = returnsDayReportService;
         _permissionService = permissionService;
+        InitializeReportLinks();
     }
 
     // ================= REPORTS =================

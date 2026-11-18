@@ -609,6 +609,10 @@
                     <views:WarehousePlaceReportView/>
                 </DataTemplate>
 
+                <DataTemplate DataType="{x:Type viewmodels:StoreExchangeReportViewModel}">
+                    <views:StoreExchangeReportView/>
+                </DataTemplate>
+
                 <DataTemplate DataType="{x:Type viewmodels:CustomerSalesPaymentsReportViewModel}">
                     <views:CustomerSalesPaymentsReportView/>
                 </DataTemplate>

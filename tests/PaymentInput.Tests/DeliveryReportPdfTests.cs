@@ -32,7 +32,7 @@ internal static class DeliveryReportPdfTests
         new CourierDeliveryReportDocument("Opel", "Доставщик1", many, "Список неоплаченных доставок")
             .GeneratePdf(Path.Combine(folder, "courier-unpaid-multipage.pdf"));
         new DeliveryNoteDocument("Opel", "Доставщик1", new(2026, 11, 12), 11, "СЧ-3H3KLC",
-            lines.Select(l => new DeliveryNoteLine { City = "Душанбе", Address = l.Address, CustomerName = l.FullName,
+            lines.Select(l => new DeliveryNoteLine { CustomerId = l.CustomerId, City = "Душанбе", Address = l.Address, CustomerName = l.FullName,
                 Phone = l.Phone, InvoiceNumber = l.Invoice, ReceiptNumber = l.ReceiptNumber }).ToList())
             .GeneratePdf(Path.Combine(folder, "delivery-note-sample.pdf"));
         Console.WriteLine("PASS: courier report and transport note render with separate invoice/receipt columns, standalone payments, invoice-only rows and multiple pages");

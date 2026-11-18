@@ -21,6 +21,7 @@ public class CustomerFinanceService
 		await using var db = await _contextFactory.CreateDbContextAsync();
 
 		decimal currentSale = 0;
+		decimal currentDebtSale = 0;
 		decimal currentPayment = 0;
 		decimal previousPayments = 0;
 		decimal totalSales = 0;
@@ -31,11 +32,17 @@ public class CustomerFinanceService
 
 		try
 		{
-			// Sum of the current order's sale
-			currentSale = await db.OrderDetails
-				.Where(d => d.OrderId == orderId)
-				.Select(d => (d.Price) * (d.Quentity))
-				.SumAsync();
+			var currentOrder = await db.Orders
+				.Where(o => o.Id == orderId && o.CustomerId == customerId)
+				.Select(o => new
+				{
+					o.IsBarter,
+					Total = o.OrderDetails.Sum(d => (decimal?)d.Price * d.Quentity) ?? 0m
+				})
+				.SingleOrDefaultAsync();
+			// Keep the barter amount on its receipt; only ordinary sales increase debt.
+			currentSale = currentOrder?.Total ?? 0m;
+			currentDebtSale = currentOrder?.IsBarter == false ? currentSale : 0m;
 		}
 		catch (Exception ex)
 		{
@@ -88,7 +95,7 @@ public class CustomerFinanceService
 		try
 		{
 			totalSales = db.OrderDetails
-				.Where(d => d.Order.CustomerId == customerId)
+				.Where(d => d.Order.CustomerId == customerId && !d.Order.IsBarter)
 				.AsEnumerable() // move to LINQ-to-Objects
 				.Sum(d => (decimal)(d.Price) * (d.Quentity));
 		}
@@ -112,7 +119,7 @@ public class CustomerFinanceService
 		}
 
 
-		decimal oldDebt = (totalSales - totalReturns) - currentSale - previousPayments + customerDebt;
+		decimal oldDebt = (totalSales - totalReturns) - currentDebtSale - previousPayments + customerDebt;
 		decimal balance = totalSales + customerDebt - previousPayments - currentPayment - totalReturns;
 
 		return new CustomerFinanceInfo
@@ -177,7 +184,7 @@ public class CustomerFinanceService
         try
         {
             totalSales = db.OrderDetails
-                .Where(d => d.Order.CustomerId == customerId)
+                .Where(d => d.Order.CustomerId == customerId && !d.Order.IsBarter)
                 .AsEnumerable() // move to LINQ-to-Objects
                 .Sum(d => (decimal)(d.Price) * (d.Quentity));
         }
@@ -226,25 +233,16 @@ public class CustomerFinanceService
 
         await using var db = await _contextFactory.CreateDbContextAsync();
 
-        // 1️⃣ Load coefficients
-        var coef = await db.RaschetKoefficenta.FirstOrDefaultAsync();
-        if (coef == null) return 0;
-
-        var bands = new List<RepaymentBand>
-    {
-        new(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
-        new(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
-        new(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
-        new(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
-        new(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5)
-    };
+        var customer = await db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == customerId);
+        if (customer?.DailyRepaymentCoefficient is not > 0) return 0;
+        var dailyCoefficient = (decimal)customer.DailyRepaymentCoefficient.Value;
 
         // 2️⃣ Get finance info
         var info = await GetFinanceInfoAsync(customerId, orderId);
         if (info == null) return 0;
 
         var today = DateTime.Today;
-        var contractDay = info.ContractDate ?? today;
+        var contractDay = customer.ContractDate ?? today;
         var balance = info.Balance;
         var currentSale = info.CurrentSale;
 
@@ -255,23 +253,9 @@ public class CustomerFinanceService
 
         var adjustedBalance = balance + todayPayments; // VBA: ostatokDlyaPogash + summaPlatezha
 
-        // 4️⃣ Determine coefficient band
-        var band = bands.FirstOrDefault(b => adjustedBalance >= b.OstatokNach && adjustedBalance <= b.OstatokKon);
-        if (band == null) return 0;
-
-        // 5️⃣ Days calculation (excluding weekends)
+        // Use the saved customer coefficient; global settings are used only when recalculating the card.
         var numberOfDays = DatesBetweenExcludingWeekends(contractDay, today);
-
-        // 6️⃣ Base formula
-        decimal repayment;
-        if (numberOfDays <= 0 || band.Days <= 0)
-        {
-            repayment = 0;
-        }
-        else
-        {
-            repayment = ((adjustedBalance - currentSale) / band.Days) * numberOfDays;
-        }
+        var repayment = dailyCoefficient * numberOfDays;
 
         // 7️⃣ Safety checks (same as VBA)
         var limit = adjustedBalance - currentSale;
@@ -283,92 +267,33 @@ public class CustomerFinanceService
         return Math.Round(repayment, 2);
     }
 
-    public virtual async Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
+    public virtual Task<List<InactiveCustomerDto>> NeaktivOtEzhigodPogashenieAsync(
     string? managerId = null,
     string? territory = null,
     string? customerId = null)
-    {
-        await using var db = await _contextFactory.CreateDbContextAsync();
+        => GetPurchaseShortfallsAsync(false, managerId, territory, customerId);
 
-        var coef = await db.RaschetKoefficenta.FirstOrDefaultAsync();
-        if (coef == null) return new();
-
-        var bands = new List<RepaymentBand>
-    {
-        new(coef.KoefEzhPogashOstatokNach1, coef.KoefEzhPogashOstatokKon1, coef.KoefEzhPogashDin1),
-        new(coef.KoefEzhPogashOstatokNach2, coef.KoefEzhPogashOstatokKon2, coef.KoefEzhPogashDin2),
-        new(coef.KoefEzhPogashOstatokNach3, coef.KoefEzhPogashOstatokKon3, coef.KoefEzhPogashDin3),
-        new(coef.KoefEzhPogashOstatokNach4, coef.KoefEzhPogashOstatokKon4, coef.KoefEzhPogashDin4),
-        new(coef.KoefEzhPogashOstatokNach5, coef.KoefEzhPogashOstatokKon5, coef.KoefEzhPogashDin5)
-    };
-
-        var query = db.Customers.AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(managerId))
-            query = query.Where(c => c.SalesManagerId == managerId);
-
-        if (!string.IsNullOrWhiteSpace(territory))
-            query = query.Where(c => c.Territory == territory);
-
-        if (!string.IsNullOrWhiteSpace(customerId))
-            query = query.Where(c => c.Id == customerId);
-
-        var customers = await query.ToListAsync();
-        var today = DateTime.Today;
-
-        var result = new List<InactiveCustomerDto>();
-
-        foreach (var cust in customers)
-        {
-            var info = await GetFinanceInfoAsync(cust.Id, orderId: "");
-            if (info == null) continue;
-
-            var balance = info.Balance;
-            var contractDate = info.ContractDate ?? today;
-
-            var band = bands.FirstOrDefault(b =>
-                balance >= b.OstatokNach &&
-                balance <= b.OstatokKon);
-
-            if (band == null) continue;
-
-            var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
-            var repayment = balance * 4 / band.Days * numberOfDays;
-
-            if (repayment >= 1 && repayment > info.TotalSales)
-            {
-                var suggested = Math.Round(repayment - info.TotalSales, 0);
-
-                if (suggested > 0)
-                {
-                    result.Add(new InactiveCustomerDto(
-                        cust.Id,
-                        cust.FullName ?? "",
-                        info.Balance,
-                        suggested
-                    ));
-                }
-            }
-        }
-
-        return result;
-    }
-    public virtual async Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(
+    public virtual Task<List<InactiveCustomerDto>> NeaktivNeZakupAsync(
      string? managerId = null,
      string? territory = null,
      string? customerId = null)
+        => GetPurchaseShortfallsAsync(true, managerId, territory, customerId);
+
+    private async Task<List<InactiveCustomerDto>> GetPurchaseShortfallsAsync(
+        bool planned, string? managerId, string? territory, string? customerId)
     {
         await using var db = await _contextFactory.CreateDbContextAsync();
 
         var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
         var result = new List<InactiveCustomerDto>();
 
-        var query = db.Customers
-            .Include(c => c.Orders)
-                .ThenInclude(o => o.OrderDetails)
-            .Include(c => c.Returns)
-            .Include(c => c.Payments)
-            .AsQueryable();
+        var query = db.Customers.AsNoTracking()
+            .Where(c => c.ContractDate != null && c.ContractDate < tomorrow);
+
+        query = planned
+            ? query.Where(c => c.DailyPlannedPurchaseCoefficient > 0)
+            : query.Where(c => c.DailyPurchaseCoefficient > 0);
 
         if (!string.IsNullOrWhiteSpace(managerId))
             query = query.Where(c => c.SalesManagerId == managerId);
@@ -379,49 +304,31 @@ public class CustomerFinanceService
         if (!string.IsNullOrWhiteSpace(customerId))
             query = query.Where(c => c.Id == customerId);
 
-        var customers = await query.ToListAsync();
+        var customers = await query.Select(c => new
+        {
+            c.Id,
+            c.FullName,
+            c.ContractDate,
+            c.Debt,
+            Coefficient = planned ? c.DailyPlannedPurchaseCoefficient : c.DailyPurchaseCoefficient,
+            // Include the whole contract day and today, regardless of the order's time.
+            Sales = c.Orders
+                .Where(o => o.Date >= c.ContractDate!.Value.Date && o.Date < tomorrow)
+                .SelectMany(o => o.OrderDetails)
+                .Sum(d => (decimal?)d.Price * d.Quentity) ?? 0m
+        }).ToListAsync();
 
         foreach (var cust in customers)
         {
-            if (cust.ContractDate == null || cust.DailyPlannedPurchaseCoefficient == null)
-                continue;
+            var numberOfDays = DatesBetweenExcludingWeekends(cust.ContractDate!.Value, today);
+            var target = (decimal)cust.Coefficient!.Value * numberOfDays;
+            var shortfall = Math.Round(Math.Max(0m, target - cust.Sales), 0);
+            if (shortfall <= 0) continue;
 
-            var contractDate = cust.ContractDate.Value;
-            var coef = (decimal)cust.DailyPlannedPurchaseCoefficient.Value;
-
-            var numberOfDays = DatesBetweenExcludingWeekends(contractDate, today);
-            var sumPlan = numberOfDays * coef;
-
-            decimal sales = cust.Orders
-                .SelectMany(o => o.OrderDetails)
-                .Sum(d => (decimal)d.Price * d.Quentity);
-
-            decimal returns = cust.Returns
-                .Sum(r => (decimal)r.TotalAmount);
-
-            decimal payments = cust.Payments
-                .Sum(p => (decimal)p.Amount);
-
-            decimal debt = (decimal)(cust.Debt ?? 0);
-
-            var sumaContractov = sales - returns + debt - payments;
-
-            if (sumPlan > sumaContractov)
-            {
-                var shortfall = Math.Round(sumPlan - sumaContractov, 0);
-
-                if (shortfall > 0)
-                {
-                    var balance = (decimal)(cust.Debt ?? 0);
-
-                    result.Add(new InactiveCustomerDto(
-                        cust.Id,
-                        cust.FullName ?? "",
-                        balance,
-                        shortfall
-                    ));
-                }
-            }
+            // Debt remains informational and does not change either purchase formula.
+            var balance = planned ? (decimal)(cust.Debt ?? 0)
+                : (await GetFinanceInfoAsync(cust.Id, orderId: "")).Balance;
+            result.Add(new InactiveCustomerDto(cust.Id, cust.FullName ?? "", balance, shortfall));
         }
 
         return result;
@@ -443,7 +350,7 @@ public class CustomerFinanceService
         await using var db = await _contextFactory.CreateDbContextAsync();
 
         var sales = await db.Orders
-            .Where(o => o.CustomerId == customerId)
+            .Where(o => o.CustomerId == customerId && !o.IsBarter)
             .GroupBy(o => o.Date.Date)
             .Select(g => new
             {
@@ -463,8 +370,18 @@ public class CustomerFinanceService
             })
             .ToListAsync();
 
+        var barters = await db.Orders
+            .Where(o => o.CustomerId == customerId && o.IsBarter)
+            .GroupBy(o => o.Date.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Sum = g.SelectMany(o => o.OrderDetails).Sum(d => d.Price * d.Quentity)
+            })
+            .ToListAsync();
+
         var returns = await db.Returns
-            .Where(r => r.CustomerId == customerId)
+            .Where(r => r.CustomerId == customerId && r.RefundMethod == RefundMethodConstants.Balance)
             .GroupBy(r => r.Date.Date)
             .Select(g => new
             {
@@ -476,7 +393,8 @@ public class CustomerFinanceService
         var dates = sales.Select(x => x.Date)
             .Union(payments.Select(x => x.Date))
             .Union(returns.Select(x => x.Date))
-            .OrderBy(d => d);
+            .Union(barters.Select(x => x.Date))
+            .OrderByDescending(d => d);
 
         var result = new List<ReconciliationRow>();
 
@@ -487,7 +405,8 @@ public class CustomerFinanceService
                 Date = date,
                 Sales = sales.FirstOrDefault(x => x.Date == date)?.Sum ?? 0,
                 Payments = payments.FirstOrDefault(x => x.Date == date)?.Sum ?? 0,
-                Returns = returns.FirstOrDefault(x => x.Date == date)?.Sum ?? 0
+                Returns = returns.FirstOrDefault(x => x.Date == date)?.Sum ?? 0,
+                Barter = barters.FirstOrDefault(x => x.Date == date)?.Sum ?? 0
             });
         }
 
@@ -512,6 +431,7 @@ public class CustomerFinanceService
         // 2️⃣ Get sales (orders) in period
         var sales = await db.Orders
             .Where(o => customerIds.Contains(o.CustomerId)
+                     && !o.IsBarter
                      && o.Date >= fromDate
                      && o.Date <= toDate)
             .SelectMany(o => o.OrderDetails)
@@ -608,7 +528,7 @@ public class CustomerFinanceService
 
         // 2️⃣ Get ALL sales (no date filter)
         var sales = await db.Orders
-            .Where(o => customerIds.Contains(o.CustomerId))
+            .Where(o => customerIds.Contains(o.CustomerId) && !o.IsBarter)
             .SelectMany(o => o.OrderDetails)
             .GroupBy(d => d.Order.CustomerId)
             .Select(g => new
@@ -727,6 +647,8 @@ public sealed class ReconciliationRow
     public decimal Sales { get; set; }
     public decimal Payments { get; set; }
     public decimal Returns { get; set; }
+    // Informational: the actual barter payment is already included in Payments.
+    public decimal Barter { get; set; }
 
     public decimal Delta => Sales - Payments - Returns;
 }

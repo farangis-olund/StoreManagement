@@ -24,6 +24,9 @@ public partial class CustomerViewModel : ObservableObject
     private bool _hasLoaded;
     private bool _reloadRequested;
     private int _accessVersion;
+    private int _balanceRequestVersion;
+    private decimal? _customerBalance;
+    private string _customerBalanceError = "";
     public PermissionService PermissionService { get; }
     public CustomerViewModel(CustomerService customerService, CoefficientService coefficientService, PermissionService permissionService, CustomerFieldPermissionPolicy fieldPermissions)
 	{
@@ -45,6 +48,17 @@ public partial class CustomerViewModel : ObservableObject
 
     public bool IsCustomerSelected => SelectedCustomer != null;
     public bool CanDeleteCustomer => _fieldPermissions.CanDeleteCustomer;
+    public bool CanViewBalance => _fieldPermissions.CanViewBalance;
+    public decimal? CustomerBalance
+    {
+        get => CanViewBalance ? _customerBalance : null;
+        private set => SetProperty(ref _customerBalance, value);
+    }
+    public string CustomerBalanceError
+    {
+        get => _customerBalanceError;
+        private set => SetProperty(ref _customerBalanceError, value);
+    }
     private bool CanDeleteSelectedCustomer() => CanDeleteCustomer && !string.IsNullOrWhiteSpace(SelectedCustomer?.Id);
 	
 	[ObservableProperty]
@@ -106,6 +120,7 @@ public partial class CustomerViewModel : ObservableObject
         _accessVersion++;
         RefreshPermissions();
         if (_hasLoaded) _ = LoadDataAsync();
+        else _ = RefreshCustomerBalanceAsync();
     }
 
 	private async Task LoadCustomersAsync()
@@ -143,7 +158,8 @@ public partial class CustomerViewModel : ObservableObject
 	private void CreateCustomer()
 	{
         if (!CanCreateCustomer()) return;
-		SelectedCustomer = new Customer { ContractDate = null,
+		SelectedCustomer = new Customer {
+            ContractDate = _fieldPermissions.CanAdd(CustomerField.ContractDate) ? DateTime.Today : null,
             SalesManagerId = !PermissionService.Has(PermissionCatalog.CustomersViewAll) ? SalesManagers.SingleOrDefault()?.Id : null };
         MessageBox.Show("Заполните все обязательные поля, затем нажмите на кнопу Сохранить.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -240,6 +256,14 @@ public partial class CustomerViewModel : ObservableObject
 
     public void RefreshPermissions()
     {
+        OnPropertyChanged(nameof(CanViewBalance));
+        if (!CanViewBalance)
+        {
+            _balanceRequestVersion++;
+            CustomerBalance = null;
+            CustomerBalanceError = "";
+        }
+        OnPropertyChanged(nameof(CustomerBalance));
         OnPropertyChanged(nameof(DebtAccess));
         OnPropertyChanged(nameof(RestrictionAccess));
         OnPropertyChanged(nameof(BuyLimitAccess));
@@ -407,7 +431,31 @@ public partial class CustomerViewModel : ObservableObject
 	{
         _originalCustomer = value != null && !string.IsNullOrWhiteSpace(value.Id) ? (CustomerEntity)value : null;
         RefreshPermissions();
+		_ = RefreshCustomerBalanceAsync();
 	}
+
+    public async Task RefreshCustomerBalanceAsync()
+    {
+        var request = ++_balanceRequestVersion;
+        var customer = SelectedCustomer;
+        CustomerBalance = null;
+        CustomerBalanceError = "";
+        if (!CanViewBalance || string.IsNullOrWhiteSpace(customer?.Id)) return;
+
+        try
+        {
+            var balance = await _customerService.GetBalanceForEditorAsync(customer.Id);
+            if (request == _balanceRequestVersion && SelectedCustomer == customer && CanViewBalance)
+                CustomerBalance = balance;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            if (request == _balanceRequestVersion && SelectedCustomer == customer && CanViewBalance)
+                CustomerBalanceError = ex is UnauthorizedAccessException ? "Нет доступа к остатку этого клиента."
+                    : "Не удалось загрузить остаток. Повторно выберите клиента.";
+        }
+    }
 
 }
 

@@ -22,6 +22,7 @@ public static class PermissionCatalog
     public const string CustomersViewAll = "Customers.ViewAll";
     public const string CustomersDelete = "Customers.Delete";
     public const string CustomersDebt = "Customers.Debt";
+    public const string CustomersBalanceView = "Customers.Balance.View";
     public const string CustomersRestriction = "Customers.Restriction";
     public const string Expenses = "Expenses";
     public const string ExpensesRemove = "Expenses.Remove";
@@ -36,6 +37,12 @@ public static class PermissionCatalog
     public const string OrdersDirectFromStock = "Orders.DirectFromStock";
     public const string OrdersExceedBuyLimit = "Orders.ExceedBuyLimit";
     public const string OrdersViewAllManagers = "Orders.ViewAllManagers";
+    public const string OrdersDelivery = "Orders.Delivery";
+    public const string OrdersDeliveryView = "Orders.Delivery.View";
+    public const string OrdersDeliveryUpdate = "Orders.Delivery.Update";
+    public const string OrdersDeliveryPrint = "Orders.Delivery.Print";
+    public const string OrdersDeliveryReport = "Orders.Delivery.Report";
+    public const string OrdersAssignPickers = "Orders.AssignPickers";
     public const string ProductRequests = "ProductRequests";
     public const string OfficialMonthlyPlansManage = "OfficialMonthlyPlans.Manage";
     public const string OfficialMonthlyPlansView = "OfficialMonthlyPlans.View";
@@ -69,6 +76,7 @@ public static class PermissionCatalog
         new PermissionDefinition(CustomersViewAll, "Клиенты.Просмотр всех клиентов"),
         new PermissionDefinition(CustomersDelete, "Клиенты.Удаление клиента"),
         new PermissionDefinition(CustomersDebt, "Клиенты.Задолженность.Просмотр (старое право)"),
+        new PermissionDefinition(CustomersBalanceView, "Клиенты.Остаток.Просмотр"),
         new PermissionDefinition(CustomersRestriction, "Клиенты.Ограничение.Просмотр (старое право)"),
         new PermissionDefinition(Expenses, "Расходы"),
         new PermissionDefinition(ExpensesRemove, "Расходы.Удалить"),
@@ -83,6 +91,12 @@ public static class PermissionCatalog
         new PermissionDefinition(OrdersDirectFromStock, "Заказы.Заказ прямо со склада"),
         new PermissionDefinition(OrdersExceedBuyLimit, "Заказы.Продажа сверх лимита суммы заказа"),
         new PermissionDefinition(OrdersViewAllManagers, "Заказы.Просмотр всех менеджеров"),
+        new PermissionDefinition(OrdersDelivery, "Заказы.Доставка заказов"),
+        new PermissionDefinition(OrdersDeliveryView, "Заказы.Доставка заказов.Просмотр"),
+        new PermissionDefinition(OrdersDeliveryUpdate, "Заказы.Доставка заказов.Обновить"),
+        new PermissionDefinition(OrdersDeliveryPrint, "Заказы.Доставка заказов.Печать"),
+        new PermissionDefinition(OrdersDeliveryReport, "Заказы.Доставка заказов.Отчёт"),
+        new PermissionDefinition(OrdersAssignPickers, "Заказы.Назначение комплектовщиков"),
         new PermissionDefinition(ProductRequests, "Заявки на товары"),
         new PermissionDefinition(OfficialMonthlyPlansManage, "Месячные планы.Управление планами официальных клиентов"),
         new PermissionDefinition(OfficialMonthlyPlansView, "Месячные планы.Просмотр таблицы контроля"),

@@ -24,7 +24,6 @@ public partial class OrderInvoiceViewModel : ObservableObject
 		_dataTransferService = dataTransferService;
 		_financeService = customerFinanceService;
 		_orgService = organizationInfoService;
-		_ = LoadInvoiceData();
 	}
 
 	// ===== Invoice Details =====
@@ -131,7 +130,7 @@ public partial class OrderInvoiceViewModel : ObservableObject
 								  ?? string.Empty;
 
 			CustomerCity = order.CustomerCity
-								  ?? _dataTransferService.SelectedOrder?.Customer!.City
+								 ?? order.Customer?.City
 								  ?? string.Empty;
 
             ShopName = shopDisplay ?? "";
@@ -163,7 +162,7 @@ public partial class OrderInvoiceViewModel : ObservableObject
 
 			//totals from DB ---
 		
-			var customerId = _dataTransferService.CustomerId;
+			var customerId = order.Customer?.Id ?? _dataTransferService.CustomerId;
 			
 			if (string.IsNullOrEmpty(customerId) && string.IsNullOrEmpty(InvoiceNumber)) return;
 

@@ -21,7 +21,8 @@ public class CustomerService
     private readonly CustomerFieldPermissionPolicy _fieldPermissions;
     private readonly OfficialMonthlyPlanService? _monthlyPlans;
     private readonly CustomerAccessPolicy _access;
-    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger, CustomerFieldPermissionPolicy fieldPermissions, CustomerAccessPolicy access, OfficialMonthlyPlanService? monthlyPlans = null)
+    private readonly CustomerFinanceService _financeService;
+    public CustomerService(CustomerRepository customerRepository, IDbContextFactory<DatabaseContext> dbFactory, PriceLevelRepository priceLevelRepository, SalesManagerRepository salesManagerRepository, ILogger<CustomerService> logger, CustomerFieldPermissionPolicy fieldPermissions, CustomerAccessPolicy access, OfficialMonthlyPlanService? monthlyPlans = null, CustomerFinanceService? financeService = null)
 	{
 		_customerRepository = customerRepository;
 		_logger = logger;
@@ -31,6 +32,7 @@ public class CustomerService
         _fieldPermissions = fieldPermissions;
         _monthlyPlans = monthlyPlans;
         _access = access;
+        _financeService = financeService ?? new CustomerFinanceService(dbFactory);
 	}
 
 	public async Task<CustomerEntity> AddCustomerAsync(CustomerEntity customer)
@@ -154,6 +156,28 @@ public class CustomerService
         if (all != _access.CanViewAll || userId != _access.UserId)
             throw new UnauthorizedAccessException("Права доступа изменились. Повторно откройте клиентов.");
         return rows;
+    }
+
+    public virtual async Task<decimal> GetBalanceForEditorAsync(string customerId)
+    {
+        _fieldPermissions.EnsureCanViewBalance();
+        ArgumentException.ThrowIfNullOrWhiteSpace(customerId);
+        var userId = _access.UserId;
+        var allCustomers = _access.CanViewAll;
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        await _access.EnsureAccessAsync(db, customerId);
+        if (!await db.Customers.AnyAsync(c => c.Id == customerId))
+            throw new InvalidOperationException("Клиент больше не существует. Обновите список клиентов.");
+
+        // Share the customer summary's calculation; do not persist a second balance field.
+        var finance = await _financeService.GetFinanceInfoAsync(customerId, orderId: null!);
+
+        _fieldPermissions.EnsureCanViewBalance();
+        await _access.EnsureAccessAsync(db, customerId);
+        _fieldPermissions.EnsureCanViewBalance();
+        if (userId != _access.UserId || allCustomers != _access.CanViewAll)
+            throw new UnauthorizedAccessException("Права доступа изменились. Повторно выберите клиента.");
+        return finance.Balance;
     }
 
     public Task<CustomerEntity> UpdateCustomerAsync(CustomerEntity customer) =>

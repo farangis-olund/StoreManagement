@@ -177,6 +177,8 @@ public partial class App : Application
                 services.AddTransient<ReportViewModel>();
 
                 services.AddTransient<StockLocationViewModel>();
+                services.AddTransient<WarehousePlaceService>();
+                services.AddSingleton<WarehousePlaceImportState>();
                 services.AddTransient<PendingOrdersViewModel>();
                 services.AddTransient<DeliveryOrdersViewModel>();
                 services.AddTransient<AssignPickersViewModel>();
@@ -221,6 +223,9 @@ public partial class App : Application
                 services.AddTransient<CourierStorekeeperReportViewModel>();
                 services.AddTransient<WarehousePlaceReportViewModel>();
                 services.AddTransient<WarehousePlaceReportView>();
+                services.AddTransient<StoreExchangeReportViewModel>();
+                services.AddTransient<StoreExchangeReportView>();
+                services.AddTransient<StoreExchangeReportService>();
                 services.AddTransient<CustomerSalesPaymentsReportView>();
                 services.AddTransient<CustomerSalesPaymentsReportViewModel>();
                 services.AddTransient<TotalSalesReportViewModel>();

@@ -186,6 +186,7 @@ internal static class Program
                 "Customer field clear buttons should not be displayed.");
             Assert(listener.Messages.Count == 0, string.Join(Environment.NewLine, listener.Messages));
             Console.WriteLine("PASS: customer WPF bindings, hidden/read-only fields, Add/Edit/Delete controls, required selections, and checkbox binding");
+            CustomerBalanceUiTests.Run();
             CheckPermissionsView(app);
             RolePermissionsTests.Run(app);
             Assert(listener.Messages.Count == 0, string.Join(Environment.NewLine, listener.Messages));

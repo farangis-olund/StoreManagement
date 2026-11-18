@@ -37,12 +37,16 @@ internal sealed class PermissionCatalogTests
             Console.WriteLine("PASS: catalogue keys and constants agree");
             CustomerPermissionTests.CheckPolicy();
             CustomerDeletionTests.CheckAuthorization().GetAwaiter().GetResult();
+            CustomerBalanceTests.CheckAuthorizationAsync().GetAwaiter().GetResult();
             AdminPermissionTests.CheckPolicyAsync().GetAwaiter().GetResult();
             RetailManagerTests.CheckAuthorizationAsync().GetAwaiter().GetResult();
+            PendingOrderTests.CheckAuthorizationAsync().GetAwaiter().GetResult();
+            OrderOperationsPermissionTests.CheckAuthorizationAsync().GetAwaiter().GetResult();
             OrderPermissionTests.RunAsync().GetAwaiter().GetResult();
             AvailableRestrictionTests.CheckCalculation();
             OrderAllowanceTests.Run();
             UnpaidDeliveryTests.CheckDisplay();
+            WarehousePlaceImportTests.CheckExcelReader();
             if (skipDatabase) return 0;
 
             // All database files stay in this test project's ignored build output directory.
@@ -58,8 +62,14 @@ internal sealed class PermissionCatalogTests
             using (var context = CreateCustomerContext())
                 context.Database.EnsureCreated();
 
+            new CustomerCoefficientFormulaTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            CustomerBalanceTests.RunAsync(CreateCustomerContext).GetAwaiter().GetResult();
             new DeliveryPaymentMigrationTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
             new PaymentReceiptNumberTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            new BarterOrderTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            new BarterReportTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            StoreExchangeReportTests.RunAsync(CreateCustomerContext).GetAwaiter().GetResult();
+            WarehousePlaceImportTests.RunAsync(CreateCustomerContext).GetAwaiter().GetResult();
 
             var tests = new (string Name, Action Run)[]
             {
@@ -84,6 +94,8 @@ internal sealed class PermissionCatalogTests
             new AdminPermissionTests(CreateCustomerContext).CheckMigrationAsync().GetAwaiter().GetResult();
             new UserManagerTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
             new RetailManagerTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            new PendingOrderTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
+            new OrderOperationsPermissionTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
             CheckPermissionReloadAsync().GetAwaiter().GetResult();
             new AvailableRestrictionTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();
             new UnpaidDeliveryTests(CreateCustomerContext).RunAsync().GetAwaiter().GetResult();

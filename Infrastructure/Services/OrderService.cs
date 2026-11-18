@@ -24,6 +24,8 @@ public class OrderService
 	private readonly ProductService _productService;
     private readonly IPermissionChecker _permissions;
     private readonly OfficialMonthlyPlanService? _monthlyPlans;
+    private readonly ICurrentUserContext? _session;
+    private readonly OrderOperationsAccessPolicy _operationsAccess;
 
 	// Allowed characters for the random part
 	private static readonly char[] _chars =
@@ -31,7 +33,8 @@ public class OrderService
 	public OrderService(OrderRepository orderRepository,
 								OrderDetailRepository orderDetailRepository,
 								ILogger<OrderService> logger, ProductService productService, IDbContextFactory<DatabaseContext> dbFactory,
-                                IPermissionChecker permissions, OfficialMonthlyPlanService? monthlyPlans = null)
+                                IPermissionChecker permissions, OfficialMonthlyPlanService? monthlyPlans = null,
+                                ICurrentUserContext? session = null)
 	{
 		_orderRepository = orderRepository;
 		_orderDetailRepository = orderDetailRepository;
@@ -40,6 +43,8 @@ public class OrderService
 		_productService = productService;
         _permissions = permissions;
         _monthlyPlans = monthlyPlans;
+        _session = session;
+        _operationsAccess = new(permissions);
 
 	}
 
@@ -75,114 +80,93 @@ public class OrderService
         return number;
     }
 
-    public async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
+    public virtual async Task<OrderEntity?> AddOrderAsync(OrderEntity orderEntity)
     {
         if (orderEntity.IsBarter && !_permissions.Has(PermissionCatalog.OrdersBarter))
             throw new UnauthorizedAccessException("Нет права: Заказы.Бартер.");
         if (orderEntity.DirectFromStock && !_permissions.Has(PermissionCatalog.OrdersDirectFromStock))
             throw new UnauthorizedAccessException("Нет права: Заказы.Заказ прямо со склада.");
+        if (orderEntity.IsBarter) orderEntity.OfficialOrder = false;
 
-        await using var db = await _dbFactory.CreateDbContextAsync();
-        try
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            // 1️⃣ Ensure Id (invoice number) with correct prefix
-            if (string.IsNullOrWhiteSpace(orderEntity.Id))
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            CustomerPaymentEntity? barterPayment = null;
+            var committed = false;
+            try
             {
-                string prefix = orderEntity.IsBarter ? "БТ-" : "СЧ-";
-                orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(
-                    isBarter: orderEntity.IsBarter,
-                    length: 6,
-                    prefix: prefix
-                );
-            }
+                if (attempt > 0 || string.IsNullOrWhiteSpace(orderEntity.Id))
+                    orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(isBarter: orderEntity.IsBarter);
 
-            // Optional pre-check
-            var exists = await db.Orders.AnyAsync(o => o.Id == orderEntity.Id);
-            if (exists)
-                return null;
+                if (await db.Orders.AnyAsync(o => o.Id == orderEntity.Id)) return null;
 
-            // 2️⃣ Keep child FKs consistent
-            foreach (var d in orderEntity.OrderDetails)
-                d.OrderId = orderEntity.Id;
+                foreach (var detail in orderEntity.OrderDetails)
+                    detail.OrderId = orderEntity.Id;
 
-            // 3️⃣ Start transaction
-            await using var tx = await db.Database.BeginTransactionAsync();
-            if (_monthlyPlans != null) await _monthlyPlans.ApplyToNewOrderAsync(db, orderEntity);
+                var receiptNumber = orderEntity.IsBarter
+                    ? await GenerateUniquePaymentReceiptNumberAsync(db, CancellationToken.None) : null;
+                await using var tx = await db.Database.BeginTransactionAsync();
+                if (_monthlyPlans != null) await _monthlyPlans.ApplyToNewOrderAsync(db, orderEntity);
 
-            // 3a) Deduct stock ONLY if not DirectFromStock
-            if (!orderEntity.DirectFromStock)
-            {
-                var items = orderEntity.OrderDetails
-                                       .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-                                       .ToList();
-
-                var stock = await _productService.DeductStockAsync(items, db);
-
-                if (!stock.Success)
+                if (!orderEntity.DirectFromStock)
                 {
-                    await tx.RollbackAsync();
-
-                    _logger.LogWarning(
-                        "Недостаточно на складе: {Articles}",
-                        string.Join(", ", stock.NotEnoughArticles));
-
-                    return null;
+                    var items = orderEntity.OrderDetails
+                        .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity)).ToList();
+                    var stock = await _productService.DeductStockAsync(items, db);
+                    if (!stock.Success)
+                    {
+                        _logger.LogWarning("Недостаточно на складе: {Articles}", string.Join(", ", stock.NotEnoughArticles));
+                        return null;
+                    }
                 }
+
+                if (orderEntity.IsBarter) orderEntity.IsPaid = true;
+                db.Orders.Add(orderEntity);
+                await db.SaveChangesAsync();
+
+                if (orderEntity.IsBarter)
+                {
+                    // Use the persisted prices so the receipt exactly matches the saved invoice.
+                    var amount = await db.OrderDetails.Where(d => d.OrderId == orderEntity.Id)
+                        .SumAsync(d => (decimal?)(d.Price * d.Quentity)) ?? 0m;
+                    barterPayment = new CustomerPaymentEntity
+                    {
+                        ReceiptNumber = receiptNumber,
+                        CustomerId = orderEntity.CustomerId!,
+                        OrderId = orderEntity.Id,
+                        Date = orderEntity.Date,
+                        Amount = amount,
+                        AmountInWords = Infrastructure.Utilities.NumberToWordsConverter.ConvertToRussianWords(amount),
+                        Rate = (decimal)orderEntity.Rate,
+                        IsDeliveryConfirmed = true
+                    };
+                    db.Payments.Add(barterPayment);
+                    await db.SaveChangesAsync();
+                }
+
+                await tx.CommitAsync();
+                committed = true;
+                _monthlyPlans?.NotifyChanged();
+                return orderEntity;
             }
-
-            // 3b) Insert order + details
-            db.Orders.Add(orderEntity);
-            await db.SaveChangesAsync();
-
-            // 3c) Commit the lot
-            await tx.CommitAsync();
-            _monthlyPlans?.NotifyChanged();
-            return orderEntity;
-        }
-        catch (DbUpdateException ex) when (IsUniqueKeyViolation(ex))
-        {
-            // 4️⃣ Retry once with new number
-            await using var retryDb = await _dbFactory.CreateDbContextAsync();
-
-            string retryPrefix = orderEntity.IsBarter ? "БТ-" : "СЧ-";
-            orderEntity.Id = await GenerateUniqueInvoiceNumberAsync(
-                isBarter: orderEntity.IsBarter,
-                length: 6,
-                prefix: retryPrefix
-            );
-
-            foreach (var d in orderEntity.OrderDetails)
-                d.OrderId = orderEntity.Id;
-
-            await using var tx = await retryDb.Database.BeginTransactionAsync();
-            if (_monthlyPlans != null) await _monthlyPlans.ApplyToNewOrderAsync(retryDb, orderEntity);
-
-            var items = orderEntity.OrderDetails
-                                   .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity))
-                                   .ToList();
-
-            var stock = await _productService.DeductStockAsync(items, retryDb);
-            if (!stock.Success)
+            catch (DbUpdateException ex) when (attempt < 2 && IsUniqueKeyViolation(ex))
             {
-                await tx.RollbackAsync();
-                _logger.LogWarning("Недостаточно на складе (артикул): {Articles}",
-                    string.Join(", ", stock.NotEnoughArticles));
+                // Both document numbers have unique indexes; retry the whole transaction.
+            }
+            catch (OfficialMonthlyPlanLimitException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in AddOrderAsync");
                 return null;
             }
-
-            retryDb.Orders.Add(orderEntity);
-            await retryDb.SaveChangesAsync();
-
-            await tx.CommitAsync();
-            _monthlyPlans?.NotifyChanged();
-            return orderEntity;
+            finally
+            {
+                // EF fixes up this navigation even when a failed transaction is rolled back.
+                if (!committed && barterPayment != null)
+                    orderEntity.Payments.Remove(barterPayment);
+            }
         }
-        catch (OfficialMonthlyPlanLimitException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in AddOrderAsync");
-            return null;
-        }
+        return null;
     }
 
     private static bool IsUniqueKeyViolation(Exception ex)
@@ -195,7 +179,7 @@ public class OrderService
 			|| msg.Contains("23505"); // pg
 	}
 
-	public Task<OrderEntity?> GetOrderAsync(string id) =>
+	public virtual Task<OrderEntity?> GetOrderAsync(string id) =>
 	_orderRepository.GetOneAsync(o => o.Id == id, null);
 
 
@@ -297,7 +281,7 @@ public class OrderService
 		{
 			var query = db.Set<OrderEntity>()
 						   .AsNoTracking()
-						   .Where(o => o.CustomerId == customerId && !o.IsBarter); // 🚩 exclude barter
+						   .Where(o => o.CustomerId == customerId);
 
 			if (from.HasValue)
 				query = query.Where(o => o.Date >= from.Value);
@@ -310,6 +294,7 @@ public class OrderService
 				{
 					Id = o.Id,
 					Date = o.Date,
+					IsBarter = o.IsBarter,
 					TotalAmount = o.OrderDetails.Sum(d => (decimal?)(d.Price * d.Quentity)) ?? 0m
 				})
 				.OrderByDescending(x => x.Date)
@@ -607,11 +592,12 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
     /// <summary>
     /// Gets individual receipts plus orders which have no receipt for this courier.
     /// </summary>
-    public async Task<IReadOnlyList<OrderWithPaymentsDto>> GetOrdersByCourierAsync(
+    public virtual async Task<IReadOnlyList<OrderWithPaymentsDto>> GetOrdersByCourierAsync(
      string courierId,
      bool onlyUnpaid = true,
      CancellationToken ct = default)
     {
+        var userId = EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryView);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         try
         {
@@ -663,8 +649,10 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 if (receipt != null) receipt.SaleAmount = order.SaleAmount;
                 else data.Add(order);
             }
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryView, userId);
             return data.OrderByDescending(x => x.Date).ThenBy(x => x.PaymentId).ToList();
         }
+        catch (UnauthorizedAccessException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in GetOrdersByCourierAsync for courier {CourierId}", courierId);
@@ -681,6 +669,7 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         bool isPaid,
         CancellationToken ct = default)
     {
+        var userId = EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         try
         {
@@ -689,9 +678,11 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 return false;
 
             order.IsPaid = isPaid;
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate, userId);
             await db.SaveChangesAsync(ct);
             return true;
         }
+        catch (UnauthorizedAccessException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating payment status for order {OrderId}", orderId);
@@ -699,13 +690,20 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         }
     }
 
-    public async Task<IReadOnlyList<PendingOrderDto>> GetUnsentOrdersAsync()
+    public virtual async Task<IReadOnlyList<PendingOrderDto>> GetUnsentOrdersAsync(string? managerId = null)
     {
+        EnsurePendingOrdersAccess();
+        var userId = _session!.UserId;
+        var allManagers = _permissions.Has(PermissionCatalog.OrdersViewAllManagers);
         await using var db = await _dbFactory.CreateDbContextAsync();
 
-        return await db.Orders
-            .Where(o => !o.IsSent && !o.IsBarter)
-          
+        var query = db.Orders.AsNoTracking()
+            .Where(o => !o.IsSent && !o.IsBarter && (allManagers || db.SalesManagers.Any(m =>
+                m.Active && m.UserId == userId && m.User!.IsManager && m.Id == o.Customer!.SalesManagerId)));
+        if (!string.IsNullOrWhiteSpace(managerId))
+            query = query.Where(o => o.Customer != null && o.Customer.SalesManagerId == managerId);
+
+        var orders = await query
             .OrderByDescending(o => o.Date) // ✅ latest first
             .Select(o => new PendingOrderDto
             {
@@ -716,6 +714,17 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 IsSent = o.IsSent
             })
             .ToListAsync();
+
+        EnsurePendingOrdersAccess();
+        if (_session.UserId != userId || allManagers != _permissions.Has(PermissionCatalog.OrdersViewAllManagers))
+            throw new UnauthorizedAccessException("Пользователь или права доступа изменились. Повторно откройте список заказов.");
+        return orders;
+    }
+
+    private void EnsurePendingOrdersAccess()
+    {
+        if (_session?.IsLoggedIn != true || !_permissions.Has(PermissionCatalog.Orders))
+            throw new UnauthorizedAccessException("Нет доступа к списку неотправленных заказов.");
     }
 
     public async Task UpdateSentStatusAsync(string invoiceNumber, bool isSent)
@@ -729,11 +738,12 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         }
     }
 
-    public async Task<IReadOnlyList<AssignPickerDto>> GetOrdersInRangeForPickersAsync(
+    public virtual async Task<IReadOnlyList<AssignPickerDto>> GetOrdersInRangeForPickersAsync(
      DateTime from,
      DateTime to,
      CancellationToken ct = default)
     {
+        var userId = EnsureOrderOperationAccess(PermissionCatalog.OrdersAssignPickers);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         try
         {
@@ -755,8 +765,10 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                 .OrderByDescending(o => o.Date)
                 .ToListAsync(ct);
 
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersAssignPickers, userId);
             return data;
         }
+        catch (UnauthorizedAccessException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in GetOrdersInRangeForPickersAsync({From}, {To})", from, to);
@@ -764,19 +776,25 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         }
     }
 
-    public async Task<bool> UpdateAssignPickerAsync(string orderId, string? pickerId, CancellationToken ct = default)
+    public virtual async Task<bool> UpdateAssignPickerAsync(string orderId, string? pickerId, CancellationToken ct = default)
     {
+        var userId = EnsureOrderOperationAccess(PermissionCatalog.OrdersAssignPickers);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         try
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
             var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order == null)
                 return false;
 
             order.StorekeeperId = pickerId;  // ✅ set by Id
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersAssignPickers, userId);
             await db.SaveChangesAsync(ct);
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersAssignPickers, userId);
+            await transaction.CommitAsync(ct);
             return true;
         }
+        catch (UnauthorizedAccessException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in UpdateAssignPickerAsync for order {OrderId}", orderId);
@@ -903,9 +921,10 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
             !p.IsDeliveryConfirmed && (p.Order == null || !p.Order.IsBarter));
     }
 
-    public async Task<bool> ConfirmDeliveryAsync(string courierId, string? orderId, int? paymentId,
+    public virtual async Task<bool> ConfirmDeliveryAsync(string courierId, string? orderId, int? paymentId,
         CancellationToken ct = default)
     {
+        var userId = EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
         try
         {
@@ -942,10 +961,13 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
                     return false;
                 order.IsPaid = true;
             }
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate, userId);
             await db.SaveChangesAsync(ct);
+            EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate, userId);
             await transaction.CommitAsync(ct);
             return true;
         }
+        catch (UnauthorizedAccessException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Delivery confirmation failed for receipt {PaymentId}, order {OrderId}", paymentId, orderId);
@@ -969,6 +991,7 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
      DateTime date,
      CancellationToken ct = default)
     {
+        var userId = EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate);
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
         var exists = await db.Set<CourierPaymentEntity>()
@@ -987,6 +1010,15 @@ public virtual async Task<IReadOnlyList<OrderRowDto>> GetOrdersInRangeAsync(
         };
 
         db.Set<CourierPaymentEntity>().Add(entity);
+        EnsureOrderOperationAccess(PermissionCatalog.OrdersDeliveryUpdate, userId);
         await db.SaveChangesAsync(ct);
+    }
+
+    private int EnsureOrderOperationAccess(string permission, int? expectedUserId = null)
+    {
+        if (_session?.IsLoggedIn != true || (expectedUserId.HasValue && _session.UserId != expectedUserId))
+            throw new UnauthorizedAccessException("Пользователь изменился. Повторно откройте форму заказов.");
+        _operationsAccess.Ensure(permission);
+        return _session.UserId;
     }
 }

@@ -20,6 +20,7 @@
                    VerticalAlignment="Center" 
                    Margin="0,0,10,0"/>
             <ComboBox ItemsSource="{Binding OrderIds}"
+                  IsEnabled="{Binding CanAccess}"
                   SelectedItem="{Binding SelectedOrderId, Mode=TwoWay}"
                       IsEditable="True"
                   VerticalAlignment="Center" FontSize="14" Width="200" Height="32"/>
@@ -30,8 +31,9 @@
               ItemsSource="{Binding FilteredOrders}"
               Style="{StaticResource SummaryGrid}"
               AutoGenerateColumns="False"
-              IsReadOnly="false"
+              IsReadOnly="{Binding IsReadOnly}"
               CanUserAddRows="False"
+              CanUserDeleteRows="False"
               Margin="0,0,0,10">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Накладной №"
@@ -89,7 +91,9 @@
             Style="{StaticResource GrayButton}"
             Width="120" 
             HorizontalAlignment="Right"
+            Visibility="{Binding CanAccess, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
             Command="{Binding UpdateCommand}"/>
+        <TextBlock Grid.Row="2" Text="{Binding Message}" TextWrapping="Wrap" Margin="0,4,130,0"/>
     </Grid>
 
 </UserControl>

@@ -53,7 +53,7 @@ namespace PresentationWpf.ViewModels
 
         [ObservableProperty] private bool isInputVisible = true;
 
-        [ObservableProperty] private Brush contentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DFDFC0"));
+        [ObservableProperty] private Brush contentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BDB76B"));
         
         public event Action? RequestClose;
 
@@ -84,7 +84,7 @@ namespace PresentationWpf.ViewModels
             ArtikulList.Clear();
             SelectedStore = null;
             IsInputVisible = true;
-            ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DFDFC0")); ;
+            ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BDB76B")); ;
         }
 
         [RelayCommand]
@@ -99,7 +99,7 @@ namespace PresentationWpf.ViewModels
             ArtikulList.Clear();
             SelectedStore = null;
             IsInputVisible = false;
-            ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C1C19A"));
+            ContentBackground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#708090"));
 
         }
 

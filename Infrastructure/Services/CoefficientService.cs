@@ -37,7 +37,9 @@ public class CoefficientService
 			?? throw new InvalidOperationException("Клиент не найден.");
 
 		var ordersTotal = customer.Orders.SelectMany(o => o.OrderDetails).Sum(d => d.Price * d.Quentity);
-		var balance = ordersTotal - customer.Returns.Sum(r => r.TotalAmount)
+		var debtSales = customer.Orders.Where(o => !o.IsBarter)
+			.SelectMany(o => o.OrderDetails).Sum(d => d.Price * d.Quentity);
+		var balance = debtSales - customer.Returns.Sum(r => r.TotalAmount)
 			+ ((decimal?)customer.Debt ?? 0) - customer.Payments.Sum(p => p.Amount);
 		var brackets = new[]
 		{
@@ -92,6 +94,7 @@ public class CoefficientService
 		foreach (var customer in customers)
 		{
 			decimal ordersTotal = customer.Orders
+				.Where(o => !o.IsBarter)
 				.SelectMany(o => o.OrderDetails)
 				.Sum(od => od.Price * od.Quentity);
 
@@ -135,6 +138,7 @@ public class CoefficientService
 		foreach (var customer in customers)
 		{
 			decimal ordersTotal = customer.Orders
+				.Where(o => !o.IsBarter)
 				.SelectMany(o => o.OrderDetails)
 				.Sum(od => od.Price * od.Quentity);
 

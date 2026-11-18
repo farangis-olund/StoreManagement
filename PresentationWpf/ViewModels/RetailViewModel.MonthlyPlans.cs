@@ -26,7 +26,7 @@ public partial class RetailViewModel
     public string CustomerMonthlyPlanText => "Остаток по плану: " + FormatPlanAmount(CustomerMonthlyPlanRemaining);
     private static string FormatPlanAmount(decimal? value) => value?.ToString("#,0.##", CultureInfo.GetCultureInfo("ru-RU")) ?? "…";
     private bool IsOfficialPlanReady => _monthlyPlanService == null || SelectedCustomer?.OfficialCustomer != true || _monthlyPlanReady;
-    private decimal? ActiveOfficialOrderLimit => OfficialOrder && IsOfficialPlanReady && IsCustomerFinanceReady ? _officialOrderLimit : null;
+    private decimal? ActiveOfficialOrderLimit => !IsBarter && OfficialOrder && IsOfficialPlanReady && IsCustomerFinanceReady ? _officialOrderLimit : null;
     private bool IsMonthlyPlanLimitExceeded(decimal total) => ActiveOfficialOrderLimit.HasValue && total > ActiveOfficialOrderLimit.Value;
 
     private void EnforceMonthlyPlanLimit(ProductModel? changedProduct = null, bool showMessage = true)
@@ -87,7 +87,7 @@ public partial class RetailViewModel
         MonthlyPlanError = "";
         if (_monthlyPlanService == null)
         {
-            OfficialOrder = customer?.OfficialCustomer == true;
+            OfficialOrder = !IsBarter && customer?.OfficialCustomer == true;
             return true;
         }
         _monthlyPlanReady = false;
@@ -100,7 +100,7 @@ public partial class RetailViewModel
             // Keep the global value on screen while switching clients; replace it only with a fresh result.
             if (state.TotalRemaining.HasValue) TotalMonthlyPlanRemaining = state.TotalRemaining;
             CustomerMonthlyPlanRemaining = state.IndividualRemaining;
-            OfficialOrder = state.OfficialOrder;
+            OfficialOrder = !IsBarter && state.OfficialOrder;
             _officialOrderLimit = state.OfficialOrderLimit;
             _monthlyPlanReady = true;
             // A committed order publishes its new remainder before SaveOrder clears the sold cart.

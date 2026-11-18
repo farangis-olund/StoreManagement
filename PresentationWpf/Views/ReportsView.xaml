@@ -5,71 +5,62 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:PresentationWpf.Views"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="800" Background="White">
+    <UserControl.Resources>
+        <Style x:Key="ReportMenuButton" TargetType="RadioButton" BasedOn="{StaticResource AdminTopButtonStyle}">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ================= TOP REPORT MENU ================= -->
-       
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Background="{StaticResource AdminTopBackground}"
-            Height="45">
-
-               
-
-                <RadioButton Content="Итоги по клиентам"
-                         Style="{StaticResource AdminTopButtonStyle}"
-                         IsChecked="{Binding IsCustomerSalesSummarySelected}"
-                         Command="{Binding OpenCustomerSalesSummaryCommand}"
-                         Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-            <RadioButton Content="Итоги по группам"
-                        Style="{StaticResource AdminTopButtonStyle}"
-                        IsChecked="{Binding IsTotalByGroupSelected}"
-                        Command="{Binding TotalByGroupCommand}"
-                        Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                <RadioButton Content="Неактивные товары склада"
-                        Style="{StaticResource AdminTopButtonStyle}"
-                        IsChecked="{Binding IsInactiveWarehouseProductsSelected}"
-                        Command="{Binding InactiveWarehouseProductsCommand}"/>
-
-                <RadioButton Content="Итоги по доставщикам и складчикам"
-                       Style="{StaticResource AdminTopButtonStyle}"
-                       IsChecked="{Binding IsCourierStorekeeperReportSelected}"
-                       Command="{Binding CourierStorekeeperReportCommand}"
-                       Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"
-                        />
-
-            <RadioButton Content="Отчет по месту на складе"
-                Style="{StaticResource AdminTopButtonStyle}"
-                IsChecked="{Binding IsWarehousePlaceReportSelected}"
-                Command="{Binding WarehousePlaceReportCommand}"/>
-
-            <RadioButton Content="Отчет о возвратах за день"
-              Style="{StaticResource AdminTopButtonStyle}"
-              IsChecked="{Binding IsReturnsDayReportSelected}"
-              Command="{Binding ReturnsDayReportCommand}"
-              Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-            <RadioButton Content="Итоговый отчёт"
-                 Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsSalesSummarySelected}"
-                 Command="{Binding OpenSalesSummaryCommand}"
-                 Visibility="{Binding CanViewStandardReports, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-            <RadioButton Content="Итоги по продажам"
-                 Style="{StaticResource AdminTopButtonStyle}"
-                 IsChecked="{Binding IsOfficialSalesSummarySelected}"
-                 Command="{Binding OpenOfficialSalesSummaryCommand}"/>
-
-        </StackPanel>
+        <Grid Background="{StaticResource AdminTopBackground}">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="115"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <RadioButton Style="{StaticResource ReportMenuButton}" Height="80" GroupName="ReportsMenu"
+                         IsChecked="{Binding IsReportHome, Mode=OneWay}" Command="{Binding ShowReportHomeCommand}">
+                <TextBlock Text="Все отчёты" TextWrapping="Wrap" TextAlignment="Center"/>
+            </RadioButton>
+            <ItemsControl Grid.Column="1" ItemsSource="{Binding ReportLinks}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><UniformGrid Rows="2"/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <RadioButton Style="{StaticResource ReportMenuButton}" GroupName="ReportsMenu"
+                                     IsChecked="{Binding IsSelected, Mode=OneWay}" Command="{Binding OpenCommand}">
+                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" TextAlignment="Center"/>
+                        </RadioButton>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
         
 
         <!-- ================= REPORT CONTENT ================= -->
         <ContentControl Grid.Row="1"
                         Content="{Binding CurrentReportView}"/>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding IsReportHome, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Margin="24">
+                <TextBlock Text="Отчёты" FontSize="26" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock Text="Выберите нужный отчёт из списка." Foreground="#647078" Margin="0,0,0,16"/>
+                <ItemsControl ItemsSource="{Binding ReportLinks}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#F5F6F8" CornerRadius="6" Padding="14,10" Margin="0,0,0,6">
+                                <TextBlock FontSize="16" TextWrapping="Wrap">
+                                    <Hyperlink Command="{Binding OpenCommand}" Foreground="#5B4B87"><Run Text="{Binding Title, Mode=OneWay}"/></Hyperlink>
+                                </TextBlock>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

@@ -28,7 +28,11 @@ namespace PresentationWpf.Documents
             _date = date;
             _exchangeRate = exchangeRate;
             _invoiceNumber = invoiceNumber;
-            _lines = lines;
+            _lines = lines
+                .OrderBy(line => line.City, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(line => line.Address, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(line => line.CustomerId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -76,8 +80,8 @@ namespace PresentationWpf.Documents
                             cols.RelativeColumn(2);   // Адрес
                             cols.RelativeColumn(2);   // ФИО получателя
                             cols.RelativeColumn(1.5f); // Тел
-                            cols.RelativeColumn(1.2f); // № Накладная
-                            cols.RelativeColumn(1.2f); // № Квитанции
+                            cols.RelativeColumn(1.5f); // № Накладная
+                            cols.RelativeColumn(1.5f); // № Квитанции
                             cols.RelativeColumn(1.0f); // Место
                         });
 
@@ -155,6 +159,7 @@ namespace PresentationWpf.Documents
 
     public class DeliveryNoteLine
     {
+        public string CustomerId { get; set; } = "";
         public string City { get; set; } = "";
         public string Address { get; set; } = "";
         public string CustomerName { get; set; } = "";

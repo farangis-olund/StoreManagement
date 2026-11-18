@@ -255,8 +255,8 @@ public class ReportService
                 .OrderBy(x => GetSection(x.PlaceCode))
                 .ThenBy(x => GetRow(x.PlaceCode))
                 .ThenBy(x => GetPlace(x.PlaceCode))
-                .ThenBy(x => x.Name)
                 .ThenBy(x => x.Brand)
+                .ThenBy(x => x.Name)
                 .ToList();
 
             return result;
@@ -435,6 +435,14 @@ public class ReportService
                 .Where(x => !x.Order.IsBarter)
                 .SumAsync(x => (decimal?)(x.Price * x.Quentity * (decimal)x.Order.Rate)) ?? 0m;
 
+            var totalBarterEuro = await orderDetailsQuery
+                .Where(x => x.Order.IsBarter)
+                .SumAsync(x => (decimal?)x.Price * x.Quentity) ?? 0m;
+
+            var totalBarterSmn = await orderDetailsQuery
+                .Where(x => x.Order.IsBarter)
+                .SumAsync(x => (decimal?)(x.Price * x.Quentity * (decimal)x.Order.Rate)) ?? 0m;
+
             // =========================
             // RETURNS
             // =========================
@@ -533,6 +541,12 @@ public class ReportService
                 Name = "ПРОДАЖА",
                 Euro = totalSalesEuro,
                 Smn = totalSalesSmn
+            },
+            new()
+            {
+                Name = "БАРТЕР",
+                Euro = totalBarterEuro,
+                Smn = totalBarterSmn
             },
             new()
             {

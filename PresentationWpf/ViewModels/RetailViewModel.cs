@@ -34,6 +34,7 @@ public partial class RetailViewModel : ObservableObject
 	private readonly DialogService _dialogService;
 	private readonly CustomerFinanceService _financeService;
     private readonly PermissionService _permissionService;
+    private readonly Infrastructure.Security.OrderOperationsAccessPolicy _orderOperationsAccess;
     private bool _isAdjustingProductLimit;
     private bool _isSavingOrder;
 	public RetailViewModel(ProductService productService, 
@@ -63,6 +64,7 @@ public partial class RetailViewModel : ObservableObject
 		_dialogService = dialogService;
 		_financeService = financeService;
         _permissionService = permissionService;
+        _orderOperationsAccess = new(permissionService);
         _productRequestService = productRequestService;
         _retailManagerService = retailManagerService;
         if (userSessionService != null && retailManagerService != null)
@@ -88,6 +90,7 @@ public partial class RetailViewModel : ObservableObject
             }
             foreach (var item in SelectedProductList.Except(_subscribedCartProducts))
             {
+                item.IsBarterPriceMode = IsBarter;
                 item.PropertyChanged += OnProductModelPropertyChanged;
                 item.OrderQuantityExceeded += OnOrderQuantityExceeded;
                 _subscribedCartProducts.Add(item);
@@ -133,8 +136,9 @@ public partial class RetailViewModel : ObservableObject
     private int _restrictionRequestVersion;
     private decimal? _customerBalance;
 
-    private bool IsCustomerFinanceReady => IsRetailManagerContextReady && SelectedCustomer != null && _customerBalance.HasValue && AvailableRestriction.HasValue;
-    private CustomerOrderAllowance? OrderAllowance => IsCustomerFinanceReady
+    private bool IsOrderCustomerReady => IsRetailManagerContextReady && SelectedCustomer != null;
+    private bool IsCustomerFinanceReady => IsOrderCustomerReady && _customerBalance.HasValue && AvailableRestriction.HasValue;
+    private CustomerOrderAllowance? OrderAllowance => !IsBarter && IsCustomerFinanceReady
         ? new CustomerOrderAllowance(SelectedCustomer!.BuyLimit, _customerBalance!.Value,
             _permissionService.Has(PermissionCatalog.OrdersExceedBuyLimit), AvailableRestriction)
         : null;
@@ -155,15 +159,23 @@ public partial class RetailViewModel : ObservableObject
     public string CustomerDisplayMemberPath => IsOnlyOfficialCustomer ? "FullName" : "Id";
 
     public bool CanUseBarter => _permissionService.Has(PermissionCatalog.OrdersBarter);
+    public bool CanChangeBarterMode => CanUseBarter && IsOrderCustomerReady && !_isSavingOrder;
     public bool CanUseDirectFromStock => _permissionService.Has(PermissionCatalog.OrdersDirectFromStock);
+    public bool CanOpenDelivery => _orderOperationsAccess.Can(PermissionCatalog.OrdersDelivery);
+    public bool CanAssignPickers => _orderOperationsAccess.Can(PermissionCatalog.OrdersAssignPickers);
 
     private void OnOrderPermissionsChanged(object? sender, PropertyChangedEventArgs e)
     {
         RefreshRetailManagerPermissions();
         RefreshMonthlyPlanPermissions();
         OnPropertyChanged(nameof(CanUseBarter));
+        OnPropertyChanged(nameof(CanChangeBarterMode));
         OnPropertyChanged(nameof(CanUseDirectFromStock));
-        if (!CanUseBarter) IsBarter = false;
+        OnPropertyChanged(nameof(CanOpenDelivery));
+        OnPropertyChanged(nameof(CanAssignPickers));
+        ShowDeliveryOrdersCommand.NotifyCanExecuteChanged();
+        ShowAssignPickersCommand.NotifyCanExecuteChanged();
+        if (!CanUseBarter) SetBarterMode(false);
         if (!CanUseDirectFromStock) DirectFromStock = false;
         EnforceBuyLimit();
         SaveOrderCommand.NotifyCanExecuteChanged();
@@ -172,9 +184,10 @@ public partial class RetailViewModel : ObservableObject
     private bool HasValidCourier => SelectedCourier != null && CourierList.Contains(SelectedCourier);
     private bool HasValidStorekeeper => SelectedStorekeeper != null && StorekeeperList.Contains(SelectedStorekeeper);
 
-    private bool CanSaveOrder() => IsCustomerFinanceReady && IsOfficialPlanReady && !IsOrderBlockedByUnpaidPaymentLimit && !HasPendingProductRequests &&
-        !IsBuyLimitExceeded(TotalSum) && !IsMonthlyPlanLimitExceeded(TotalSum) &&
-        (IsBarter || (HasValidCourier && HasValidStorekeeper)) &&
+    private bool CanSaveOrder() => IsOrderCustomerReady && !HasPendingProductRequests &&
+        (IsBarter || (IsCustomerFinanceReady && IsOfficialPlanReady && !IsOrderBlockedByUnpaidPaymentLimit &&
+            !IsBuyLimitExceeded(TotalSum) && !IsMonthlyPlanLimitExceeded(TotalSum) && HasValidCourier && HasValidStorekeeper)) &&
+        (!IsBarter || SelectedProductList.All(p => p.BarterPriceSom is >= 0)) &&
         (!IsBarter || CanUseBarter) && (!DirectFromStock || CanUseDirectFromStock);
 
     partial void OnIsOrderBlockedByUnpaidPaymentLimitChanged(bool value)
@@ -477,53 +490,29 @@ public partial class RetailViewModel : ObservableObject
 
 	private void OnSelectedCustomerChanged(Customer? value)
 	{
+        SetBarterMode(false, refreshOrdinaryState: false);
+        OnPropertyChanged(nameof(CanChangeBarterMode));
         SelectedCourier = null;
         SelectedStorekeeper = null;
         _manualRequestId = Guid.NewGuid();
         _customerBalance = null;
         AddToChartCommand.NotifyCanExecuteChanged();
         SaveOrderCommand.NotifyCanExecuteChanged();
-        OfficialOrder = value?.OfficialCustomer == true;
+        OfficialOrder = !IsBarter && value?.OfficialCustomer == true;
         _ = RefreshMonthlyPlanStateAsync();
 
 		ApplyCustomerLevelPrice();
 
         _ = UpdateCustomerLevelIndicatorAsync();
 
-        _ = LoadInactiveForSelectedCustomerAsync(value);
         _ = WarnIfUnpaidPaymentLimitReachedAsync(value);
         _ = RefreshAvailableRestrictionAsync(value);
 
-        if (value == null)
-		{
-			RequiredPurchase = 0;
-			PlannedPurchase = 0;
-			return;
-		}
-      
-        // ✅ Check if this customer exists in inactive debt list
-        var debtInfo = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == value.Id);
-		if (debtInfo != null)
-		{
-			RequiredPurchase = debtInfo.Shortfall;
-		}
-		else
-		{
-			RequiredPurchase = 0;
-		}
-
-		// ✅ Check if this customer exists in inactive planned list
-		var plannedInfo = InactivePlannedCustomers.FirstOrDefault(c => c.CustomerId == value.Id);
-		if (plannedInfo != null)
-		{
-			PlannedPurchase = plannedInfo.Shortfall;
-		}
-		else
-		{
-			PlannedPurchase = 0;
-		}
-
-
+        if (SelectedRequiredPurchaseCombo?.CustomerId != value?.Id)
+            SelectedRequiredPurchaseCombo = null;
+        if (SelectedPlannedPurchaseCombo?.CustomerId != value?.Id)
+            SelectedPlannedPurchaseCombo = null;
+        UpdateCustomerPurchaseIndicators();
 	}
 
     private async Task<bool> RefreshAvailableRestrictionAsync(Customer? customer)
@@ -560,7 +549,7 @@ public partial class RetailViewModel : ObservableObject
 
     private async Task WarnIfUnpaidPaymentLimitReachedAsync(Customer? customer)
     {
-        if (customer == null)
+        if (customer == null || IsBarter)
         {
             IsOrderBlockedByUnpaidPaymentLimit = false;
             return;
@@ -574,7 +563,7 @@ public partial class RetailViewModel : ObservableObject
         }
 
         var unpaidPaymentTotal = await _orderService.GetUnpaidPaymentTotalAsync(customer.Id);
-        if (SelectedCustomer?.Id != customer.Id)
+        if (SelectedCustomer?.Id != customer.Id || IsBarter)
             return;
 
         if (unpaidPaymentTotal < unpaidPaymentLimit)
@@ -673,7 +662,8 @@ public partial class RetailViewModel : ObservableObject
 
     public event Action OnProductAdded;
 
-    private bool CanAddToChart(ProductModel? product) => IsCustomerFinanceReady && IsOfficialPlanReady && product?.Quentity > 0;
+    private bool CanAddToChart(ProductModel? product) => IsOrderCustomerReady &&
+        (IsBarter || (IsCustomerFinanceReady && IsOfficialPlanReady)) && product?.Quentity > 0;
 
 	[RelayCommand(CanExecute = nameof(CanAddToChart))]
     private void AddToChart(ProductModel product)
@@ -689,7 +679,7 @@ public partial class RetailViewModel : ObservableObject
             return;
         }
 
-        if (!IsCustomerFinanceReady)
+        if (!IsBarter && !IsCustomerFinanceReady)
         {
             MessageBox.Show("Дождитесь загрузки остатка клиента. Если загрузка не удалась, повторно выберите клиента.",
                 "Остаток клиента", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -697,7 +687,7 @@ public partial class RetailViewModel : ObservableObject
         }
 
         // ❗ Product quantity check
-        if (!IsOfficialPlanReady)
+        if (!IsBarter && !IsOfficialPlanReady)
         {
             MessageBox.Show("Дождитесь проверки месячного плана клиента.", "Месячный план", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
@@ -737,6 +727,7 @@ public partial class RetailViewModel : ObservableObject
         }
 
         product.OrderQuentity = 0;
+        product.BarterPriceSom = null;
 
         // Add to chart
         SelectedProductList.Add(product);
@@ -774,12 +765,13 @@ public partial class RetailViewModel : ObservableObject
 
     private async Task SaveOrder()
     {
+        var isBarterOrder = IsBarter;
         if (HasPendingProductRequests)
         {
             MessageBox.Show("Сначала повторите отправку несохранённых заявок на недостающее количество.", "Заявки на товары");
             return;
         }
-        if ((IsBarter && !CanUseBarter) || (DirectFromStock && !CanUseDirectFromStock))
+        if ((isBarterOrder && !CanUseBarter) || (DirectFromStock && !CanUseDirectFromStock))
         {
             MessageBox.Show("Нет права на выбранный режим заказа.", "Права доступа", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
@@ -799,6 +791,7 @@ public partial class RetailViewModel : ObservableObject
         }
 
         _isSavingOrder = true;
+        OnPropertyChanged(nameof(CanChangeBarterMode));
         ClearCartCommand.NotifyCanExecuteChanged();
         try
         {
@@ -821,13 +814,17 @@ public partial class RetailViewModel : ObservableObject
                 await _retailManagerService.EnsureCustomerAccessAsync(customerForOrder.Id);
                 if (!IsRetailManagerContextReady || !CustomerFilter(customerForOrder) || SelectedCustomer != customerForOrder) return;
             }
-            if (!await RefreshAvailableRestrictionAsync(customerForOrder) || SelectedCustomer != customerForOrder)
-                return;
-            if (!await RefreshMonthlyPlanStateAsync(enforceCart: false) || SelectedCustomer != customerForOrder)
-                return;
+            if (!isBarterOrder)
+            {
+                if (!await RefreshAvailableRestrictionAsync(customerForOrder) || SelectedCustomer != customerForOrder)
+                    return;
+                if (!await RefreshMonthlyPlanStateAsync(enforceCart: false) || SelectedCustomer != customerForOrder)
+                    return;
+            }
+            if (IsBarter != isBarterOrder) return;
 
             var unpaidPaymentLimit = customerForOrder.UnpaidPaymentLimit ?? 0;
-            if (unpaidPaymentLimit > 0)
+            if (!isBarterOrder && unpaidPaymentLimit > 0)
             {
                 var unpaidPaymentTotal = await _orderService.GetUnpaidPaymentTotalAsync(customerForOrder.Id);
                 if (SelectedCustomer != customerForOrder)
@@ -867,14 +864,14 @@ public partial class RetailViewModel : ObservableObject
 
 
             // ✅ Validate barter prices
-            if (IsBarter)
+            if (isBarterOrder)
             {
                 var noPrice = SelectedProductList
-                    .FirstOrDefault(p => p.OrderQuentity <= 0 || !p.BarterPriceSom.HasValue);
+                    .FirstOrDefault(p => p.OrderQuentity <= 0 || p.BarterPriceSom is not >= 0);
                 if (noPrice != null)
                 {
                     MessageBox.Show(
-                        $"В режиме бартера у каждой позиции должно быть указано значение цены и количество > 0.\n" +
+                        $"В режиме бартера у каждой позиции должны быть указаны неотрицательная цена и количество > 0.\n" +
                         $"Проверьте товар: {noPrice.ArticleNumber} — {noPrice.ProductName}.",
                         "Ошибка");
                     return;
@@ -882,21 +879,22 @@ public partial class RetailViewModel : ObservableObject
             }
 
             // Compute totals
-            var totalSum = SelectedProductList.Sum(p => (p.EffectivePriceSom ?? 0m) * p.OrderQuentity);
+            var totalSum = SelectedProductList.Sum(p =>
+                ((isBarterOrder ? p.BarterPriceSom : p.CustomerPriceSom) ?? 0m) * p.OrderQuentity);
             if (totalSum <= 0)
             {
                 MessageBox.Show("Сумма заказа не может быть 0. Пожалуйста, проверьте количество заказа.", "Ошибка");
                 return;
             }
 
-            if (IsBuyLimitExceeded(totalSum))
+            if (!isBarterOrder && IsBuyLimitExceeded(totalSum))
             {
                 ShowBuyLimitReachedMessage();
                 return;
             }
 
             // Only validate courier/storekeeper if NOT barter
-            if (!IsBarter)
+            if (!isBarterOrder)
             {
                 if (!HasValidCourier)
                 {
@@ -910,7 +908,7 @@ public partial class RetailViewModel : ObservableObject
                 }
             }
 
-            if (IsMonthlyPlanLimitExceeded(totalSum))
+            if (!isBarterOrder && IsMonthlyPlanLimitExceeded(totalSum))
             {
                 EnforceMonthlyPlanLimit();
                 return;
@@ -924,20 +922,20 @@ public partial class RetailViewModel : ObservableObject
                 CustomerId = customerForOrder.Id,
                 WithoutInvoice = IsSellingWithoutInvoice,
                 DirectFromStock = DirectFromStock,
-                OfficialOrder = OfficialOrder,
+                OfficialOrder = !isBarterOrder && OfficialOrder,
                 Stock = false,
                 IsPaid = false,
-                IsBarter = IsBarter,
+                IsBarter = isBarterOrder,
                 SuminWords = NumberToWordsConverter.ConvertToRussianWords(totalSum),
                 OrderDetails = SelectedProductList.Select(p => new OrderDetailEntity
                 {
                     ArticleNumber = p.ArticleNumber,
                     Quentity = p.OrderQuentity,
-                    Price = (IsBarter ? p.BarterPriceSom : p.CustomerPriceSom) ?? 0m
+                    Price = (isBarterOrder ? p.BarterPriceSom : p.CustomerPriceSom) ?? 0m
                 }).ToList()
             };
 
-            if (!IsBarter)
+            if (!isBarterOrder)
             {
                 orderEntity.CourierId = SelectedCourier!.Id;
                 orderEntity.StorekeeperId = SelectedStorekeeper!.Id;
@@ -963,32 +961,28 @@ public partial class RetailViewModel : ObservableObject
             SelectedProductList.Clear();
 			DirectFromStock = false;
             await RefreshProductsAsync();
+            await LoadInactiveCustomersAsync();
 
-            // ✅ Handle barter flow (add payment + report)
-            if (IsBarter)
+            // The order service has already saved the barter payment in the same transaction.
+            if (isBarterOrder)
             {
-                await _orderService.AddPaymentAsync(
-                    customerId: result.CustomerId,
-                    amount: totalSum,
-                    amountInWords: result.SuminWords,
-                    date: DateTime.Today,
-                    orderId: result.Id,
-					rate: ExchangeRate);
-
                 var savedOrder = await _orderService.GetOrderAsync(result.Id);
                 if (savedOrder != null)
                 {
-                    var barterVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
+                    _dataTransferService.CustomerId = customerForOrder.Id;
                     _dataTransferService.SelectedOrder = new CustomerOrder
                     {
                         Id = savedOrder.Id,
                         Date = savedOrder.Date,
                         Rate = savedOrder.Rate,
+                        IsBarter = savedOrder.IsBarter,
+                        SuminWords = savedOrder.SuminWords,
                         CustomerFullName = savedOrder.Customer?.FullName,
                         CustomerAddress = savedOrder.Customer?.Address,
                         CustomerPhoneNumber = savedOrder.Customer?.MobilePhone,
                         CustomerCity = savedOrder.Customer?.City,
                         CustomerRegion = savedOrder.Customer?.Region,
+                        Customer = savedOrder.Customer == null ? null : (Customer)savedOrder.Customer,
                         UserFullName = $"{savedOrder.User?.FirstName} {savedOrder.User?.LastName}",
                         OrderDetails = savedOrder.OrderDetails?.Select(d => new OrderDetail
                         {
@@ -1003,6 +997,7 @@ public partial class RetailViewModel : ObservableObject
                         }).ToList() ?? []
                     };
 
+                    var barterVm = _serviceProvider.GetRequiredService<OrderInvoiceViewModel>();
                     await barterVm.LoadInvoiceData();
 
                     var pdfService = _serviceProvider.GetRequiredService<PdfService>();
@@ -1037,9 +1032,9 @@ public partial class RetailViewModel : ObservableObject
         }
         finally
         {
-            // ✅ Always reset barter mode after saving (even on error)
-            IsBarter = false;
+            if (SelectedProductList.Count == 0) SetBarterMode(false);
             _isSavingOrder = false;
+            OnPropertyChanged(nameof(CanChangeBarterMode));
             ClearCartCommand.NotifyCanExecuteChanged();
         }
     }
@@ -1047,6 +1042,8 @@ public partial class RetailViewModel : ObservableObject
 
     private void OnProductModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
+        if (e.PropertyName == nameof(ProductModel.BarterPriceSom))
+            SaveOrderCommand.NotifyCanExecuteChanged();
 		if (e.PropertyName == nameof(ProductModel.Total))
 		{
 			UpdateTotalSum();
@@ -1238,28 +1235,49 @@ public partial class RetailViewModel : ObservableObject
 		set
 		{
 			if (_isBarter == value) return;
-            if (value && !CanUseBarter)
+            if (_isSavingOrder)
             {
                 OnPropertyChanged(nameof(IsBarter));
                 return;
             }
-
-            // 👇 Prevent enabling barter if customer has unpaid orders
-            if (value == true)
+            if (value && !CanChangeBarterMode)
             {
-                // async call not possible directly inside setter, so we handle safely
-                _ = CheckBarterEligibilityAsync();
+                OnPropertyChanged(nameof(IsBarter));
                 return;
             }
+            SetBarterMode(value);
+        }
+    }
 
-            _isBarter = value;
-			OnPropertyChanged(nameof(IsBarter));
-            SaveOrderCommand.NotifyCanExecuteChanged();
-
-			foreach (var item in SelectedProductList)
-				item.ClearBarterPrice(); // start with blank barter price
-		}
-	}
+    private void SetBarterMode(bool value, bool refreshOrdinaryState = true)
+    {
+        if (_isBarter == value) return;
+        _isBarter = value;
+        OnPropertyChanged(nameof(IsBarter));
+        if (value) OfficialOrder = false;
+        var wasAdjusting = _isAdjustingProductLimit;
+        _isAdjustingProductLimit = true;
+        try
+        {
+            foreach (var item in SelectedProductList)
+            {
+                item.IsBarterPriceMode = value;
+                item.BarterPriceSom = null;
+            }
+        }
+        finally { _isAdjustingProductLimit = wasAdjusting; }
+        if (!value && refreshOrdinaryState)
+        {
+            _ = RefreshMonthlyPlanStateAsync();
+            if (!_isSavingOrder)
+            {
+                _ = WarnIfUnpaidPaymentLimitReachedAsync(SelectedCustomer);
+                EnforceBuyLimit();
+            }
+        }
+        AddToChartCommand.NotifyCanExecuteChanged();
+        SaveOrderCommand.NotifyCanExecuteChanged();
+    }
 
 	[RelayCommand]
 	private async Task ShowSummaryAsync()
@@ -1354,47 +1372,30 @@ public partial class RetailViewModel : ObservableObject
         var userId = _userSessionService?.UserId;
         var managerId = SelectedSalesManager?.Id;
         var territory = SelectedTerritory;
-        var customer = SelectedCustomer;
         ClearInactiveCustomers();
         if (!IsRetailManagerContextReady || _financeService == null || AllCustomers.Count == 0) return false;
         try
         {
-            var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(managerId, territory, customer?.Id);
-            var plannedList = await _financeService.NeaktivNeZakupAsync(managerId, territory, customer?.Id);
+            var debtList = await _financeService.NeaktivOtEzhigodPogashenieAsync(managerId, territory);
+            var plannedList = await _financeService.NeaktivNeZakupAsync(managerId, territory);
             if (version != _inactiveRequestVersion || scopeVersion != _managerScopeVersion || userId != _userSessionService?.UserId ||
-                managerId != SelectedSalesManager?.Id || territory != SelectedTerritory || customer != SelectedCustomer ||
+                managerId != SelectedSalesManager?.Id || territory != SelectedTerritory ||
                 !IsRetailManagerContextReady) return false;
-            var visible = AllCustomers.Where(c => CustomerFilter(c) && (customer == null || c.Id == customer.Id)).Select(c => c.Id).ToHashSet();
+            var visible = AllCustomers.Where(c => CustomerFilter(c)).Select(c => c.Id).ToHashSet();
             foreach (var row in debtList.Where(c => visible.Contains(c.CustomerId))) InactiveDebtCustomers.Add(row);
             foreach (var row in plannedList.Where(c => visible.Contains(c.CustomerId))) InactivePlannedCustomers.Add(row);
             InactiveDebtCount = InactiveDebtCustomers.Count; InactivePlannedCount = InactivePlannedCustomers.Count;
-            RequiredPurchase = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == customer?.Id)?.Shortfall ?? 0;
-            PlannedPurchase = InactivePlannedCustomers.FirstOrDefault(c => c.CustomerId == customer?.Id)?.Shortfall ?? 0;
+            UpdateCustomerPurchaseIndicators();
             return true;
         }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); return false; }
     }
 
-    private async Task LoadInactiveForSelectedCustomerAsync(Customer? value)
+    private void UpdateCustomerPurchaseIndicators()
     {
-        if (value == null)
-        {
-            RequiredPurchase = 0;
-            PlannedPurchase = 0;
-            return;
-        }
-
-        if (!await LoadInactiveCustomersAsync() || SelectedCustomer != value) return;
-
-        var debtInfo = InactiveDebtCustomers
-            .FirstOrDefault(c => c.CustomerId == value.Id);
-
-        RequiredPurchase = debtInfo?.Shortfall ?? 0;
-
-        var plannedInfo = InactivePlannedCustomers
-            .FirstOrDefault(c => c.CustomerId == value.Id);
-
-        PlannedPurchase = plannedInfo?.Shortfall ?? 0;
+        var customerId = SelectedCustomer?.Id;
+        RequiredPurchase = InactiveDebtCustomers.FirstOrDefault(c => c.CustomerId == customerId)?.Shortfall ?? 0;
+        PlannedPurchase = InactivePlannedCustomers.FirstOrDefault(c => c.CustomerId == customerId)?.Shortfall ?? 0;
     }
 
 
@@ -1495,57 +1496,24 @@ public partial class RetailViewModel : ObservableObject
     private void ShowPendingOrders()
     {
         var vm = _serviceProvider.GetRequiredService<PendingOrdersViewModel>();
+        vm.ManagerId = SelectedSalesManager?.Id;
         _dialogService.Show(vm);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanOpenDelivery))]
     private void ShowDeliveryOrders()
     {
+        if (!CanOpenDelivery) return;
         var vm = _serviceProvider.GetRequiredService<DeliveryOrdersViewModel>();
         _dialogService.Show(vm);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAssignPickers))]
     private void ShowAssignPickers()
     {
+        if (!CanAssignPickers) return;
         var vm = _serviceProvider.GetRequiredService<AssignPickersViewModel>();
         _dialogService.Show(vm);
-    }
-
-    private async Task CheckBarterEligibilityAsync()
-    {
-        if (!CanUseBarter) return;
-        if (SelectedCustomer == null)
-        {
-            MessageBox.Show("Сначала выберите клиента.", "Бартер", MessageBoxButton.OK, MessageBoxImage.Warning);
-            IsBarter = false;
-            return;
-        }
-
-        // ✅ Ask order service if customer has unpaid orders
-        bool hasDebt = await _orderService.HasUnpaidOrdersAsync(SelectedCustomer.Id);
-        if (!CanUseBarter) return;
-
-        if (hasDebt)
-        {
-            MessageBox.Show(
-                $"У клиента {SelectedCustomer.FullName} есть неоплаченные платежи.\n" +
-                "Бартер невозможен, пока не погашены платежи.",
-                "Бартер недоступен",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-
-            IsBarter = false; // keep it unchecked
-            return;
-        }
-
-        // ✅ All good — enable barter
-        _isBarter = true;
-        OnPropertyChanged(nameof(IsBarter));
-        SaveOrderCommand.NotifyCanExecuteChanged();
-
-        foreach (var item in SelectedProductList)
-            item.ClearBarterPrice();
     }
 
     public void ResetState()

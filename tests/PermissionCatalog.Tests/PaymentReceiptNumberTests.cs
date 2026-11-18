@@ -1,4 +1,5 @@
 using Infrastructure.Contexts;
+using Infrastructure.Constants;
 using Infrastructure.Entities;
 using Infrastructure.Migrations;
 using Infrastructure.Services;
@@ -48,7 +49,11 @@ internal sealed class PaymentReceiptNumberTests(Func<DatabaseContext> createCont
             .SequenceEqual(historical.Select(p => p.ReceiptNumber)), "A second startup changed existing receipt numbers.");
 
         var factory = new TestContextFactory(createContext);
-        var service = new OrderService(null!, null!, NullLogger<OrderService>.Instance, null!, factory, new TestPermissions());
+        var permissions = new TestPermissions();
+        permissions.Keys.UnionWith([PermissionCatalog.Orders, PermissionCatalog.OrdersDelivery,
+            PermissionCatalog.OrdersDeliveryView, PermissionCatalog.OrdersDeliveryUpdate]);
+        var service = new OrderService(null!, null!, NullLogger<OrderService>.Instance, null!, factory, permissions,
+            session: new TestUserContext { UserId = user.Id, IsLoggedIn = true });
         var added = await service.AddPaymentAsync(customer.Id, 12.5m, 11, orderId: order.Id, courierId: courier.Id);
         var standalone = await service.AddPaymentAsync(customer.Id, 8m, 10, courierId: courier.Id);
         Check(added != null && standalone != null && Valid(added.ReceiptNumber) && Valid(standalone.ReceiptNumber) &&
