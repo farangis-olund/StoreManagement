@@ -38,6 +38,7 @@ public partial class MainViewModel : ObservableObject
 
 
     public bool CanViewOrders => PermissionService.Has(PermissionCatalog.Orders);
+    public bool CanViewExpiry => CanViewOrders || CanViewInventory;
     public bool CanViewReturns => PermissionService.Has(PermissionCatalog.Returns);
     public bool CanViewCustomers => PermissionService.Has(PermissionCatalog.Customers);
     public bool CanViewInventory => PermissionService.Has(PermissionCatalog.Inventory);
@@ -62,6 +63,8 @@ public partial class MainViewModel : ObservableObject
     public void RefreshPermissions()
     {
         OnPropertyChanged(nameof(CanViewOrders));
+        OnPropertyChanged(nameof(CanViewExpiry));
+        NavigateToExpiryCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanViewReturns));
         OnPropertyChanged(nameof(CanViewCustomers));
         OnPropertyChanged(nameof(CanViewInventory));
@@ -80,6 +83,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSettingsSeparator));
         if (CurrentViewModel is ProductRequestsViewModel && !CanViewProductRequests)
             GoHome();
+        if (CurrentViewModel is ProductExpiryViewModel && !CanViewExpiry) GoHome();
         if (CurrentViewModel is OfficialMonthlyPlansViewModel && !CanOpenMonthlyPlans)
             GoHome();
         if (CurrentViewModel is AdminViewModel && !CanViewAdmin)
@@ -133,6 +137,22 @@ public partial class MainViewModel : ObservableObject
         mainViewModel.CurrentViewModel = customerVM;
 
 	}
+
+    [RelayCommand(CanExecute = nameof(CanViewExpiry))]
+    private async Task NavigateToExpiry()
+    {
+        if (!IsLoggedIn || !CanViewExpiry) return;
+        try { await _permissionRefresher.RefreshAsync(); }
+        catch (Exception)
+        {
+            MessageBox.Show("Не удалось обновить права доступа. Проверьте подключение к базе данных.", "Права доступа");
+            return;
+        }
+        if (!IsLoggedIn || !CanViewExpiry) return;
+        var model = _serviceProvider.GetRequiredService<ProductExpiryViewModel>();
+        model.SetPriorityMode(true); model.GoHomeCommand = GoHomeCommand;
+        CurrentViewModel = model;
+    }
 
     [RelayCommand(CanExecute = nameof(CanViewProductRequests))]
     private async Task NavigateToProductRequests()

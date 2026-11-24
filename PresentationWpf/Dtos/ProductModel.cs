@@ -16,6 +16,33 @@ public class ProductModel : INotifyPropertyChanged
 
 	// ── basic info ────────────────────────────────────────────────────────────
 	public string ArticleNumber { get; set; } = null!;
+    private bool _isClearance;
+    public bool IsClearance
+    {
+        get => _isClearance;
+        set { if (_isClearance == value) return; _isClearance = value; OnPropertyChanged(nameof(IsClearance)); }
+    }
+    private DateTime? _nearestExpiryDate;
+    public DateTime? NearestExpiryDate
+    {
+        get => _nearestExpiryDate;
+        set { _nearestExpiryDate = value?.Date; RefreshExpiryStatus(); }
+    }
+    private string _expiryHint = "";
+    public string ExpiryHint
+    {
+        get => _expiryHint;
+        set { _expiryHint = value; OnPropertyChanged(nameof(ExpiryHint)); }
+    }
+    public bool IsExpired => Quentity > 0 && NearestExpiryDate?.Date < DateTime.Today;
+    public bool IsNearExpiry => Quentity > 0 && NearestExpiryDate.HasValue && !IsExpired && NearestExpiryDate.Value.Date <= DateTime.Today.AddYears(1);
+    public bool HasExpiryWarning => IsNearExpiry || IsExpired;
+    public DateTime ExpirySortDate => IsNearExpiry ? NearestExpiryDate!.Value : DateTime.MaxValue;
+    public void RefreshExpiryStatus()
+    {
+        OnPropertyChanged(nameof(NearestExpiryDate)); OnPropertyChanged(nameof(IsExpired));
+        OnPropertyChanged(nameof(IsNearExpiry)); OnPropertyChanged(nameof(HasExpiryWarning)); OnPropertyChanged(nameof(ExpirySortDate));
+    }
 	public string ProductName { get; set; } = null!;
 	public string Model { get; set; } = null!;
 	public string Marka { get; set; } = null!;
@@ -27,7 +54,17 @@ public class ProductModel : INotifyPropertyChanged
 	public string WarehousePlace { get; set; } = null!;
 	public int MinRemainingQuantity { get; set; }
 
-    public bool IsInvalid { get; set; }
+    private bool _isInvalid;
+    public bool IsInvalid
+    {
+        get => _isInvalid;
+        set
+        {
+            if (_isInvalid == value) return;
+            _isInvalid = value;
+            OnPropertyChanged(nameof(IsInvalid));
+        }
+    }
 
     private int _orderQuentity;
 	private decimal _total;
@@ -184,6 +221,9 @@ public class ProductModel : INotifyPropertyChanged
 				if (value > Quentity)
                     OrderQuantityExceeded?.Invoke(this, value);
 			}
+            // Limits can reduce the quantity again inside UpdateTotal; only clear the warning
+            // after the final accepted quantity is positive.
+            if (_orderQuentity > 0) IsInvalid = false;
 		}
 	}
 
@@ -232,6 +272,9 @@ public class ProductModel : INotifyPropertyChanged
 		var m = new ProductModel
 		{
 			ArticleNumber = dto.ArticleNumber,
+            IsClearance = dto.IsClearance,
+            NearestExpiryDate = dto.NearestExpiryDate,
+            ExpiryHint = dto.ExpiryHint,
 			ProductName = dto.ProductName,
 			Model = dto.Model,
 			Marka = dto.Marka,

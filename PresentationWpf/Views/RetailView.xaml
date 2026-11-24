@@ -17,8 +17,41 @@
     <UserControl.Resources>
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-       
+        <Style x:Key="ClearanceRowStyle" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasExpiryWarning}" Value="True">
+                    <Setter Property="ToolTip" Value="{Binding ExpiryHint}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsClearance}" Value="True">
+                    <Setter Property="ToolTip" Value="Товар из списка распродажи"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ClearanceArticleStyle" TargetType="TextBlock">
+            <Setter Property="Padding" Value="1,1"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsClearance}" Value="True">
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="ToolTip" Value="Товар из списка распродажи"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CartArticleStyle" TargetType="TextBlock" BasedOn="{StaticResource ClearanceArticleStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsInvalid}" Value="True">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         
+        <DataTemplate x:Key="ProductStatusTemplate">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Ellipse Width="11" Height="11" Fill="#C62828" Margin="3,0" ToolTip="Распродажа"
+                    Visibility="{Binding IsClearance, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <Ellipse Width="11" Height="11" Fill="#D6A400" Margin="3,0" ToolTip="{Binding ExpiryHint}"
+                    Visibility="{Binding HasExpiryWarning, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </StackPanel>
+        </DataTemplate>
         <!-- Put in Window/Page/UserControl.Resources -->
         <Style x:Key="PriceEditorStyle" TargetType="TextBox">
             <Setter Property="IsReadOnly" Value="True"/>
@@ -172,12 +205,16 @@
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
 
-        <Style x:Key="CartCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+        <Style x:Key="ClearanceCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}"/>
+        <Style x:Key="CartCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource ClearanceCellStyle}">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding DataContext.IsBarter, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True">
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.IsBarter, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
                     <Setter Property="Background" Value="#F3E8FF"/>
                     <Setter Property="Foreground" Value="#48216B"/>
-                </DataTrigger>
+                </MultiDataTrigger>
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding DataContext.IsBarter, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True"/>
@@ -186,7 +223,7 @@
                     <Setter Property="Background" Value="#E9D5FF"/>
                 </MultiDataTrigger>
                 <DataTrigger Binding="{Binding IsInvalid}" Value="True">
-                    <Setter Property="Foreground" Value="#FF3B30"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -291,8 +328,18 @@
                     
                 </Grid>
 
-                <!-- Client fields and a distinct purchase-control group wrap on smaller windows. -->
-                <WrapPanel Grid.Row="1" Background="#E0E5E6" Margin="10,5">
+                <!-- Purchase controls align right when there is room beside the client fields. -->
+                <Grid x:Name="CustomerPurchaseControls" Grid.Row="1" Background="#E0E5E6" Margin="10,5"
+                      SizeChanged="CustomerPurchaseControls_SizeChanged">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel x:Name="CustomerFieldsPanel" VerticalAlignment="Center">
                     <Grid Margin="2,5,8,5" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -380,7 +427,10 @@
                                   Visibility="{Binding CanUseDirectFromStock, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
                     </Grid>
 
-                    <Border x:Name="PurchaseSummaryPanel" Width="560" Margin="4,5,4,5" Padding="10,7"
+                    </WrapPanel>
+
+                    <Border x:Name="PurchaseSummaryPanel" Grid.Column="1" HorizontalAlignment="Right"
+                            Width="560" Margin="4,5,4,5" Padding="10,7"
                             Background="#FFF5DE" BorderBrush="#E3B25A" BorderThickness="1" CornerRadius="8"
                             VerticalAlignment="Center">
                         <Grid>
@@ -468,7 +518,7 @@
                             </Grid>
                         </Grid>
                     </Border>
-                </WrapPanel>
+                </Grid>
 
                 <!-- StackPanel create order -->
                 <Grid Grid.Row="2" Background="#E0E5E6" Margin="10,0,10,5" Height="420">
@@ -536,17 +586,20 @@
                               CellStyle="{StaticResource CartCellStyle}" PreviewKeyDown="CartGrid_PreviewKeyDown">
 
                         <DataGrid.RowStyle>
-                            <Style TargetType="DataGridRow">
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource ClearanceRowStyle}">
                                 
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding DataContext.IsBarter, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True">
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding DataContext.IsBarter, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
                                         <Setter Property="Background" Value="#F3E8FF"/>
-                                    </DataTrigger>
+                                    </MultiDataTrigger>
 
-                                    <!-- 🔥 Invalid row after SaveOrder validation -->
+                                    <!-- Zero quantity found during order validation -->
                                     <DataTrigger Binding="{Binding IsInvalid}" Value="True">
-                                        <Setter Property="Foreground" Value="#FF3B30"/>        <!-- red -->
-                                        
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="ToolTip" Value="Количество заказа равно 0. Укажите количество больше 0."/>
                                     </DataTrigger>
                                  
 
@@ -557,7 +610,7 @@
 
 
                         <DataGrid.Columns>
-                            <DataGridTextColumn MaxWidth="150" Header="Артикул" IsReadOnly="True" Binding="{Binding ArticleNumber}" ElementStyle="{StaticResource TextBlockPaddingStyle}" />
+                            <DataGridTextColumn MaxWidth="150" Header="Артикул" IsReadOnly="True" Binding="{Binding ArticleNumber}" ElementStyle="{StaticResource CartArticleStyle}" />
                             <DataGridTextColumn MaxWidth="350" Header="Наименование" IsReadOnly="True" Binding="{Binding ProductName}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
                             <DataGridTextColumn MaxWidth="100" Header="Бренд" IsReadOnly="True" Binding="{Binding BrandName}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
                             <DataGridTextColumn MaxWidth="150" Header="Марка" IsReadOnly="True" Binding="{Binding Marka}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
@@ -595,6 +648,7 @@
                                 ElementStyle="{StaticResource TextBlockPaddingStyle}" />
 
                             <!-- Delete Button Column -->
+                            <DataGridTemplateColumn Header="Метки" Width="60" IsReadOnly="True" CellTemplate="{StaticResource ProductStatusTemplate}"/>
                             <DataGridTemplateColumn Header="Удалить">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -623,6 +677,7 @@
                         <RowDefinition Height="auto"/>    <!-- Checkbox -->
                         <RowDefinition Height="Auto"/>     <!-- SearchBox + Suggestion -->
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>     <!-- Notifications -->
                         
                     </Grid.RowDefinitions>
 
@@ -657,7 +712,14 @@
                     <Button Content="Создать заявку" Command="{Binding OpenProductRequestCommand}" Margin="10,8,0,8"
                             Style="{StaticResource RoundedButtonStyle}"/>
                     </StackPanel>
-                    <StackPanel x:Name="ProductRequestPanel" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,4,0,0"
+                    <StackPanel x:Name="ProductStatusLegend" Grid.Row="2" Grid.ColumnSpan="2"
+                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,6,5,2">
+                        <StackPanel Orientation="Horizontal" Margin="0,3,18,3"><Ellipse Width="11" Height="11" Fill="#C62828" Margin="0,0,6,0"/>
+                            <TextBlock Text="Распродажа" VerticalAlignment="Center"/></StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,3"><Ellipse Width="11" Height="11" Fill="#D6A400" Margin="0,0,6,0"/>
+                            <TextBlock Text="Близко к истечению срока" VerticalAlignment="Center"/></StackPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="ProductRequestPanel" Grid.Row="3" Grid.ColumnSpan="2" Margin="0,4,0,0"
                                 VerticalAlignment="Top">
                         <TextBlock Text="{Binding RequestMessage}" TextWrapping="Wrap" Foreground="#9A4D00"/>
                         <WrapPanel Visibility="{Binding IsRequestEntryVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,5,0,0">
@@ -679,7 +741,8 @@
                 </Grid>
 
                 <!-- DataGrid for Search Results -->
-                <DataGrid Grid.Row="4" GridLinesVisibility="None" Height="448"
+                <DataGrid x:Name="SearchResultsGrid" Grid.Row="4" GridLinesVisibility="None" Height="448"
+                          RowStyle="{StaticResource ClearanceRowStyle}" CellStyle="{StaticResource ClearanceCellStyle}"
                           IsReadOnly="True"
                           Margin="10"
                           FontSize="16"
@@ -714,6 +777,7 @@
                         TargetNullValue=''}"
                         IsReadOnly="True" />
                         <!-- Add Button Column -->
+                        <DataGridTemplateColumn Header="Метки" Width="60" CellTemplate="{StaticResource ProductStatusTemplate}"/>
                         <DataGridTemplateColumn Header="Добавить">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -749,9 +813,16 @@
 
 
                 <Label Grid.Column="0" VerticalAlignment="Center" VerticalContentAlignment="Center" FontSize="18" Foreground="#e67e22" >Альтернативы товара</Label>
-                <DataGrid GridLinesVisibility="None" IsReadOnly="True" Margin="5" FontSize="12" ItemsSource="{Binding AlternativeProductList}" AutoGenerateColumns="False">
+                <DataGrid GridLinesVisibility="None" IsReadOnly="True" Margin="5" FontSize="12" ItemsSource="{Binding AlternativeProductList}" AutoGenerateColumns="False"
+                          RowStyle="{StaticResource ClearanceRowStyle}" CellStyle="{StaticResource ClearanceCellStyle}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Бренд" Width="65" Binding="{Binding BrandName}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
+                        <DataGridTemplateColumn Header="Бренд" Width="65">
+                            <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                <StackPanel><TextBlock Text="{Binding BrandName}" Style="{StaticResource TextBlockPaddingStyle}"/>
+                                    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource ProductStatusTemplate}" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Кол" Width="35" Binding="{Binding Quentity}" ElementStyle="{StaticResource TextBlockPaddingStyle}" />
                         <DataGridTextColumn Header="СМН" Width="60" Binding="{Binding RetailPrice, StringFormat=\{0:F2\}}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>
                         <DataGridTextColumn Header="€" Width="50" Binding="{Binding CustomerPrice, StringFormat=\{0:F2\}}" ElementStyle="{StaticResource TextBlockPaddingStyle}"/>

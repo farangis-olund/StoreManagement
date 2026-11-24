@@ -27,6 +27,7 @@ public class CleanService
         // CourierPayments has a restrictive FK to Orders, so it must be removed first.
         // ExecuteDelete keeps large cleanup operations out of the change tracker.
         await db.CourierPayments.ExecuteDeleteAsync();
+        await db.ReturnExpiryAllocations.ExecuteDeleteAsync();
         await db.OrderDetails.ExecuteDeleteAsync();
         await db.Payments.ExecuteDeleteAsync();
         await db.ReturnDetails.ExecuteDeleteAsync();

@@ -113,13 +113,14 @@ namespace PresentationWpf.Documents
                             cols.RelativeColumn(0.8f); // Кол
                             cols.RelativeColumn(1f);   // Цена
                             cols.RelativeColumn(1f);   // Сумма
+                            cols.RelativeColumn(1f);   // Место
                           
                         });
 
                         string[] headers =
                         {
                             "Артикул", "Наименование", "Бренд", "Марка", "Модель",
-                            "Кол", "Цена", "Сумма"
+                            "Кол", "Цена", "Сумма", "Место"
                         };
 
                         // ✅ Table header that repeats on every page
@@ -172,6 +173,7 @@ namespace PresentationWpf.Documents
                             Cell(qty.ToString("0.##"), center: true);
                             Cell(price.ToString("0.00"), right: true);
                             Cell(total.ToString("0.00"), right: true);
+                            Cell(GetProp(item, "WarehousePlace"));
                            
                         }
                     });

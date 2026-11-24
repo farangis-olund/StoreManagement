@@ -36,7 +36,7 @@ internal static class BarterHistoryUiTests
             "Repeated preview must look up the original invoice number, without its display marker.");
         Check(vm.Previews.All(o => o.IsBarter && o.Id == orders.Order.Id && o.CustomerCity == "Душанбе" &&
             o.UserFullName == "Тест Продавец" && o.OrderDetails.Single().Price == 17.25m &&
-            o.OrderDetails.Single().Quentity == 5 && o.OrderDetails.Single().Total == 86.25m) && !orders.Order.IsSent,
+            o.OrderDetails.Single().Quentity == 5 && o.OrderDetails.Single().Total == 86.25m && o.OrderDetails.Single().WarehousePlace == "А1, А2") && !orders.Order.IsSent,
             "Barter reprints must retain the document type, seller, customer and persisted manual prices without changing the saved order.");
         view.DataContext = null;
         Console.WriteLine("PASS: customer invoice grid labels barter; repeated preview preserves the original ID, document type and manual prices without suggesting a duplicate payment");
@@ -51,6 +51,7 @@ internal static class BarterHistoryUiTests
             Customer = new() { Id = "N0001", FullName = "Клиент", City = "Душанбе" },
             User = new() { FirstName = "Тест", LastName = "Продавец" },
             OrderDetails = [new() { ArticleNumber = "PART", Price = 17.25m, Quentity = 5,
+                WarehousePlaceSnapshot = "А1, А2",
                 Product = new() { ProductName = "Товар", Brand = new() { BrandName = "Бренд" } } }]
         };
         public override Task<OrderEntity?> GetOrderAsync(string id)

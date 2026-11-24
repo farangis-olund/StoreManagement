@@ -89,7 +89,7 @@
 
                     <!-- Store Selection (same position as in TransferReceiveView) -->
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="С какого магазина:" VerticalAlignment="Center"/>
-                    <ComboBox Grid.Row="1" Grid.Column="1"
+                    <ComboBox x:Name="StoreFilterComboBox" Grid.Row="1" Grid.Column="1"
                               ItemsSource="{Binding Stores}"
                               HorizontalAlignment="Left"
                               SelectedItem="{Binding SelectedStore}"

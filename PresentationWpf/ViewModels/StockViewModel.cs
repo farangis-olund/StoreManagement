@@ -141,6 +141,7 @@ public partial class StockViewModel : ObservableObject
     private readonly StockLocationViewModel _stockLocationViewModel;
     private readonly ReturnDebtRepaymentViewModel _returnDebtRepaymentViewModel;
     private readonly TransferReceiveViewModel _transferReceiveViewModel;
+    private readonly ProductExpiryViewModel? _expiryViewModel;
     public PermissionService PermissionService { get; }
 
     [ObservableProperty]
@@ -151,6 +152,7 @@ public partial class StockViewModel : ObservableObject
     [ObservableProperty] private bool isMovementSelected;
     [ObservableProperty] private bool isTransferSelected;
     [ObservableProperty] private bool isStockLocationSelected;
+    [ObservableProperty] private bool isExpirySelected;
 
     public StockViewModel(
         ImportViewModel importViewModel,
@@ -159,7 +161,7 @@ public partial class StockViewModel : ObservableObject
         TransferViewModel transferViewModel,
         StockLocationViewModel stockLocationViewModel,
         ReturnDebtRepaymentViewModel returnDebtRepaymentViewModel,
-        TransferReceiveViewModel transferReceiveViewModel, PermissionService permissionService)
+        TransferReceiveViewModel transferReceiveViewModel, PermissionService permissionService, ProductExpiryViewModel? expiryViewModel = null)
     {
         _productViewModel = productViewModel;
         _importViewModel = importViewModel;
@@ -169,6 +171,8 @@ public partial class StockViewModel : ObservableObject
         _returnDebtRepaymentViewModel = returnDebtRepaymentViewModel;
         _transferReceiveViewModel = transferReceiveViewModel;
         PermissionService = permissionService;
+        _expiryViewModel = expiryViewModel;
+        System.ComponentModel.PropertyChangedEventManager.AddHandler(permissionService, (_, _) => RefreshPermissions(), nameof(PermissionService.CurrentPermissions));
 
         // listen for close requests to reset tab state
         _productViewModel.RequestClose += () => ResetTab(ref isCatalogSelected);
@@ -182,13 +186,26 @@ public partial class StockViewModel : ObservableObject
     }
 
     public bool CanViewCatalog => PermissionService.Has(PermissionCatalog.InventoryCatalog);
+    public bool CanViewExpiry => PermissionService.Has(PermissionCatalog.Inventory);
 
     public void RefreshPermissions()
     {
         OnPropertyChanged(nameof(CanViewCatalog));
+        OnPropertyChanged(nameof(CanViewExpiry));
+        OpenExpiryCommand.NotifyCanExecuteChanged();
+        if (!CanViewExpiry && IsExpirySelected) { CurrentViewModel = null!; SetActiveTab(); }
        
     }
     // === Catalog ===
+    [RelayCommand(CanExecute = nameof(CanViewExpiry))]
+    private void OpenExpiry()
+    {
+        if (!CanViewExpiry || _expiryViewModel == null) return;
+        if (IsExpirySelected && CurrentViewModel == _expiryViewModel) return;
+        _expiryViewModel.SetPriorityMode(false);
+        CurrentViewModel = _expiryViewModel; SetActiveTab(expiry: true);
+    }
+
     [RelayCommand]
     private void OpenCatalog()
     {
@@ -245,13 +262,14 @@ public partial class StockViewModel : ObservableObject
     }
 
     // === Helper to clear all and activate one tab ===
-    private void SetActiveTab(bool catalog = false, bool import = false, bool movement = false, bool transfer = false, bool stockLocation = false)
+    private void SetActiveTab(bool catalog = false, bool import = false, bool movement = false, bool transfer = false, bool stockLocation = false, bool expiry = false)
     {
         IsCatalogSelected = catalog;
         IsImportSelected = import;
         IsMovementSelected = movement;
         IsTransferSelected = transfer;
         IsStockLocationSelected = stockLocation;
+        IsExpirySelected = expiry;
     }
 
     private void ResetTab(ref bool tabFlag)

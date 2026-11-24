@@ -77,6 +77,22 @@ internal static class StoreExchangeReportTests
         }), grants);
         try { await revoked.GetAsync(); throw new Exception("Mid-query revocation was ignored."); }
         catch (UnauthorizedAccessException) { }
+        db.StoreExchanges.Add(Exchange(storeA, first, "получение_товара", 2));
+        await db.SaveChangesAsync();
+        var debtService = new StoreExchangeService(db, null!);
+        var allDebts = (await debtService.GetExchangeProductsAsync(null, "получение_товара"))
+            .Where(x => x.ArticleNumber.Contains(prefix)).ToArray();
+        Check(allDebts.Length == 3 && allDebts.Single(x => x.StoreCode == storeA.StoreCode && x.ArticleNumber == first.ArticleNumber).Debt == 3 &&
+            allDebts.Single(x => x.StoreCode == storeA.StoreCode && x.ArticleNumber == first.ArticleNumber).Quantity == 18 &&
+            allDebts.Single(x => x.StoreCode == storeB.StoreCode).Debt == 4,
+            "All-store debts must keep each store/article distinct, sum repeated debts, and count warehouse stock once");
+        Check(allDebts.Select(x => (x.StoreCode, x.ArticleNumber)).SequenceEqual(allDebts
+            .OrderBy(x => x.StoreCode, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.ArticleNumber, StringComparer.OrdinalIgnoreCase)
+            .Select(x => (x.StoreCode, x.ArticleNumber))), "All-store debts must sort by store, then article");
+        Check((await debtService.GetExchangeProductsAsync(storeA.StoreCode, "получение_товара")).All(x => x.StoreCode == storeA.StoreCode),
+            "Single-store debt query included other stores");
+        Check((await debtService.GetExchangeProductsAsync(null, "передача_товара")).Where(x => x.ArticleNumber.Contains(prefix)).Count() == 2,
+            "The return query must include only outgoing debts for all stores");
         await db.StoreExchanges.Where(x => x.StoreCode.StartsWith(prefix)).ExecuteDeleteAsync();
         await db.Stores.Where(s => s.StoreCode.StartsWith(prefix)).ExecuteDeleteAsync();
         var ids = new[] { first.ArticleNumber, second.ArticleNumber, returnedOnly.ArticleNumber, noExchange.ArticleNumber,

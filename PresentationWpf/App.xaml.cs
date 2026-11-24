@@ -155,6 +155,14 @@ public partial class App : Application
 				services.AddTransient<BrandViewModel>();
                 services.AddTransient<BonusesViewModel>();
                 services.AddTransient<BonusesView>();
+                services.AddTransient<ClearanceViewModel>();
+                services.AddTransient<ClearanceView>();
+                services.AddTransient<ClearanceService>();
+                services.AddSingleton<ClearanceCatalog>();
+                services.AddSingleton<ProductExpiryCatalog>();
+                services.AddTransient<ProductExpiryService>();
+                services.AddTransient<ProductExpiryViewModel>();
+                services.AddTransient<ProductExpiryView>();
                 services.AddTransient<RoleManagementViewModel>();
                 services.AddTransient<PermissionsViewModel>();
                 services.AddTransient<PermissionsView>();

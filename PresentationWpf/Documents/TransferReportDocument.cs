@@ -14,6 +14,7 @@ namespace PresentationWpf.Documents
         private readonly string _description;
         private readonly string _reportType;
         private readonly string _storeName;
+        private readonly bool _groupByStore;
 
         public TransferReportDocument(
             string orgInfo,
@@ -22,15 +23,18 @@ namespace PresentationWpf.Documents
             List<TransferReportLine> lines,
             string description,
             string reportType,
-            string storeName)
+            string storeName,
+            bool groupByStore = false)
         {
             _orgInfo = orgInfo;
             _date = date;
             _type = type;
-            _lines = lines;
+            _lines = lines.OrderBy(x => x.StoreCode, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.Article, StringComparer.OrdinalIgnoreCase).ToList();
             _description = description;
             _reportType = reportType;
             _storeName = storeName;
+            _groupByStore = groupByStore;
         }
 
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -73,7 +77,7 @@ namespace PresentationWpf.Documents
                     {
                         content.Item().AlignCenter()
                             .PaddingBottom(6)
-                            .Text($"Операция для магазина: {_storeName}")
+                            .Text(_groupByStore ? "Магазины: Все" : $"Операция для магазина: {_storeName}")
                             .FontSize(10)
                             .FontColor(Colors.Grey.Darken2);
                     }
@@ -90,6 +94,11 @@ namespace PresentationWpf.Documents
                     }
 
                     // --- Table ---
+                    var groups = _groupByStore
+                        ? _lines.GroupBy(x => x.StoreCode, StringComparer.OrdinalIgnoreCase).Select(g => g.ToList()).ToArray()
+                        : new[] { _lines };
+                    foreach (var group in groups)
+                    {
                     content.Item().PaddingTop(8).Table(table =>
                     {
                         table.ColumnsDefinition(cols =>
@@ -110,6 +119,14 @@ namespace PresentationWpf.Documents
                         // Header row
                         table.Header(header =>
                         {
+                            if (_groupByStore)
+                            {
+                                var store = group[0];
+                                var label = string.IsNullOrWhiteSpace(store.StoreName)
+                                    ? store.StoreCode : $"{store.StoreCode} · {store.StoreName}";
+                                header.Cell().ColumnSpan(7).Background(Colors.Grey.Lighten2).Padding(5)
+                                    .Text($"Магазин: {label}").Bold();
+                            }
                             foreach (var h in headers)
                             {
                                 header.Cell()
@@ -126,7 +143,7 @@ namespace PresentationWpf.Documents
                         });
 
                         // Data rows
-                        foreach (var line in _lines)
+                        foreach (var line in group)
                         {
                             void Cell(string value, bool center = false)
                             {
@@ -148,10 +165,13 @@ namespace PresentationWpf.Documents
                             Cell(Trim(line.WarehousePlace, 10), center: true); // Место
                         }
                     });
+                    if (_groupByStore)
+                        content.Item().AlignRight().Text($"Итого по магазину: {group.Sum(x => (long)x.Quantity)} шт.").Bold();
+                    }
 
                     // --- Totals ---
                     content.Item().PaddingTop(6)
-                        .Text($"Всего наименований: {_lines.Count}   Общий объём: {_lines.Sum(x => x.Quantity)}")
+                        .Text($"Всего наименований: {_lines.Count}   Общий объём: {_lines.Sum(x => (long)x.Quantity)}")
                         .Bold()
                         .FontSize(10);
                 });

@@ -76,7 +76,7 @@
         <!-- Orders and Payments grids -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="1.15*"/>
                 <ColumnDefinition Width="14"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="14"/>
@@ -121,7 +121,7 @@
                             </DataGridTextColumn>
 
                             <!-- № Платежа -->
-                            <DataGridTextColumn Width="*"
+                            <DataGridTextColumn Width="*" MinWidth="200"
                                       Header="№ Накладной"
                                       Binding="{Binding InvoiceDisplay}">
                                 <DataGridTextColumn.ElementStyle>

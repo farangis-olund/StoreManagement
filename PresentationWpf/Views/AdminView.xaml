@@ -50,6 +50,12 @@
                  IsChecked="{Binding IsBonusesSelected}"
                  Command="{Binding OpenBonusesCommand}"/>
 
+            <RadioButton Content="Распродажа"
+                 Visibility="{Binding CanViewClearance, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
+                 Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsClearanceSelected}"
+                 Command="{Binding OpenClearanceCommand}"/>
+
             <RadioButton Content="Пользователи"
                Visibility="{Binding CanViewUsers, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                Style="{StaticResource AdminTopButtonStyle}"

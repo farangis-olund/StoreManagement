@@ -54,6 +54,8 @@ public partial class DatabaseContext(DbContextOptions<DatabaseContext> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureProductRequests(modelBuilder);
+        ConfigureClearance(modelBuilder);
+        ConfigureProductExpiry(modelBuilder);
         modelBuilder.Entity<UserEntity>().Property(u => u.IsManager).HasDefaultValue(false);
         modelBuilder.Entity<SalesManagerEntity>().HasOne(m => m.User).WithOne(u => u.SalesManager)
             .HasForeignKey<SalesManagerEntity>(m => m.UserId).OnDelete(DeleteBehavior.Restrict);

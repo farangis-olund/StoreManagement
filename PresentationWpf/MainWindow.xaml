@@ -537,6 +537,12 @@
                 <DataTemplate DataType="{x:Type viewmodels:BonusesViewModel}">
                     <views:BonusesView/>
                 </DataTemplate>
+                <DataTemplate DataType="{x:Type viewmodels:ClearanceViewModel}">
+                    <views:ClearanceView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type viewmodels:ProductExpiryViewModel}">
+                    <views:ProductExpiryView/>
+                </DataTemplate>
 
                 <DataTemplate DataType="{x:Type viewmodels:ManagerInfoViewModel}">
                     <views:ManagerInfoView/>

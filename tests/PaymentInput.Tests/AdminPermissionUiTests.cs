@@ -26,6 +26,7 @@ internal static class AdminPermissionUiTests
             ("Менеджеры", PermissionCatalog.AdminManagers, admin.OpenManagersCommand, typeof(ManagerViewModel)),
             ("Коэффициенты", PermissionCatalog.AdminCoefficients, admin.OpenCoefficientsCommand, typeof(CoefficientViewModel)),
             ("Бонусы", PermissionCatalog.AdminBonuses, admin.OpenBonusesCommand, typeof(BonusesViewModel)),
+            ("Распродажа", PermissionCatalog.AdminClearance, admin.OpenClearanceCommand, typeof(ClearanceViewModel)),
             ("Пользователи", PermissionCatalog.AdminUsers, admin.OpenUsersCommand, typeof(UserViewModel)),
             ("Справочники", PermissionCatalog.AdminReferences, admin.OpenReferencesCommand, typeof(ReferenceViewModel)),
             ("База данных", PermissionCatalog.AdminDatabase, admin.OpenDBCommand, typeof(DataBaseViewModel)),
@@ -96,7 +97,7 @@ internal static class AdminPermissionUiTests
         try { database.CreateNewRow(); throw new Exception("Unauthorized direct row creation was allowed."); }
         catch (UnauthorizedAccessException) { }
         Check(db.Database.GetDbConnection().State == System.Data.ConnectionState.Closed, "UI authorization checks unexpectedly connected to a database.");
-        Console.WriteLine("PASS: all 8 admin tabs and 7 reference links, Brand selection binding, independent rights, direct-command rejection, immediate revocation and database CRUD guards");
+        Console.WriteLine("PASS: all 9 admin tabs and 7 reference links, selection binding, independent rights, direct-command rejection, immediate revocation and database CRUD guards");
     }
     private static void Layout(FrameworkElement view)
     {

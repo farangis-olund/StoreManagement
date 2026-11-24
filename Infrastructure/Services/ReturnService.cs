@@ -14,6 +14,7 @@ public class ReturnService
 	private readonly DatabaseContext _db;
 	private readonly ILogger<ReturnService> _logger;
     private readonly OfficialMonthlyPlanService? _monthlyPlans;
+    private readonly ProductExpiryCatalog? _expiryCatalog;
 
 	private static readonly char[] _chars =
 		"ABDEFGHIJLMNOPQRTUVWXYZ0123456789".ToCharArray();
@@ -21,12 +22,13 @@ public class ReturnService
 	public ReturnService(
 		ReturnRepository returnRepository,
 		DatabaseContext db,
-		ILogger<ReturnService> logger, OfficialMonthlyPlanService? monthlyPlans = null)
+		ILogger<ReturnService> logger, OfficialMonthlyPlanService? monthlyPlans = null, ProductExpiryCatalog? expiryCatalog = null)
 	{
 		_returnRepository = returnRepository;
 		_db = db;
 		_logger = logger;
         _monthlyPlans = monthlyPlans;
+        _expiryCatalog = expiryCatalog;
 	}
 
 	/// <summary>
@@ -62,6 +64,7 @@ public class ReturnService
     /// </summary>
     public virtual async Task<ReturnEntity?> AddReturnAsync(ReturnEntity returnEntity)
     {
+        _db.ChangeTracker.Clear();
         try
         {
             if (string.IsNullOrWhiteSpace(returnEntity.Id))
@@ -70,60 +73,17 @@ public class ReturnService
             foreach (var d in returnEntity.ReturnDetails)
                 d.ReturnId = returnEntity.Id;
 
-            await using var tx = await _db.Database.BeginTransactionAsync();
-
-            // 1. Save return itself
-            var saved = await _returnRepository.AddAsync(returnEntity);
-            // Reload with Product included
-				saved = await _db.Set<ReturnEntity>()
-                .Include(r => r.ReturnDetails)
-                    .ThenInclude(d => d.Product)
-                        .ThenInclude(p => p.Brand)
-				.Include(c=>c.Customer)
-                .FirstOrDefaultAsync(r => r.Id == returnEntity.Id);
-
-            // 2. Reduce remaining qty in order details
-            foreach (var detail in returnEntity.ReturnDetails)
-            {
-                var orderDetail = await _db.Set<OrderDetailEntity>()
-                    .FirstOrDefaultAsync(o =>
-                        o.OrderId == returnEntity.InvoiceNumber &&
-                        o.ArticleNumber == detail.ArticleNumber);
-
-                if (orderDetail != null)
-                {
-                    // Decrease qty
-                    orderDetail.ReturnedQty = (orderDetail.ReturnedQty ?? 0) + detail.Quantity;
-
-                    // Clamp: prevent negative
-                    if (orderDetail.ReturnedQty > orderDetail.Quentity)
-                        orderDetail.ReturnedQty = orderDetail.Quentity;
-
-                    _db.Update(orderDetail);
-                }
-            }
-
-            // 3. If refund method is "Зачесть в баланс", update Customer.Dept
-   //         if (returnEntity.RefundMethod == "Зачесть в баланс"
-			//&& !string.IsNullOrEmpty(returnEntity.CustomerId))
-   //         {
-   //             var customer = await _db.Set<CustomerEntity>()
-   //                 .FirstOrDefaultAsync(c => c.Id == returnEntity.CustomerId);
-
-   //             if (customer != null)
-   //             {
-   //                 customer.Debt = Math.Round(
-			//		(customer.Debt ?? 0) - (double)returnEntity.TotalAmount,
-			//		2,
-			//		 MidpointRounding.AwayFromZero);
-
-
-   //                 _db.Update(customer);
-   //             }
-   //         }
+            await using var tx = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            if (await _db.Returns.AnyAsync(x => x.Id == returnEntity.Id)) return null;
+            _db.Returns.Add(returnEntity);
+            await ExpiryBatchStock.RestoreReturnAsync(_db, returnEntity);
 
             await _db.SaveChangesAsync();
+            var saved = await _db.Returns.Include(x => x.Customer).Include(x => x.ReturnDetails).ThenInclude(x => x.Product).ThenInclude(x => x.Brand)
+                .SingleAsync(x => x.Id == returnEntity.Id);
+            var annotations = _expiryCatalog == null ? null : await ProductExpiryCatalog.ReadAsync(_db);
             await tx.CommitAsync();
+            if (annotations != null) _expiryCatalog!.Publish(annotations);
             _monthlyPlans?.NotifyChanged();
 
             return saved;
@@ -131,6 +91,7 @@ public class ReturnService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при сохранении возврата");
+            _db.ChangeTracker.Clear();
             return null;
         }
     }
@@ -180,13 +141,21 @@ public class ReturnService
 	{
 		try
 		{
-			await _returnRepository.RemoveAsync(r => r.Id == id);
+            _db.ChangeTracker.Clear();
+            await using var tx = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var document = await _db.Returns.Include(x => x.ReturnDetails).SingleOrDefaultAsync(x => x.Id == id);
+            if (document == null) return false;
+            await ExpiryBatchStock.UndoReturnAsync(_db, document);
+            _db.Returns.Remove(document); await _db.SaveChangesAsync();
+            var annotations = _expiryCatalog == null ? null : await ProductExpiryCatalog.ReadAsync(_db);
+            await tx.CommitAsync(); if (annotations != null) _expiryCatalog!.Publish(annotations);
 			_monthlyPlans?.NotifyChanged();
 			return true;
 		}
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Ошибка при удалении возврата");
+            _db.ChangeTracker.Clear();
 			return false;
 		}
 	}

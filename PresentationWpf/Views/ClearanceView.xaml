@@ -1,0 +1,140 @@
+<UserControl x:Class="PresentationWpf.Views.ClearanceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#F6F7F9" Language="ru-RU"
+             Loaded="View_Loaded" DataContextChanged="View_DataContextChanged">
+    <UserControl.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="#D7D9E0"/>
+            <Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style x:Key="Action" TargetType="Button" BasedOn="{StaticResource GrayButton}">
+            <Setter Property="Width" Value="Auto"/><Setter Property="MinWidth" Value="105"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+        </Style>
+        <Style TargetType="TabItem"><Setter Property="Padding" Value="18,9"/><Setter Property="FontSize" Value="14"/></Style>
+        <Style x:Key="RemoveAction" TargetType="Button">
+            <Setter Property="Foreground" Value="#A93226"/><Setter Property="Background" Value="#FFF5F3"/>
+            <Setter Property="BorderBrush" Value="#E6C9C4"/><Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/><Setter Property="Height" Value="24"/>
+            <Setter Property="Margin" Value="4,0"/><Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate></Setter.Value></Setter>
+            <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger></Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="15">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock Text="Распродажа" FontSize="24" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding LastSavedText}" Foreground="#606775" Margin="0,5,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+        <TabControl Grid.Row="1" BorderBrush="#D7D9E0" Background="Transparent">
+            <TabItem Header="Список распродажи">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Отбор товаров с положительным остатком" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <WrapPanel>
+                                <TextBlock Text="Продано за всё время" VerticalAlignment="Center" Margin="0,0,10,8"/>
+                                <ComboBox ItemsSource="{Binding Comparisons}" SelectedItem="{Binding Comparison}" IsEnabled="{Binding CanWork}" Width="65" Height="32" Margin="0,0,8,8"/>
+                                <TextBox Text="{Binding ThresholdText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditThreshold}" Width="85" Height="32" VerticalContentAlignment="Center" Margin="0,0,14,8"/>
+                                <Button Content="Сформировать" Style="{StaticResource Action}" Command="{Binding GenerateProductsCommand}"/>
+                                <Button Content="Сохранить список" Style="{StaticResource Action}" Command="{Binding SaveProductsCommand}"/>
+                                <Button Content="Загрузить сохранённый" Style="{StaticResource Action}" Command="{Binding ReloadProductsCommand}"/>
+                            </WrapPanel>
+                            <TextBlock Text="«= 0» — товары без продаж; «≤» — продано не больше указанного количества. Возвраты не вычитаются." TextWrapping="Wrap" Foreground="#606775"/>
+                        </StackPanel>
+                    </Border>
+                    <WrapPanel Grid.Row="1">
+                        <TextBlock Text="Артикул" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                        <Grid Width="220" Height="32" Margin="0,0,8,8" ClipToBounds="True">
+                            <TextBox x:Name="ArticleBox" Text="{Binding ArticleText, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding CanWork}" MaxLength="50" Padding="5,0" FontSize="14"
+                                     VerticalContentAlignment="Center" ToolTip="Tab или → — принять подсказку; Enter — добавить артикул."
+                                     PreviewKeyDown="ArticleBox_PreviewKeyDown" TextChanged="ArticleBox_TextChanged"
+                                     SelectionChanged="ArticleBox_SelectionChanged" SizeChanged="ArticleBox_SizeChanged">
+                                <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding AddProductCommand}"/></TextBox.InputBindings>
+                            </TextBox>
+                            <TextBlock x:Name="ArticleSuggestionText" Text="{Binding ArticleSuggestionSuffix}" Foreground="LightGray"
+                                       FontFamily="{Binding FontFamily, ElementName=ArticleBox}" FontSize="{Binding FontSize, ElementName=ArticleBox}"
+                                       FontStyle="{Binding FontStyle, ElementName=ArticleBox}" FontWeight="{Binding FontWeight, ElementName=ArticleBox}"
+                                       IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed"/>
+                        </Grid>
+                        <Button Content="Добавить в список" Style="{StaticResource Action}" Command="{Binding AddProductCommand}"/>
+                    </WrapPanel>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding Products}" Style="{StaticResource SummaryGrid}" IsReadOnly="True" RowHeight="34"
+                              CanUserAddRows="False" CanUserDeleteRows="False" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber, Mode=OneWay}" Width="170"/>
+                            <DataGridTextColumn Header="Наименование" Binding="{Binding ProductName, Mode=OneWay}" Width="*" MinWidth="160"/>
+                            <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName, Mode=OneWay}" Width="130"/>
+                            <DataGridTextColumn Header="Остаток" Binding="{Binding StockQuantity, Mode=OneWay}" Width="95"/>
+                            <DataGridTextColumn Header="Продано" Binding="{Binding SoldQuantity, Mode=OneWay}" Width="95"/>
+                            <DataGridTemplateColumn Header="" Width="100">
+                                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                    <Button Content="Удалить" Style="{StaticResource RemoveAction}" Command="{Binding DataContext.RemoveProductCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                        <TextBlock Text="{Binding ProductsTotal}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding ProductsStatus}" Foreground="#82500B" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Бонусы за распродажу">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Бонусы продавцов" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <WrapPanel>
+                                <TextBlock Text="Период с" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                                <DatePicker SelectedDate="{Binding FromDate}" IsEnabled="{Binding CanWork}" Width="125" Height="32" Margin="0,0,8,8"/>
+                                <TextBlock Text="по" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                                <DatePicker SelectedDate="{Binding ToDate}" IsEnabled="{Binding CanWork}" Width="125" Height="32" Margin="0,0,14,8"/>
+                                <TextBlock Text="Бонус, %" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                                <TextBox Text="{Binding PercentText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanWork}" Width="65" Height="32" VerticalContentAlignment="Center" Margin="0,0,14,8"/>
+                                <Button Content="Сформировать отчёт" Style="{StaticResource Action}" Command="{Binding CalculateBonusCommand}"/>
+                                <Button Content="Сохранить отчёт" Style="{StaticResource Action}" Command="{Binding SaveReportCommand}"/>
+                                <Button Content="Печать" Style="{StaticResource Action}" Command="{Binding PrintCommand}"/>
+                                <Button Content="Экспорт в Excel" Style="{StaticResource Action}" Command="{Binding ExportExcelCommand}"/>
+                            </WrapPanel>
+                            <TextBlock Text="Расчёт по сохранённому списку распродажи. Обе даты входят в период. Возвраты не вычитаются." TextWrapping="Wrap" Foreground="#606775"/>
+                        </StackPanel>
+                    </Border>
+                    <WrapPanel Grid.Row="1">
+                        <TextBlock Text="Сохранённые отчёты" VerticalAlignment="Center" Margin="0,0,8,8"/>
+                        <ComboBox ItemsSource="{Binding History}" SelectedItem="{Binding SelectedHistory}" DisplayMemberPath="Display" IsEnabled="{Binding CanWork}" Width="430" Height="32" Margin="0,0,8,8"/>
+                        <Button Content="Открыть" Style="{StaticResource Action}" Command="{Binding OpenHistoryCommand}"/>
+                        <Button Content="Обновить" Style="{StaticResource Action}" Command="{Binding RefreshHistoryCommand}"/>
+                    </WrapPanel>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding BonusRows}" Style="{StaticResource SummaryGrid}" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Продавец" Binding="{Binding SellerName, Mode=OneWay}" Width="*" MinWidth="170"/>
+                            <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber, Mode=OneWay}" Width="180"/>
+                            <DataGridTextColumn Header="Количество" Binding="{Binding Quantity, Mode=OneWay}" Width="110"/>
+                            <DataGridTextColumn Header="Сумма" Binding="{Binding Amount, Mode=OneWay, StringFormat=N2}" Width="130"/>
+                            <DataGridTextColumn Header="Бонус" Binding="{Binding Bonus, Mode=OneWay, StringFormat=N2}" Width="130"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                        <TextBlock Text="{Binding BonusTotal}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding ReportStatus}" Foreground="#606775" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+            <ProgressBar Height="3" IsIndeterminate="True" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <TextBlock Text="{Binding Message}" Foreground="#A34419" TextWrapping="Wrap" Margin="0,5,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

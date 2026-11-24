@@ -1584,6 +1584,99 @@ namespace Infrastructure.Migrations
                         });
                     b.HasData(new { Id = 1, NonOfficialThreshold = 0m });
                 });
+            modelBuilder.Entity("Infrastructure.Entities.ClearanceProductEntity", b =>
+                {
+                    b.Property<string>("ArticleNumber").HasMaxLength(50).IsUnicode(false).HasColumnType("varchar(50)");
+                    b.HasKey("ArticleNumber");
+                    b.ToTable("ClearanceProducts");
+                    b.HasOne("Infrastructure.Entities.ProductEntity", "Product").WithMany()
+                        .HasForeignKey("ArticleNumber").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Product");
+                });
+            modelBuilder.Entity("Infrastructure.Entities.ClearanceBonusReportEntity", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("FromDate").HasColumnType("date");
+                    b.Property<DateTime>("ToDate").HasColumnType("date");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
+                    b.Property<decimal>("Percent").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.Property<long>("TotalQuantity").HasColumnType("bigint");
+                    b.Property<decimal>("TotalAmount").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.Property<decimal>("TotalBonus").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.HasKey("Id");
+                    b.HasIndex("FromDate", "ToDate").IsUnique();
+                    b.ToTable("ClearanceBonusReports", t =>
+                        {
+                            t.HasCheckConstraint("CK_ClearanceBonusReports_Period", "[FromDate] <= [ToDate]");
+                            t.HasCheckConstraint("CK_ClearanceBonusReports_Percent", "[Percent] > 0 AND [Percent] <= 100");
+                        });
+                });
+            modelBuilder.Entity("Infrastructure.Entities.ClearanceBonusLineEntity", b =>
+                {
+                    b.Property<Guid>("ReportId").HasColumnType("uniqueidentifier");
+                    b.Property<int>("UserId").HasColumnType("int");
+                    b.Property<string>("ArticleNumber").HasMaxLength(50).IsUnicode(false).HasColumnType("varchar(50)");
+                    b.Property<string>("SellerName").IsRequired().HasMaxLength(450).HasColumnType("nvarchar(450)");
+                    b.Property<long>("Quantity").HasColumnType("bigint");
+                    b.Property<decimal>("Amount").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.Property<decimal>("Bonus").HasPrecision(18, 2).HasColumnType("decimal(18,2)");
+                    b.HasKey("ReportId", "UserId", "ArticleNumber");
+                    b.ToTable("ClearanceBonusLines");
+                    b.HasOne("Infrastructure.Entities.ClearanceBonusReportEntity", "Report").WithMany("Lines")
+                        .HasForeignKey("ReportId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Report");
+                });
+            modelBuilder.Entity("Infrastructure.Entities.ClearanceBonusReportEntity", b => b.Navigation("Lines"));
+            modelBuilder.Entity("Infrastructure.Entities.ProductExpiryBatchEntity", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uniqueidentifier");
+                    b.Property<string>("ArticleNumber").IsRequired().HasMaxLength(50).IsUnicode(false).HasColumnType("varchar(50)");
+                    b.Property<DateTime>("ManufacturedOn").HasColumnType("date");
+                    b.Property<DateTime>("ExpiresOn").HasColumnType("date");
+                    b.Property<string>("WarehousePlace").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<int>("Quantity").ValueGeneratedOnAdd().HasColumnType("int").HasDefaultValue(0);
+                    b.Property<DateTime>("UpdatedAt").HasColumnType("datetime2");
+                    b.Property<byte[]>("Version").IsRequired().IsConcurrencyToken().ValueGeneratedOnAddOrUpdate().HasColumnType("rowversion");
+                    b.HasKey("Id");
+                    b.HasIndex("ArticleNumber", "ManufacturedOn", "ExpiresOn", "WarehousePlace").IsUnique();
+                    b.HasIndex("Quantity", "ExpiresOn");
+                    b.ToTable("ProductExpiryBatches", t =>
+                    {
+                        t.HasCheckConstraint("CK_ProductExpiryBatches_Dates", "[ManufacturedOn] <= [ExpiresOn]");
+                        t.HasCheckConstraint("CK_ProductExpiryBatches_Quantity", "[Quantity] >= 0");
+                    });
+                    b.HasOne("Infrastructure.Entities.ProductEntity", "Product").WithMany().HasForeignKey("ArticleNumber")
+                        .OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Product");
+                });
+            modelBuilder.Entity("Infrastructure.Entities.OrderDetailEntity", b => b.Property<string>("WarehousePlaceSnapshot").HasColumnType("nvarchar(max)"));
+            modelBuilder.Entity("Infrastructure.Entities.ReturnDetailEntity", b => b.Property<string>("SourceOrderId").HasMaxLength(450).HasColumnType("nvarchar(450)"));
+            modelBuilder.Entity("Infrastructure.Entities.OrderExpiryAllocationEntity", b =>
+            {
+                b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uniqueidentifier");
+                b.Property<string>("OrderId").IsRequired().HasColumnType("nvarchar(450)");
+                b.Property<string>("ArticleNumber").IsRequired().HasColumnType("varchar(50)");
+                b.Property<Guid>("BatchId").HasColumnType("uniqueidentifier");
+                b.Property<int>("Quantity").HasColumnType("int");
+                b.Property<int>("ReturnedQuantity").HasColumnType("int");
+                b.HasKey("Id"); b.HasIndex("BatchId"); b.HasIndex("OrderId", "ArticleNumber", "BatchId").IsUnique();
+                b.ToTable("OrderExpiryAllocations", t => t.HasCheckConstraint("CK_OrderExpiryAllocations_Quantity", "[Quantity] > 0 AND [ReturnedQuantity] >= 0 AND [ReturnedQuantity] <= [Quantity]"));
+                b.HasOne("Infrastructure.Entities.OrderDetailEntity", "OrderDetail").WithMany().HasForeignKey("OrderId", "ArticleNumber").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                b.HasOne("Infrastructure.Entities.ProductExpiryBatchEntity", "Batch").WithMany().HasForeignKey("BatchId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                b.Navigation("OrderDetail"); b.Navigation("Batch");
+            });
+            modelBuilder.Entity("Infrastructure.Entities.ReturnExpiryAllocationEntity", b =>
+            {
+                b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uniqueidentifier");
+                b.Property<int>("ReturnDetailId").HasColumnType("int");
+                b.Property<Guid>("SaleAllocationId").HasColumnType("uniqueidentifier");
+                b.Property<int>("Quantity").HasColumnType("int");
+                b.HasKey("Id"); b.HasIndex("ReturnDetailId"); b.HasIndex("SaleAllocationId");
+                b.ToTable("ReturnExpiryAllocations", t => t.HasCheckConstraint("CK_ReturnExpiryAllocations_Quantity", "[Quantity] > 0"));
+                b.HasOne("Infrastructure.Entities.ReturnDetailEntity", "ReturnDetail").WithMany().HasForeignKey("ReturnDetailId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                b.HasOne("Infrastructure.Entities.OrderExpiryAllocationEntity", "SaleAllocation").WithMany().HasForeignKey("SaleAllocationId").OnDelete(DeleteBehavior.Restrict).IsRequired();
+                b.Navigation("ReturnDetail"); b.Navigation("SaleAllocation");
+            });
 #pragma warning restore 612, 618
         }
     }

@@ -127,10 +127,10 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0"
+        <WrapPanel Grid.Row="0"
             Orientation="Horizontal"
             Background="{StaticResource AdminTopBackground}"
-            Height="45">
+            MinHeight="45">
 
             <RadioButton Content="Каталог"
                  Visibility="{Binding DataContext.CanViewCatalog,
@@ -186,8 +186,11 @@
                  Style="{StaticResource AdminTopButtonStyle}"
                  IsChecked="{Binding IsStockLocationSelected}"
                  Command="{Binding OpenStockLocationCommand}"/>
+            <RadioButton Content="Сроки годности" Style="{StaticResource AdminTopButtonStyle}"
+                 IsChecked="{Binding IsExpirySelected}" Command="{Binding OpenExpiryCommand}"
+                 Visibility="{Binding CanViewExpiry, Converter={StaticResource BoolToVisibilityConverter}}"/>
             
-        </StackPanel>
+        </WrapPanel>
 
 
         <!-- === MAIN CONTENT AREA === -->

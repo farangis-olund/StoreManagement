@@ -16,9 +16,9 @@
 	  <Company>StoreManagement</Company>
 	  <Product>StoreManagementApp</Product>
 	  <AssemblyTitle>StoreManagementApp</AssemblyTitle>
-	  <Version>1.0.5</Version>
-	  <AssemblyVersion>1.0.5.0</AssemblyVersion>
-	  <FileVersion>1.0.5.0</FileVersion>
+	  <Version>1.0.6</Version>
+	  <AssemblyVersion>1.0.6.0</AssemblyVersion>
+	  <FileVersion>1.0.6.0</FileVersion>
 	  <StartupObject>PresentationWpf.App</StartupObject>
 	  <ApplicationIcon>Images\icons\wheel_32.ico</ApplicationIcon>
 	

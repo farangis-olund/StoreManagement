@@ -20,6 +20,7 @@ public partial class AdminViewModel : ObservableObject
     [ObservableProperty] private bool isUsersSelected;
     [ObservableProperty] private bool isCoefficientsSelected;
     [ObservableProperty] private bool isBonusesSelected;
+    [ObservableProperty] private bool isClearanceSelected;
     [ObservableProperty] private bool isManagersSelected;
     [ObservableProperty] private bool isBrandsSelected;
     [ObservableProperty] private bool isReferencesSelected;
@@ -37,6 +38,7 @@ public partial class AdminViewModel : ObservableObject
     public bool CanViewManagers => _access.CanOpen(PermissionCatalog.AdminManagers);
     public bool CanViewCoefficients => _access.CanOpen(PermissionCatalog.AdminCoefficients);
     public bool CanViewBonuses => _access.CanOpen(PermissionCatalog.AdminBonuses);
+    public bool CanViewClearance => _access.CanOpen(PermissionCatalog.AdminClearance);
     public bool CanViewUsers => _access.CanOpen(PermissionCatalog.AdminUsers);
     public bool CanViewReferences => _access.CanOpen(PermissionCatalog.AdminReferences);
     public bool CanViewDatabase => _access.CanOpen(PermissionCatalog.AdminDatabase);
@@ -48,6 +50,8 @@ public partial class AdminViewModel : ObservableObject
     private void OpenCoefficients() => Open<CoefficientViewModel>(PermissionCatalog.AdminCoefficients, () => IsCoefficientsSelected = true);
     [RelayCommand(CanExecute = nameof(CanViewBonuses))]
     private void OpenBonuses() => Open<BonusesViewModel>(PermissionCatalog.AdminBonuses, () => IsBonusesSelected = true);
+    [RelayCommand(CanExecute = nameof(CanViewClearance))]
+    private void OpenClearance() => Open<ClearanceViewModel>(PermissionCatalog.AdminClearance, () => IsClearanceSelected = true);
     [RelayCommand(CanExecute = nameof(CanViewManagers))]
     private void OpenManagers() => Open<ManagerViewModel>(PermissionCatalog.AdminManagers, () => IsManagersSelected = true);
     [RelayCommand(CanExecute = nameof(CanViewBrands))]
@@ -96,6 +100,7 @@ public partial class AdminViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(CanViewBrands)); OnPropertyChanged(nameof(CanViewManagers));
         OnPropertyChanged(nameof(CanViewCoefficients)); OnPropertyChanged(nameof(CanViewBonuses));
+        OnPropertyChanged(nameof(CanViewClearance)); OpenClearanceCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanViewUsers)); OnPropertyChanged(nameof(CanViewReferences));
         OnPropertyChanged(nameof(CanViewDatabase)); OnPropertyChanged(nameof(CanCleanDatabase));
         OpenBrandsCommand.NotifyCanExecuteChanged(); OpenManagersCommand.NotifyCanExecuteChanged();
@@ -110,6 +115,7 @@ public partial class AdminViewModel : ObservableObject
     private void ResetSelection()
     {
         IsUsersSelected = false; IsCoefficientsSelected = false; IsBonusesSelected = false;
+        IsClearanceSelected = false;
         IsManagersSelected = false; IsBrandsSelected = false; IsReferencesSelected = false;
         IsDeleteDataSelected = false; IsDBSelected = false;
     }

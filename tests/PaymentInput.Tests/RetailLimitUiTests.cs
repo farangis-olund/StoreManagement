@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Infrastructure.Constants;
 using Infrastructure.Dtos;
@@ -14,6 +15,7 @@ internal static class RetailLimitUiTests
 {
     public static void Run()
     {
+        CheckInvalidQuantityHighlight();
         var permissions = new PermissionService();
         var vm = Ready(permissions, 50);
         var product = Add(vm, "0986494153", 19.64m);
@@ -98,6 +100,38 @@ internal static class RetailLimitUiTests
         Check(separateProduct.OrderQuentity == 1 && separate.TotalSum == 19.64m && separate.Warnings == 1,
             "A stricter separate order limit must still be enforced.");
         Console.WriteLine("PASS: cart edit 10 -> 2 under displayed restriction 50; multiple rows, exact/zero boundaries, notifications, override, revocation and refreshed limits");
+    }
+
+    private static void CheckInvalidQuantityHighlight()
+    {
+        var vm = Ready(new PermissionService(), 50);
+        var product = Add(vm, "ZERO-QUANTITY", 5);
+        var view = new RetailView { DataContext = vm, Width = 1280, Height = 850 };
+        Layout(view);
+        var cart = (DataGrid)view.FindName("CartGrid");
+        var row = (DataGridRow)cart.ItemContainerGenerator.ContainerFromItem(product);
+        var article = (TextBlock)cart.Columns.OfType<DataGridTextColumn>().Single(c =>
+            (c.Binding as Binding)?.Path.Path == nameof(ProductModel.ArticleNumber)).GetCellContent(product);
+        var quantity = (TextBlock)cart.Columns.OfType<DataGridTextColumn>().Single(c =>
+            (c.Binding as Binding)?.Path.Path == nameof(ProductModel.OrderQuentity)).GetCellContent(product);
+        product.IsInvalid = true; Layout(view);
+        Check(row.FontWeight == FontWeights.Bold && article.FontWeight == FontWeights.Bold && quantity.FontWeight == FontWeights.Bold,
+            "A zero-quantity warning must immediately make the cart row and its quantity bold.");
+        Check(row.Foreground is SolidColorBrush brush && brush.Color != Color.FromRgb(255, 59, 48) && row.ToolTip != null,
+            "The quantity warning must explain the zero quantity without turning the row red.");
+        product.OrderQuentity = 1; Layout(view);
+        Check(!product.IsInvalid && row.FontWeight != FontWeights.Bold && quantity.FontWeight != FontWeights.Bold && row.ToolTip == null,
+            "Correcting the quantity must immediately remove the warning, bold font and tooltip.");
+        product.IsClearance = true; product.OrderQuentity = 0; product.IsInvalid = true; Layout(view);
+        Check(article.FontWeight == FontWeights.Bold && (row.Background is not SolidColorBrush rowBrush || rowBrush.Color != Color.FromRgb(255, 205, 210)),
+            "A clearance article must become bold for zero quantity without restoring a red background.");
+        product.OrderQuentity = 1; Layout(view);
+        Check(!product.IsInvalid && row.FontWeight != FontWeights.Bold && article.FontWeight == FontWeights.SemiBold,
+            "Correcting quantity must restore the article's ordinary clearance styling.");
+        var outOfStock = (ProductModel)new Product { ArticleNumber = "OUT-OF-STOCK", Quentity = 0 };
+        outOfStock.IsInvalid = true; outOfStock.OrderQuentity = 5;
+        Check(outOfStock.OrderQuentity == 0 && outOfStock.IsInvalid, "A correction capped to zero stock must retain the warning.");
+        Console.WriteLine("PASS: zero-quantity cart rows use bold text instead of red; correction resets the live warning, preserving clearance styling and validation for quantities capped to zero");
     }
 
     private static LimitRetailViewModel Ready(PermissionService permissions, decimal available, decimal? buyLimit = null)

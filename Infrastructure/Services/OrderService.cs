@@ -26,6 +26,7 @@ public class OrderService
     private readonly OfficialMonthlyPlanService? _monthlyPlans;
     private readonly ICurrentUserContext? _session;
     private readonly OrderOperationsAccessPolicy _operationsAccess;
+    private readonly ProductExpiryCatalog? _expiryCatalog;
 
 	// Allowed characters for the random part
 	private static readonly char[] _chars =
@@ -34,7 +35,7 @@ public class OrderService
 								OrderDetailRepository orderDetailRepository,
 								ILogger<OrderService> logger, ProductService productService, IDbContextFactory<DatabaseContext> dbFactory,
                                 IPermissionChecker permissions, OfficialMonthlyPlanService? monthlyPlans = null,
-                                ICurrentUserContext? session = null)
+                                ICurrentUserContext? session = null, ProductExpiryCatalog? expiryCatalog = null)
 	{
 		_orderRepository = orderRepository;
 		_orderDetailRepository = orderDetailRepository;
@@ -45,6 +46,7 @@ public class OrderService
         _monthlyPlans = monthlyPlans;
         _session = session;
         _operationsAccess = new(permissions);
+        _expiryCatalog = expiryCatalog;
 
 	}
 
@@ -110,7 +112,7 @@ public class OrderService
 
                 if (!orderEntity.DirectFromStock)
                 {
-                    var items = orderEntity.OrderDetails
+                    var items = orderEntity.OrderDetails.OrderBy(x => x.ArticleNumber, StringComparer.OrdinalIgnoreCase)
                         .Select(d => new StockDeductionItem(d.ArticleNumber, d.Quentity)).ToList();
                     var stock = await _productService.DeductStockAsync(items, db);
                     if (!stock.Success)
@@ -120,6 +122,7 @@ public class OrderService
                     }
                 }
 
+                await ExpiryBatchStock.AllocateAsync(db, orderEntity);
                 if (orderEntity.IsBarter) orderEntity.IsPaid = true;
                 db.Orders.Add(orderEntity);
                 await db.SaveChangesAsync();
@@ -144,8 +147,10 @@ public class OrderService
                     await db.SaveChangesAsync();
                 }
 
+                var expiryAnnotations = _expiryCatalog == null ? null : await ProductExpiryCatalog.ReadAsync(db);
                 await tx.CommitAsync();
                 committed = true;
+                if (expiryAnnotations != null) _expiryCatalog!.Publish(expiryAnnotations);
                 _monthlyPlans?.NotifyChanged();
                 return orderEntity;
             }
@@ -154,6 +159,7 @@ public class OrderService
                 // Both document numbers have unique indexes; retry the whole transaction.
             }
             catch (OfficialMonthlyPlanLimitException) { throw; }
+            catch (ExpiryBatchStockException) { throw; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in AddOrderAsync");
@@ -204,6 +210,13 @@ public class OrderService
 				return null!;
 			}
 
+            await using var guardDb = await _dbFactory.CreateDbContextAsync();
+            if (await guardDb.OrderExpiryAllocations.AnyAsync(x => x.OrderId == existingOrder.Id) &&
+                (orderEntity.DirectFromStock != existingOrder.DirectFromStock || orderEntity.OrderDetails.Count != existingOrder.OrderDetails.Count ||
+                 orderEntity.OrderDetails.Any(x => !existingOrder.OrderDetails.Any(y => y.ArticleNumber == x.ArticleNumber && y.Quentity == x.Quentity))))
+                throw new InvalidOperationException("Количество в накладной со списанными партиями изменять нельзя. Оформите возврат.");
+            foreach (var detail in orderEntity.OrderDetails)
+                detail.WarehousePlaceSnapshot = existingOrder.OrderDetails.FirstOrDefault(x => x.ArticleNumber == detail.ArticleNumber)?.WarehousePlaceSnapshot;
 			await _orderRepository.UpdateAsync(p => p.Id == existingOrder.Id, orderEntity);
 
 			foreach (var orderDetail in orderEntity.OrderDetails)
@@ -236,6 +249,8 @@ public class OrderService
 	{
 		try
 		{
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            if (await db.OrderExpiryAllocations.AnyAsync(x => x.OrderId == orderEntity.Id)) return false;
 			await _orderRepository.RemoveAsync(pp => pp.Id == orderEntity.Id);
 			_monthlyPlans?.NotifyChanged();
 			return true;
@@ -252,6 +267,8 @@ public class OrderService
 	{
 		try
 		{
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            if (await db.OrderExpiryAllocations.AnyAsync(x => x.OrderId == orderEntity.Id && x.ArticleNumber == article)) return false;
 			var existingOrderDetail = await _orderDetailRepository.GetOneAsync(pp => pp.OrderId == orderEntity.Id && pp.ArticleNumber == article);
 			if (existingOrderDetail == null)
 			{

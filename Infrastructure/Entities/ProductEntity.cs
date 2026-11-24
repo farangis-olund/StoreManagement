@@ -10,6 +10,10 @@ public class ProductEntity
     [StringLength(50)]
     [Unicode(false)]
     public string ArticleNumber { get; set; } = null!;
+    [NotMapped]
+    public bool IsClearance { get; set; }
+    [NotMapped] public DateTime? NearestExpiryDate { get; set; }
+    [NotMapped] public string ExpiryHint { get; set; } = "";
 	public int Numbering { get; set; }
 
 	[StringLength(100)]

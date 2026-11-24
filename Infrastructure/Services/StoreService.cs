@@ -11,7 +11,7 @@ namespace Infrastructure.Services
         {
             _storeRepository = storeRepository;
         }
-        public async Task<List<StoreEntity>> GetAllAsync()
+        public virtual async Task<List<StoreEntity>> GetAllAsync()
         {
             var list = await _storeRepository.GetAllAsync();
             return list.OrderBy(x => x.StoreCode).ToList();

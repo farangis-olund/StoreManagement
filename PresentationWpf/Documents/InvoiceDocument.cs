@@ -162,7 +162,7 @@ namespace PresentationWpf.Documents
                             var qty = Convert.ToDecimal(item.GetType().GetProperty("Quentity")?.GetValue(item) ?? 0);
                             var price = Convert.ToDecimal(item.GetType().GetProperty("Price")?.GetValue(item) ?? 0);
                             var total = qty * price;
-                            var warehousePlace = Trim(GetProp(item, "WarehousePlace"), 5);
+                            var warehousePlace = GetProp(item, "WarehousePlace");
                             void Cell(string value, bool center = false, bool right = false)
                             {
                                 var cell = table.Cell()

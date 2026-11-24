@@ -492,6 +492,7 @@ namespace PresentationWpf.ViewModels
                 ReturnDetails = Lines.Select(l => new ReturnDetailEntity
                 {
                     ArticleNumber = l.Article,
+                    SourceOrderId = ManualMode ? null : l.OrderId,
                     Quantity = (int)l.ReturnQty,
                     Price = l.Price,
                     Total = l.Total

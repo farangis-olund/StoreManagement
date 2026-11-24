@@ -397,6 +397,8 @@ public partial class TransferProduct : ObservableObject
 
 public class TransferReportLine
 {
+    public string StoreCode { get; set; } = "";
+    public string StoreName { get; set; } = "";
     public string Article { get; set; } = "";
     public string ProductName { get; set; } = "";
     public string Brand { get; set; } = "";

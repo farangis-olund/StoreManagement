@@ -253,7 +253,11 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Место" Binding="{Binding WarehousePlace}" Width="80"/>
+                            <DataGridTextColumn Header="Место" Binding="{Binding WarehousePlace}" Width="110">
+                                <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="ToolTip" Value="{Binding WarehousePlace}"/>
+                                </Style></DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
 

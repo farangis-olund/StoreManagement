@@ -197,7 +197,7 @@ public partial class SummaryViewModel : ObservableObject
                     Quentity = p.Quentity,
                     Price = p.Price,
                     Total = p.Quentity * p.Price,
-                    WarehousePlace = p.Product?.WarehousePlace
+                    WarehousePlace = p.WarehousePlaceSnapshot ?? p.Product?.WarehousePlace
                 });
             }
         }

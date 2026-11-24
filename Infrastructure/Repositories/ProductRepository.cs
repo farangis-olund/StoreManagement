@@ -25,6 +25,9 @@ public class ProductRepository : Repo<DatabaseContext, ProductEntity>
             .Include(i => i.Group)
             .ToListAsync();
 
+            var clearance = (await context.ClearanceProducts.Select(x => x.ArticleNumber).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var product in productList) product.IsClearance = clearance.Contains(product.ArticleNumber);
+            await Infrastructure.Services.ProductExpiryCatalog.AnnotateAsync(context, productList);
             return productList;
         }
         catch (Exception ex)
@@ -55,6 +58,11 @@ public class ProductRepository : Repo<DatabaseContext, ProductEntity>
 				await context.SaveChangesAsync();
 			}
 
+            if (entity != null)
+            {
+                entity.IsClearance = await context.ClearanceProducts.AnyAsync(x => x.ArticleNumber == entity.ArticleNumber);
+                await Infrastructure.Services.ProductExpiryCatalog.AnnotateAsync(context, [entity]);
+            }
 			return entity;
 		}
 		catch (Exception ex)
@@ -70,21 +78,21 @@ public class ProductRepository : Repo<DatabaseContext, ProductEntity>
 		using var context = CreateContext();
 		try
         {
-            var searchWords = searchKeyword.Split(' ');
-           
-            var searchResults = await context.Products
-                .Where(p =>
-                    searchWords.All(word =>
-                        EF.Functions.Like(p.ArticleNumber, $"%{word}%") ||
-                        EF.Functions.Like(p.ProductName, $"%{word}%") ||
-                        EF.Functions.Like(p.Model, $"%{word}%") ||
-                        EF.Functions.Like(p.Alternative, $"%{word}%") ||
-                        EF.Functions.Like(p.Group.GroupName, $"%{word}%") ||
-                        EF.Functions.Like(p.Brand.BrandName, $"%{word}%")
-                    )
-                )
-                .ToListAsync();
+            IQueryable<ProductEntity> query = context.Products;
+            // Parameterize each word outside the expression; every word must match a field.
+            foreach (var word in searchKeyword.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pattern = $"%{word}%";
+                query = query.Where(p => EF.Functions.Like(p.ArticleNumber, pattern) ||
+                    EF.Functions.Like(p.ProductName, pattern) || EF.Functions.Like(p.Model, pattern) ||
+                    EF.Functions.Like(p.Alternative, pattern) || EF.Functions.Like(p.Group.GroupName, pattern) ||
+                    EF.Functions.Like(p.Brand.BrandName, pattern));
+            }
+            var searchResults = await query.Include(p => p.Brand).Include(p => p.Group).ToListAsync();
 
+            var clearance = (await context.ClearanceProducts.Select(x => x.ArticleNumber).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var product in searchResults) product.IsClearance = clearance.Contains(product.ArticleNumber);
+            await Infrastructure.Services.ProductExpiryCatalog.AnnotateAsync(context, searchResults);
             return searchResults;
         }
         catch (Exception ex)

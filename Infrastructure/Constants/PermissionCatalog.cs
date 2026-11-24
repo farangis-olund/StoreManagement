@@ -7,6 +7,7 @@ public static class PermissionCatalog
     public const string AdminManagers = "Admin.Managers";
     public const string AdminCoefficients = "Admin.Coefficients";
     public const string AdminBonuses = "Admin.Bonuses";
+    public const string AdminClearance = "Admin.Clearance";
     public const string AdminUsers = "Admin.Users";
     public const string AdminReferences = "Admin.References";
     public const string AdminDatabase = "Admin.Database";
@@ -61,6 +62,7 @@ public static class PermissionCatalog
         new PermissionDefinition(AdminManagers, "Администрация.Менеджеры"),
         new PermissionDefinition(AdminCoefficients, "Администрация.Коэффициенты"),
         new PermissionDefinition(AdminBonuses, "Администрация.Бонусы"),
+        new PermissionDefinition(AdminClearance, "Администрация.Распродажа"),
         new PermissionDefinition(AdminUsers, "Администрация.Пользователи"),
         new PermissionDefinition(AdminReferences, "Администрация.Справочники"),
         new PermissionDefinition(AdminDatabase, "Администрация.База данных"),

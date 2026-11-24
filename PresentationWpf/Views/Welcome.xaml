@@ -8,5 +8,14 @@
             <Hyperlink x:Name="MyNewArticlesLink" Foreground="#566366"
                        Command="{Binding DataContext.NavigateToMyNewArticlesCommand, RelativeSource={RelativeSource AncestorType=Window}}">Мои новые артикулы</Hyperlink>
         </TextBlock>
+        <TextBlock Text="Заполнение новых артикулов и отправка заявок администратору"
+                   Foreground="#626D78" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        <StackPanel Margin="0,24,0,0" Visibility="{Binding DataContext.CanViewExpiry, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+            <TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Left">
+                <Hyperlink x:Name="ExpiryProductsLink" Foreground="#566366"
+                    Command="{Binding DataContext.NavigateToExpiryCommand, RelativeSource={RelativeSource AncestorType=Window}}">Товары со сроком до 1 года</Hyperlink>
+            </TextBlock>
+            <TextBlock Text="Партии с ближайшим сроком годности и места на складе" Foreground="#626D78" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
     </StackPanel>
 </UserControl>

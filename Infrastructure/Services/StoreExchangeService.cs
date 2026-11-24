@@ -255,15 +255,15 @@ public class StoreExchangeService
 
 
 
-    public async Task<IEnumerable<ExchangeProductDto>> GetExchangeProductsAsync(string storeCode, string exchangeType)
+    public virtual async Task<IEnumerable<ExchangeProductDto>> GetExchangeProductsAsync(string? storeCode, string exchangeType)
     {
-        if (string.IsNullOrWhiteSpace(storeCode))
+        if (storeCode != null && string.IsNullOrWhiteSpace(storeCode))
             throw new ArgumentException("Store code cannot be empty", nameof(storeCode));
 
         var query = _context.StoreExchanges
             .Include(e => e.Product)
             .ThenInclude(p => p.Brand)
-            .Where(e => e.StoreCode == storeCode && e.ExchangeType == exchangeType)
+            .Where(e => (storeCode == null || e.StoreCode == storeCode) && e.ExchangeType == exchangeType && e.Quantity > 0)
             .GroupBy(e => new
             {
                 e.Product.ArticleNumber,
@@ -272,6 +272,7 @@ public class StoreExchangeService
                 e.Product.Marka,
                 e.Product.Model,
                 e.Product.WarehousePlace,
+                e.Product.Quentity,
                 e.StoreCode
             })
             .Select(g => new ExchangeProductDto
@@ -283,11 +284,11 @@ public class StoreExchangeService
                 Model = g.Key.Model,
                 StoreCode = g.Key.StoreCode,
                 WarehousePlace = g.Key.WarehousePlace,
-                Quantity = g.Sum(x => x.Product.Quentity),
+                Quantity = g.Key.Quentity,
                 Debt = g.Sum(x => x.Quantity) // you can adjust if you track actual debts separately
             });
 
-        return await query.ToListAsync();
+        return await query.OrderBy(x => x.StoreCode).ThenBy(x => x.ArticleNumber).ToListAsync();
     }
 
 

@@ -16,23 +16,33 @@ namespace PresentationWpf.Views;
     /// </summary>
     public partial class RetailView : UserControl
     {
+    private readonly DispatcherTimer _expiryTimer = new() { Interval = TimeSpan.FromMinutes(1) };
+    private DateTime _expiryDay = DateTime.Today;
     public RetailView()
     {
         InitializeComponent();
 
         DataContextChanged += RetailView_DataContextChanged;
+        _expiryTimer.Tick += (_, _) =>
+        {
+            if (_expiryDay == DateTime.Today) return;
+            _expiryDay = DateTime.Today;
+            if (DataContext is RetailViewModel model) model.RefreshExpiryStatuses();
+        };
 
         Loaded += (_, _) =>
         {
+            _expiryTimer.Start();
             if (DataContext is RetailViewModel vm)
             {
                 vm.StartMonthlyPlanRefresh();
+                vm.RefreshExpiryStatuses();
                 vm.OnProductAdded += () => Dispatcher.Invoke(ScrollToLastCartItem);
                 vm.OnInvalidQuantityFound += product =>
                     Dispatcher.Invoke(() => ScrollToProduct(product));
             }
         };
-        Unloaded += (_, _) => { if (DataContext is RetailViewModel vm) vm.StopMonthlyPlanRefresh(); };
+        Unloaded += (_, _) => { _expiryTimer.Stop(); if (DataContext is RetailViewModel vm) vm.StopMonthlyPlanRefresh(); };
 
     }
 
@@ -193,16 +203,25 @@ namespace PresentationWpf.Views;
         }
     }
 
+    private void CustomerPurchaseControls_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!e.WidthChanged || PurchaseSummaryPanel == null || CustomerFieldsPanel == null) return;
+        var inline = e.NewSize.Width >= 1370;
+        Grid.SetColumnSpan(CustomerFieldsPanel, inline ? 1 : 2);
+        Grid.SetRow(PurchaseSummaryPanel, inline ? 0 : 1);
+        Grid.SetColumn(PurchaseSummaryPanel, inline ? 1 : 0);
+        Grid.SetColumnSpan(PurchaseSummaryPanel, inline ? 1 : 2);
+        PurchaseSummaryPanel.HorizontalAlignment = inline ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+    }
+
     private void ProductSearchControls_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (!e.WidthChanged || ProductRequestPanel == null) return;
-
-        // Keep enough room for the notice and request controls beside the search.
-        var inline = e.NewSize.Width >= 1050;
-        Grid.SetRow(ProductRequestPanel, inline ? 1 : 2);
-        Grid.SetColumn(ProductRequestPanel, inline ? 1 : 0);
-        Grid.SetColumnSpan(ProductRequestPanel, inline ? 1 : 2);
-        ProductRequestPanel.Margin = inline ? new Thickness(16, 0, 0, 0) : new Thickness(0, 4, 0, 0);
+        if (!e.WidthChanged || ProductStatusLegend == null) return;
+        var inline = e.NewSize.Width >= 850;
+        Grid.SetRow(ProductStatusLegend, inline ? 1 : 2);
+        Grid.SetColumn(ProductStatusLegend, inline ? 1 : 0);
+        Grid.SetColumnSpan(ProductStatusLegend, inline ? 1 : 2);
+        ProductStatusLegend.Margin = inline ? new Thickness(16, 0, 5, 0) : new Thickness(0, 6, 5, 2);
     }
 
 

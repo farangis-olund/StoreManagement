@@ -12,6 +12,9 @@ internal static class Program
     {
         if (args.Length == 2 && args[0] == "--pdf-probe") return PdfPrintProbe.Run(args[1]);
         if (args.Contains("--product-requests")) return ProductRequestUiTests.Run();
+        if (args.Contains("--clearance")) return ClearanceUiTests.Run();
+        if (args.Contains("--expiry")) return ProductExpiryUiTests.Run();
+        if (args.Contains("--return-debts")) return ReturnDebtRepaymentReportTests.Run();
         try
         {
             foreach (var cultureName in new[] { "en-US", "ru-RU", "sv-SE" })

@@ -50,7 +50,8 @@ public partial class RetailViewModel : ObservableObject
 							CustomerFinanceService financeService,
                             PermissionService permissionService,
                             ProductRequestService productRequestService, OfficialMonthlyPlanService? monthlyPlanService = null,
-                            RetailManagerService? retailManagerService = null)
+                            RetailManagerService? retailManagerService = null, ClearanceCatalog? clearanceCatalog = null,
+                            ProductExpiryCatalog? expiryCatalog = null)
 	{
 		_productService = productService;
 		_orderService = orderService;
@@ -103,8 +104,52 @@ public partial class RetailViewModel : ObservableObject
 
 		CustomersView = CollectionViewSource.GetDefaultView(AllCustomers);
 		CustomersView.Filter = CustomerFilter;
+        if (clearanceCatalog != null)
+            WeakEventManager<ClearanceCatalog, EventArgs>.AddHandler(clearanceCatalog, nameof(ClearanceCatalog.Changed), OnClearanceChanged);
+        if (expiryCatalog != null)
+            WeakEventManager<ProductExpiryCatalog, EventArgs>.AddHandler(expiryCatalog, nameof(ProductExpiryCatalog.Changed), OnExpiryChanged);
+    }
 
-        
+    private void OnExpiryChanged(object? sender, EventArgs e)
+    {
+        if (sender is not ProductExpiryCatalog catalog) return;
+        void Update()
+        {
+            foreach (var product in ProductList.Concat(SelectedProductList).Concat(AlternativeProductList).Distinct())
+            {
+                var annotation = catalog.Get(product.ArticleNumber);
+                product.NearestExpiryDate = annotation?.ExpiresOn; product.ExpiryHint = annotation?.Hint ?? "";
+            }
+            ProductListView?.Refresh();
+        }
+        if (Application.Current != null && !Application.Current.Dispatcher.CheckAccess()) Application.Current.Dispatcher.Invoke(Update);
+        else Update();
+    }
+
+    public void RefreshExpiryStatuses()
+    {
+        foreach (var product in ProductList.Concat(SelectedProductList).Concat(AlternativeProductList).Distinct()) product.RefreshExpiryStatus();
+        PrioritizeExpiryProducts();
+    }
+
+    private void PrioritizeExpiryProducts()
+    {
+        ProductListView ??= CollectionViewSource.GetDefaultView(ProductList);
+        if (!ProductListView.SortDescriptions.Any(x => x.PropertyName == nameof(ProductModel.ExpirySortDate)))
+            ProductListView.SortDescriptions.Insert(0, new SortDescription(nameof(ProductModel.ExpirySortDate), ListSortDirection.Ascending));
+        ProductListView.Refresh();
+    }
+
+    private void OnClearanceChanged(object? sender, EventArgs e)
+    {
+        if (sender is not ClearanceCatalog catalog) return;
+        void Update()
+        {
+            foreach (var product in ProductList.Concat(SelectedProductList).Concat(AlternativeProductList).Distinct())
+                product.IsClearance = catalog.Contains(product.ArticleNumber);
+        }
+        if (Application.Current != null && !Application.Current.Dispatcher.CheckAccess()) Application.Current.Dispatcher.Invoke(Update);
+        else Update();
     }
 
 	[ObservableProperty]
@@ -410,6 +455,7 @@ public partial class RetailViewModel : ObservableObject
 
 		ProductListView = CollectionViewSource.GetDefaultView(ProductList);
 		ProductListView.Filter = FilterProducts;
+        PrioritizeExpiryProducts();
         ApplyFilter();
 		// 3) Customers (source collection)
         if (_retailManagerService != null) await RefreshManagerContextAsync();
@@ -843,6 +889,8 @@ public partial class RetailViewModel : ObservableObject
             }
 
             // ❗ Validate that every product has quantity > 0
+            foreach (var item in SelectedProductList)
+                item.IsInvalid = item.OrderQuentity <= 0;
             var noQuantityProduct = SelectedProductList
                 .FirstOrDefault(p => p.OrderQuentity <= 0);
 
@@ -854,9 +902,6 @@ public partial class RetailViewModel : ObservableObject
                     "Количество не указано",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
-
-                foreach (var item in SelectedProductList)
-                    item.IsInvalid = item.OrderQuentity <= 0;
 
                 OnInvalidQuantityFound?.Invoke(noQuantityProduct);
                 return;
@@ -947,7 +992,13 @@ public partial class RetailViewModel : ObservableObject
                 if (!IsRetailManagerContextReady || _userSessionService.UserId != userForOrder ||
                     SelectedCustomer != customerForOrder || !CustomerFilter(customerForOrder)) return;
             }
-            var result = await _orderService.AddOrderAsync(orderEntity);
+            OrderEntity? result;
+            try { result = await _orderService.AddOrderAsync(orderEntity); }
+            catch (ExpiryBatchStockException ex)
+            {
+                MessageBox.Show(ex.Message, "Остатки партий", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             if (result == null)
             {
@@ -986,6 +1037,7 @@ public partial class RetailViewModel : ObservableObject
                         UserFullName = $"{savedOrder.User?.FirstName} {savedOrder.User?.LastName}",
                         OrderDetails = savedOrder.OrderDetails?.Select(d => new OrderDetail
                         {
+                            WarehousePlace = d.WarehousePlaceSnapshot ?? d.Product?.WarehousePlace ?? "",
                             ArticleNumber = d.ArticleNumber,
                             ProductName = d.Product?.ProductName,
                             BrandName = d.Product?.Brand?.BrandName,

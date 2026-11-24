@@ -1,0 +1,95 @@
+<UserControl x:Class="PresentationWpf.Views.ProductExpiryView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#F5F6FA" FontSize="14" Loaded="OnLoaded">
+ <UserControl.Resources>
+  <BooleanToVisibilityConverter x:Key="ExpiryVisibility"/>
+  <Style x:Key="ExpiryButton" TargetType="Button" BasedOn="{StaticResource GrayButton}">
+   <Setter Property="Width" Value="Auto"/>
+   <Setter Property="Padding" Value="14,7"/><Setter Property="Margin" Value="0,0,8,0"/>
+   <Setter Property="MinHeight" Value="32"/>
+  </Style>
+  <Style x:Key="ExpiryPrimaryButton" TargetType="Button" BasedOn="{StaticResource GreenButton}">
+   <Setter Property="Width" Value="185"/><Setter Property="Margin" Value="0,0,8,0"/>
+  </Style>
+  <Style TargetType="TextBox"><Setter Property="Padding" Value="6,4"/><Setter Property="MinHeight" Value="30"/></Style>
+  <Style TargetType="ComboBox"><Setter Property="MinHeight" Value="30"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <Style TargetType="DatePicker"><Setter Property="MinHeight" Value="30"/><Setter Property="Language" Value="ru-RU"/></Style>
+ </UserControl.Resources>
+ <Grid Margin="16" IsEnabled="{Binding CanAccess}">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+   <RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel>
+   <DockPanel><Button Content="На главную" DockPanel.Dock="Right" HorizontalAlignment="Right" Style="{StaticResource ExpiryButton}"
+     Command="{Binding GoHomeCommand}" Visibility="{Binding IsPriorityView, Converter={StaticResource ExpiryVisibility}}"/>
+    <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="SemiBold"/></DockPanel>
+   <TextBlock Text="{Binding Description}" Foreground="#596474" TextWrapping="Wrap" Margin="0,4,0,12"/>
+  </StackPanel>
+  <Border Grid.Row="1" Background="White" BorderBrush="#D5D9E2" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12"
+    Visibility="{Binding CanManage, Converter={StaticResource ExpiryVisibility}}" IsEnabled="{Binding CanEdit}">
+   <StackPanel>
+    <DockPanel Margin="0,0,0,8"><StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Импорт из Excel" Command="{Binding ImportCommand}" Style="{StaticResource ExpiryButton}"/>
+      <Button Content="Скачать шаблон" Command="{Binding TemplateCommand}" Style="{StaticResource ExpiryButton}"/>
+     </StackPanel><TextBlock Text="{Binding EditorTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel>
+    <WrapPanel>
+     <StackPanel Width="300" Margin="0,0,12,8"><TextBlock Text="Артикул" Margin="0,0,0,4"/>
+      <ComboBox x:Name="BatchArticleBox" IsEditable="True" ItemsSource="{Binding Products}" DisplayMemberPath="Display"
+       TextSearch.TextPath="ArticleNumber" Text="{Binding ArticleText, UpdateSourceTrigger=PropertyChanged}"/></StackPanel>
+     <StackPanel Width="160" Margin="0,0,12,8"><TextBlock Text="Дата производства" Margin="0,0,0,4"/>
+      <DatePicker SelectedDate="{Binding ManufacturedOn}"/></StackPanel>
+     <StackPanel Width="160" Margin="0,0,12,8"><TextBlock Text="Годен до" Margin="0,0,0,4"/>
+      <DatePicker SelectedDate="{Binding ExpiresOn}" ToolTip="Указанная дата входит в срок годности"/></StackPanel>
+     <StackPanel Width="210" Margin="0,0,12,8"><TextBlock Text="Место на складе" Margin="0,0,0,4"/>
+      <TextBox Text="{Binding WarehousePlace, UpdateSourceTrigger=PropertyChanged}" MaxLength="200"/></StackPanel>
+     <StackPanel Width="110" Margin="0,0,12,8"><TextBlock Text="В наличии, шт." Margin="0,0,0,4"/>
+      <TextBox x:Name="BatchQuantityBox" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}" MaxLength="10"/>
+     </StackPanel>
+    </WrapPanel>
+    <WrapPanel><Button Content="Сохранить партию" Command="{Binding SaveCommand}" Style="{StaticResource ExpiryPrimaryButton}"/>
+     <Button Content="Удалить выбранную" Command="{Binding DeleteCommand}" Style="{StaticResource ExpiryButton}"/></WrapPanel>
+    <TextBlock Text="В Excel: артикул · дата производства · годен до · место на складе · в наличии (количество). Импорт задаёт текущие остатки партий. При повторах используется последняя строка."
+      TextWrapping="Wrap" Foreground="#596474" Margin="0,8,0,0"/>
+   </StackPanel>
+  </Border>
+  <WrapPanel Grid.Row="2" Margin="0,0,0,10" IsEnabled="{Binding CanWork}">
+   <StackPanel Width="220" Margin="0,0,12,4"><TextBlock Text="Бренд"/><ComboBox ItemsSource="{Binding Brands}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedBrand}"/></StackPanel>
+   <StackPanel Width="220" Margin="0,0,12,4"><TextBlock Text="Фильтр по артикулу"/><TextBox Text="{Binding ArticleFilter, UpdateSourceTrigger=PropertyChanged}"/></StackPanel>
+   <CheckBox Content="Только с остатком" IsChecked="{Binding OnlyActive}" VerticalAlignment="Bottom" Margin="0,0,16,10"
+    Visibility="{Binding CanManage, Converter={StaticResource ExpiryVisibility}}"/>
+   <Button Content="Обновить" Command="{Binding RefreshCommand}" Style="{StaticResource ExpiryButton}" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+  </WrapPanel>
+  <DataGrid x:Name="BatchesGrid" Grid.Row="3" ItemsSource="{Binding BatchesView}" SelectedItem="{Binding SelectedBatch}"
+   AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" HeadersVisibility="Column" RowHeaderWidth="0"
+   EnableRowVirtualization="True" HorizontalScrollBarVisibility="Auto" MinHeight="120" MinRowHeight="30"
+   GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#DEE2EA" BorderBrush="#D5D9E2">
+   <DataGrid.CellStyle><Style TargetType="DataGridCell"><Setter Property="Padding" Value="6,4"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/></Style></DataGrid.CellStyle>
+   <DataGrid.RowStyle><Style TargetType="DataGridRow">
+    <Style.Triggers><DataTrigger Binding="{Binding IsNearExpiry}" Value="True"><Setter Property="Background" Value="#FFF3BF"/></DataTrigger>
+     <DataTrigger Binding="{Binding IsCriticalExpiry}" Value="True"><Setter Property="Background" Value="#FFD1D5"/><Setter Property="Foreground" Value="#9B1C1C"/></DataTrigger>
+     <DataTrigger Binding="{Binding IsExpired}" Value="True"><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
+     <DataTrigger Binding="{Binding IsActive}" Value="False"><Setter Property="Foreground" Value="#737B86"/></DataTrigger>
+    </Style.Triggers></Style></DataGrid.RowStyle>
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber}" Width="145"/>
+    <DataGridTextColumn Header="Наименование" Binding="{Binding ProductName}" Width="*" MinWidth="160"/>
+    <DataGridTextColumn Header="Бренд" Binding="{Binding BrandName}" Width="125"/>
+    <DataGridTextColumn Header="Производство" Binding="{Binding ManufacturedOn, StringFormat=dd.MM.yyyy}" Width="115"/>
+    <DataGridTextColumn Header="Годен до" Binding="{Binding ExpiresOn, StringFormat=dd.MM.yyyy}" Width="115"/>
+    <DataGridTextColumn Header="Место на складе" Binding="{Binding WarehousePlace}" Width="145"/>
+    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="200"/>
+    <DataGridTextColumn Header="В наличии" Binding="{Binding Quantity}" Width="95"/>
+   </DataGrid.Columns>
+  </DataGrid>
+  <StackPanel Grid.Row="4" Margin="0,8,0,0"><TextBlock Text="{Binding Total}" FontWeight="SemiBold"/>
+   <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="#70521B" Margin="0,6,0,0"/></StackPanel>
+  <Expander Grid.Row="5" Header="Ошибки импорта — эти строки не сохранены" Margin="0,8,0,0"
+   Visibility="{Binding HasImportIssues, Converter={StaticResource ExpiryVisibility}}" IsExpanded="True">
+   <DataGrid ItemsSource="{Binding ImportIssues}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="150">
+    <DataGrid.Columns><DataGridTextColumn Header="Строка Excel" Binding="{Binding RowNumber}" Width="100"/>
+     <DataGridTextColumn Header="Артикул" Binding="{Binding ArticleNumber}" Width="150"/>
+     <DataGridTextColumn Header="Причина" Binding="{Binding Message}" Width="*"/></DataGrid.Columns>
+   </DataGrid>
+  </Expander>
+ </Grid>
+</UserControl>

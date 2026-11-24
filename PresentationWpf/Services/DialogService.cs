@@ -74,7 +74,7 @@ public class DialogService
         ViewModels.SummaryViewModel => new Window
         {
             Title = "Итоги по клиенту",
-            Width = 1100,
+            Width = 1250,
             Height = 520,
             ResizeMode = ResizeMode.CanResize,
             Content = new Views.SummaryWindow()

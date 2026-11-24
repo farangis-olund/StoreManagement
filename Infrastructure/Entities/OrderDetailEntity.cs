@@ -8,6 +8,7 @@ public class OrderDetailEntity
 
     public int? ReturnedQty { get; set; }
     public decimal Price { get; set; }
+    public string? WarehousePlaceSnapshot { get; set; }
 	public virtual OrderEntity Order { get; set; } = null!;
 	public virtual ProductEntity Product { get; set; } = null!;
 

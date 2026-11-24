@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Infrastructure.Contexts;
+using Infrastructure.Dtos;
 using Infrastructure.Entities;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,9 @@ namespace PresentationWpf.ViewModels
         private readonly ProductService _productService;
         private readonly OrganizationInfoService _organizationInfoService;
         private readonly IDbContextFactory<DatabaseContext> _dbFactory;
+        private readonly StoreEntity _allStores = new() { StoreCode = "Все", Name = "Все" };
+        private readonly SemaphoreSlim _queryGate = new(1, 1);
+        private int _selectionVersion;
         public ReturnDebtRepaymentViewModel(StoreExchangeService exchangeService, StoreService storeService, ProductService productService,
             OrganizationInfoService organizationInfoService, IDbContextFactory<DatabaseContext> dbFactory)
         {
@@ -38,6 +42,9 @@ namespace PresentationWpf.ViewModels
 
         [ObservableProperty] private ObservableCollection<StoreEntity> stores = [];
         [ObservableProperty] private StoreEntity? selectedStore;
+        public bool IsAllStores => ReferenceEquals(SelectedStore, _allStores);
+        public bool CanSubmit => SelectedStore != null && !IsAllStores;
+        public bool CanPreview => SelectedStore != null;
 
         [ObservableProperty] private ObservableCollection<DebtRepaymentRow> products=[];
         [ObservableProperty] private ObservableCollection<DebtRepaymentRow> artikulList = [];   
@@ -67,7 +74,8 @@ namespace PresentationWpf.ViewModels
         {
             Stores.Clear();
             var list = await _storeService.GetAllAsync();
-            foreach (var s in list)
+            Stores.Add(_allStores);
+            foreach (var s in list.OrderBy(x => x.StoreCode, StringComparer.OrdinalIgnoreCase))
                 Stores.Add(s);
         }
 
@@ -105,8 +113,26 @@ namespace PresentationWpf.ViewModels
 
         partial void OnSelectedStoreChanged(StoreEntity? value)
         {
-            if (value != null)
+            _selectionVersion++;
+            Products.Clear(); ArtikulList.Clear(); SelectedArtikul = null; OrderQuantity = 0;
+            IsArtikulEnabled = false;
+            IsInputVisible = CurrentType == "получение_возврата" && !IsAllStores;
+            OnPropertyChanged(nameof(IsAllStores)); OnPropertyChanged(nameof(CanSubmit)); OnPropertyChanged(nameof(CanPreview));
+            SubmitCommand.NotifyCanExecuteChanged(); ShowCommand.NotifyCanExecuteChanged();
+            if (value != null && !IsAllStores)
                 _ = OnStoreSelectedAsync(); 
+        }
+
+        private async Task<ExchangeProductDto[]> ReadProductsAsync(string? storeCode, string type)
+        {
+            await _queryGate.WaitAsync();
+            try
+            {
+                return (await _exchangeService.GetExchangeProductsAsync(storeCode, type))
+                    .OrderBy(x => x.StoreCode, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(x => x.ArticleNumber, StringComparer.OrdinalIgnoreCase).ToArray();
+            }
+            finally { _queryGate.Release(); }
         }
 
 
@@ -115,9 +141,11 @@ namespace PresentationWpf.ViewModels
        
         private async Task OnStoreSelectedAsync()
         {
-            if (SelectedStore == null)
+            var store = SelectedStore;
+            var type = CurrentType;
+            var version = _selectionVersion;
+            if (store == null || IsAllStores)
             {
-                MessageBox.Show("Выберите магазин!");
                 return;
             }
 
@@ -126,7 +154,8 @@ namespace PresentationWpf.ViewModels
 
             if (CurrentType == "получение_возврата")
             {
-                var result = await _exchangeService.GetExchangeProductsAsync(SelectedStore.StoreCode, "передача_товара");
+                var result = await ReadProductsAsync(store.StoreCode, "передача_товара");
+                if (version != _selectionVersion || type != CurrentType) return;
                 if (result == null || !result.Any())
                 {
                     MessageBox.Show("Выбранный магазин уже возвратил все товары!");
@@ -153,7 +182,8 @@ namespace PresentationWpf.ViewModels
             }
             else if (CurrentType == "погащение_долга")
             {
-                var result = await _exchangeService.GetExchangeProductsAsync(SelectedStore.StoreCode, "получение_товара");
+                var result = await ReadProductsAsync(store.StoreCode, "получение_товара");
+                if (version != _selectionVersion || type != CurrentType) return;
                 if (result == null || !result.Any())
                 {
                     MessageBox.Show("Ваш магазин уже погасил весь долг выбранному магазину или не достаточно товаров на складе!");
@@ -225,12 +255,12 @@ namespace PresentationWpf.ViewModels
             RequestFocusArtikul?.Invoke();
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanSubmit))]
         private async Task SubmitAsync()
         {
-            if (SelectedStore == null)
+            if (SelectedStore == null || IsAllStores)
             {
-                MessageBox.Show("Выберите магазин!");
+                ShowReportMessage("Для оформления выберите конкретный магазин.");
                 return;
             }
 
@@ -283,6 +313,7 @@ namespace PresentationWpf.ViewModels
                              join p in products on s.ArticleNumber equals p.ArticleNumber
                              select new TransferReportLine
                              {
+                                 StoreCode = s.StoreCode,
                                  Article = p.ArticleNumber,
                                  ProductName = p.ProductName,
                                  Brand = p.Brand.BrandName,
@@ -326,119 +357,64 @@ namespace PresentationWpf.ViewModels
             _ = OnStoreSelectedAsync();
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanPreview))]
         private async Task Show()
         {
-            if (SelectedStore == null)
+            var store = SelectedStore;
+            var type = CurrentType;
+            var version = _selectionVersion;
+            var allStores = IsAllStores;
+            var description = DescriptionText;
+            if (store == null)
             {
-                MessageBox.Show("Выберите магазин для отчёта!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowReportMessage("Выберите магазин для отчёта!");
                 return;
-            }
-
-            if (CurrentType == "получение_возврата")
-            {
-                var result = await _exchangeService.GetExchangeProductsAsync(SelectedStore.StoreCode, "передача_товара");
-                if (result == null || !result.Any())
-                {
-                    MessageBox.Show("Выбранный магазин уже возвратил все товары!");
-                    return;
-                }
-                Products.Clear();
-                foreach (var p in result)
-                {
-                    Products.Add(new DebtRepaymentRow
-                    {
-                        Artikul = p.ArticleNumber,
-                        Name = p.ProductName,
-                        Brand = p.BrandName,
-                        Marka = p.Marka,
-                        Store = p.StoreCode,
-                        Debt = p.Debt,
-                        WarehouseQuantity = p.Quantity,
-                        Location = p.WarehousePlace,
-                        CurrentType = CurrentType
-                    });
-                }
-                               
             }
 
             try
             {
-                // 🔹 Build temporary 'savedItems' list (no database write)
-                var previewItems = Products
-                    .Select(p => new StoreExchangeEntity
-                    {
-                        StoreCode = SelectedStore.StoreCode,
-                        ArticleNumber = p.Artikul,
-                        Quantity = p.Debt,
-                        ExchangeType = CurrentType
-                    })
-                    .ToList();
-                if (CurrentType == "получение_возврата")
+                var result = await ReadProductsAsync(allStores ? null : store.StoreCode,
+                    type == "получение_возврата" ? "передача_товара" : "получение_товара");
+                if (version != _selectionVersion || type != CurrentType) return;
+                if (result.Length == 0)
                 {
-                    Products.Clear();
+                    ShowReportMessage("По выбранным магазинам нет непогашенных товаров для отчёта.");
+                    return;
                 }
-                // 🔹 Build Transfer Report (same as Submit)
-                var orgInfo = (await _organizationInfoService.GetShopDisplayAsync())?.Trim() ?? string.Empty;
-                var date = DateTime.Now;
-
-                await using var db = await _dbFactory.CreateDbContextAsync();
-                var artikuls = previewItems.Select(x => x.ArticleNumber).ToList();
-
-                var products = await db.Products
-                    .Include(x => x.Brand)
-                    .Include(x => x.Group)
-                    .Where(x => artikuls.Contains(x.ArticleNumber))
-                    .ToListAsync();
-
-                var lines = (from s in previewItems
-                             join p in products on s.ArticleNumber equals p.ArticleNumber
-                             select new TransferReportLine
-                             {
-                                 Article = p.ArticleNumber,
-                                 ProductName = p.ProductName,
-                                 Brand = p.Brand.BrandName,
-                                 Marka = p.Marka,
-                                 Model = p.Model,
-                                 WarehousePlace = p.WarehousePlace,
-                                 Quantity = s.Quantity
-                             }).ToList();
-
-                // 🔹 Build the PDF report
-                var document = new TransferReportDocument(
-                    orgInfo,
-                    date,
-                    CurrentType,
-                    lines,
-                    DescriptionText ?? "Просмотр отчёта без сохранения данных.",
-                    "view", SelectedStore.StoreCode
-                );
-
-                string folder = Path.Combine(Path.GetTempPath(), "Reports");
-                Directory.CreateDirectory(folder);
-                string filePath = Path.Combine(folder, $"TransferReportPreview_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
-                document.GeneratePdf(filePath);
-
-                // 🔹 Show report preview
-                var preview = new DocumentPreviewView(filePath);
-                var window = new Window
+                var orgInfo = (await GetReportShopDisplayAsync())?.Trim() ?? "";
+                if (version != _selectionVersion || type != CurrentType) return;
+                var lines = result.Select(p => new TransferReportLine
                 {
-                    Title = "Предварительный отчёт о перемещении товаров",
-                    Content = preview,
-                    Width = 900,
-                    Height = 1000,
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen
-                };
-               
-              
-
-                window.ShowDialog();
+                    StoreCode = p.StoreCode,
+                    StoreName = Stores.FirstOrDefault(s => s.StoreCode == p.StoreCode && !ReferenceEquals(s, _allStores))?.Name ?? "",
+                    Article = p.ArticleNumber, ProductName = p.ProductName, Brand = p.BrandName,
+                    Marka = p.Marka, Model = p.Model, WarehousePlace = p.WarehousePlace, Quantity = p.Debt
+                }).ToList();
+                OpenReportPreview(new TransferReportDocument(orgInfo, DateTime.Now, type, lines,
+                    description, "view", allStores ? "Все" : store.StoreCode, groupByStore: allStores));
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка при создании отчёта: {ex.Message}",
-                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowReportMessage($"Ошибка при создании отчёта: {ex.Message}");
             }
+        }
+
+        protected virtual Task<string?> GetReportShopDisplayAsync() => _organizationInfoService.GetShopDisplayAsync();
+
+        protected virtual void ShowReportMessage(string message) =>
+            MessageBox.Show(message, "Отчёт о перемещении товаров", MessageBoxButton.OK, MessageBoxImage.Information);
+
+        protected virtual void OpenReportPreview(TransferReportDocument document)
+        {
+            var folder = Path.Combine(Path.GetTempPath(), "Reports");
+            Directory.CreateDirectory(folder);
+            var filePath = Path.Combine(folder, $"TransferReportPreview_{DateTime.Now:yyyyMMdd_HHmmss_fff}.pdf");
+            document.GeneratePdf(filePath);
+            new Window
+            {
+                Title = "Предварительный отчёт о перемещении товаров", Content = new DocumentPreviewView(filePath),
+                Width = 900, Height = 1000, WindowStartupLocation = WindowStartupLocation.CenterScreen
+            }.ShowDialog();
         }
 
         [RelayCommand]

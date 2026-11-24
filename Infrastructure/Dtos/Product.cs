@@ -9,6 +9,9 @@ public class Product
 {
 	public int Numbering { get; set; }
 	public string ArticleNumber { get; set; } = null!;
+    public bool IsClearance { get; set; }
+    public DateTime? NearestExpiryDate { get; set; }
+    public string ExpiryHint { get; set; } = "";
     public string ProductName { get; set; } = null!;
     public string Model { get; set; } = null!;
 	public string Marka { get; set; } = null!;
@@ -43,6 +46,9 @@ public class Product
         {
             Numbering = entity.Numbering,
             ArticleNumber = entity.ArticleNumber,
+            IsClearance = entity.IsClearance,
+            NearestExpiryDate = entity.NearestExpiryDate,
+            ExpiryHint = entity.ExpiryHint,
             ProductName = entity.ProductName,
             Model = entity.Model,
             Marka = entity.Marka,

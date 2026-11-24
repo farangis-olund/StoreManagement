@@ -108,6 +108,9 @@ public class ProductService
 				q = q.Where(p => p.Quentity > 0);
 
 			var entities = await q.ToListAsync(ct);
+            var clearance = (await _db.ClearanceProducts.Select(x => x.ArticleNumber).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var product in entities) product.IsClearance = clearance.Contains(product.ArticleNumber);
+            await ProductExpiryCatalog.AnnotateAsync(_db, entities, ct);
 
 			// map to your DTO using the implicit operator
 			return entities.Select(e => (Product)e).ToList();
@@ -325,9 +328,15 @@ public class ProductService
     // ✅ Get product by article
     public async Task<Product?> GetProductByArticleNumberAsync(string articleNumber, CancellationToken ct = default)
     {
-        return await _db.Products
+        var product = await _db.Products
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.ArticleNumber == articleNumber, ct);
+        if (product != null)
+        {
+            product.IsClearance = await _db.ClearanceProducts.AnyAsync(x => x.ArticleNumber == product.ArticleNumber, ct);
+            await ProductExpiryCatalog.AnnotateAsync(_db, [product], ct);
+        }
+        return product == null ? null : (Product)product;
     }
 
     public async Task<List<StockImportErrorEntity>> GetStockImportErrorsAsync(CancellationToken ct = default)

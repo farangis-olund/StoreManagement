@@ -56,7 +56,7 @@ internal sealed class AdminPermissionTests(Func<DatabaseContext> createContext)
         await db.SaveChangesAsync();
         await db.Database.ExecuteSqlRawAsync("DELETE FROM [__EFMigrationsHistory] WHERE [MigrationId]='20261110030000_AddAdminTabPermissions'");
         await db.Database.MigrateAsync();
-        var introduced = PermissionCatalog.All.Where(p => p.Key.StartsWith("Admin.") && p.Key != PermissionCatalog.AdminBrand && p.Key != PermissionCatalog.AdminBonuses)
+        var introduced = PermissionCatalog.All.Where(p => p.Key.StartsWith("Admin.") && p.Key != PermissionCatalog.AdminBrand && p.Key != PermissionCatalog.AdminBonuses && p.Key != PermissionCatalog.AdminClearance)
             .Select(p => p.Key).ToHashSet();
         var granted = await db.RolePermissions.Where(p => p.RoleId == role.Id).Select(p => p.Permission.Key).ToListAsync();
         Check(introduced.All(granted.Contains), "Upgrade lost previously available administration sections, including access to role settings.");

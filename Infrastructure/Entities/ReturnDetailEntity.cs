@@ -6,6 +6,7 @@ public class ReturnDetailEntity
 	public string ReturnId { get; set; } = null!; // FK на ReturnEntity
 	public string ArticleNumber { get; set; } = null!; // Артикул
 	public int Quantity { get; set; }                  // Количество
+    public string? SourceOrderId { get; set; }
 	public decimal Price { get; set; }                 // Цена за единицу
 	public decimal Total { get; set; }                 // Сумма (Quantity * Price)
 		
